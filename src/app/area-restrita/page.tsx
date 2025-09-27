@@ -9,8 +9,28 @@ import CalendarioAgendamento from '@/components/CalendarioAgendamento';
 import GerenciadorConsultas from '@/components/GerenciadorConsultas';
 import NotificacaoProvider from '@/components/NotificacaoProvider';
 
+// Hook para detectar tamanho da tela
+function useResponsive() {
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      setIsMobile(width < 768);
+      setIsTablet(width >= 768 && width < 1024);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  return { isMobile, isTablet };
+}
 
 export default function AreaRestritaPage() {
+  const { isMobile, isTablet } = useResponsive();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userType, setUserType] = useState<'paciente' | 'psicologa' | null>(null);
   const [userData, setUserData] = useState<any>(null);
@@ -116,15 +136,15 @@ export default function AreaRestritaPage() {
         <header style={{ 
           backgroundColor: '#ffffff', 
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
-          padding: '1rem 0' 
+          padding: '0.5rem 0'
         }}>
           <nav style={{ 
             maxWidth: '1200px', 
             margin: '0 auto', 
             display: 'flex', 
-            justifyContent: 'space-between', 
+            justifyContent: 'center', 
             alignItems: 'center',
-            padding: '0 2rem'
+            padding: isMobile ? '0 1rem' : isTablet ? '0 1.5rem' : '0 2rem'
           }}>
             <Link href="/" style={{ 
               display: 'flex',
@@ -134,8 +154,9 @@ export default function AreaRestritaPage() {
               <Image
                 src="/maria-cristina-logo.png"
                 alt="Psicóloga Maria Cristina"
-                width={160}
-                height={53}
+                width={isMobile ? 120 : isTablet ? 140 : 160}
+                height={isMobile ? 40 : isTablet ? 47 : 53}
+                className="logo"
                 style={{ 
                   objectFit: 'contain',
                   maxWidth: '100%',
@@ -274,6 +295,8 @@ export default function AreaRestritaPage() {
           userData={userData} 
           onLogout={handleLogout} 
           onAtualizarDados={recarregarDadosPaciente}
+          isMobile={isMobile}
+          isTablet={isTablet}
         />
       </NotificacaoProvider>
     );
@@ -283,7 +306,12 @@ export default function AreaRestritaPage() {
   if (userType === 'psicologa') {
     return (
       <NotificacaoProvider>
-        <AreaPsicologa userData={userData} onLogout={handleLogout} />
+        <AreaPsicologa 
+          userData={userData} 
+          onLogout={handleLogout}
+          isMobile={isMobile}
+          isTablet={isTablet}
+        />
       </NotificacaoProvider>
     );
   }
@@ -295,11 +323,15 @@ export default function AreaRestritaPage() {
 function AreaPaciente({ 
   userData, 
   onLogout, 
-  onAtualizarDados 
+  onAtualizarDados,
+  isMobile,
+  isTablet
 }: { 
   userData: any, 
   onLogout: () => void,
-  onAtualizarDados: () => void
+  onAtualizarDados: () => void,
+  isMobile: boolean,
+  isTablet: boolean
 }) {
   const [abaSelecionada, setAbaSelecionada] = useState('consultas');
   const [checkoutAberto, setCheckoutAberto] = useState(false);
@@ -319,7 +351,7 @@ function AreaPaciente({
       <header style={{ 
         backgroundColor: '#ffffff', 
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
-        padding: '1rem 0' 
+        padding: isMobile ? '0.5rem 0' : '1rem 0' 
       }}>
         <nav style={{ 
           maxWidth: '1200px', 
@@ -327,7 +359,9 @@ function AreaPaciente({
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          padding: '0 2rem'
+          padding: isMobile ? '0 1rem' : isTablet ? '0 1.5rem' : '0 2rem',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? '1rem' : '0'
         }}>
           <Link href="/" style={{ 
             display: 'flex',
@@ -337,23 +371,38 @@ function AreaPaciente({
             <Image
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
-              width={160}
-              height={53}
+              width={isMobile ? 120 : isTablet ? 140 : 160}
+              height={isMobile ? 40 : isTablet ? 47 : 53}
+              className="logo"
               style={{ objectFit: 'contain' }}
               priority
             />
           </Link>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ color: '#666' }}>Olá, {userData.paciente.nome}</span>
+          <div style={{ 
+            display: 'flex', 
+            gap: isMobile ? '0.5rem' : '1rem', 
+            alignItems: 'center',
+            flexDirection: isMobile ? 'column' : 'row',
+            textAlign: isMobile ? 'center' : 'left'
+          }}>
+            <span style={{ 
+              color: '#666',
+              fontSize: isMobile ? '0.9rem' : '1rem',
+              whiteSpace: isMobile ? 'nowrap' : 'normal'
+            }}>
+              Olá, {userData.paciente.nome}
+            </span>
             <button 
               onClick={onLogout}
               style={{
-                padding: '8px 16px',
+                padding: isMobile ? '6px 12px' : '8px 16px',
                 backgroundColor: '#e74c3c',
                 color: 'white',
                 border: 'none',
                 borderRadius: '5px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontSize: isMobile ? '0.85rem' : '0.9rem',
+                whiteSpace: 'nowrap'
               }}
             >
               Sair
@@ -362,33 +411,46 @@ function AreaPaciente({
         </nav>
       </header>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ 
+        maxWidth: '1200px', 
+        margin: '0 auto', 
+        padding: isMobile ? '1rem' : isTablet ? '1.5rem' : '2rem' 
+      }}>
         {/* Menu de navegação */}
         <div style={{ 
           backgroundColor: 'white', 
           borderRadius: '10px', 
-          padding: '1rem',
-          marginBottom: '2rem',
+          padding: isMobile ? '0.75rem' : '1rem',
+          marginBottom: isMobile ? '1rem' : '2rem',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: isMobile ? '0.5rem' : '1rem',
+            flexDirection: isMobile ? 'column' : 'row',
+            flexWrap: isTablet && !isMobile ? 'wrap' : 'nowrap'
+          }}>
             {[
-              { key: 'consultas', label: 'Próximas Consultas' },
+              { key: 'consultas', label: isMobile ? 'Consultas' : 'Próximas Consultas' },
               { key: 'historico', label: 'Histórico' },
               { key: 'pagamentos', label: 'Pagamentos' },
-              { key: 'nova-consulta', label: 'Nova Consulta' }
+              { key: 'nova-consulta', label: isMobile ? 'Nova' : 'Nova Consulta' }
             ].map(aba => (
               <button
                 key={aba.key}
                 onClick={() => setAbaSelecionada(aba.key)}
                 style={{
-                  padding: '10px 20px',
+                  padding: isMobile ? '8px 12px' : '10px 20px',
                   backgroundColor: abaSelecionada === aba.key ? '#3498db' : 'transparent',
                   color: abaSelecionada === aba.key ? 'white' : '#666',
                   border: 'none',
                   borderRadius: '5px',
                   cursor: 'pointer',
-                  fontWeight: abaSelecionada === aba.key ? '600' : '400'
+                  fontWeight: abaSelecionada === aba.key ? '600' : '400',
+                  fontSize: isMobile ? '0.85rem' : '0.9rem',
+                  textAlign: 'center',
+                  flex: isMobile ? '1' : 'none',
+                  minWidth: isMobile ? 'auto' : 'max-content'
                 }}
               >
                 {aba.label}
@@ -1060,7 +1122,17 @@ function NovaConsulta({
 }
 
 // Componente da Área da Psicóloga
-function AreaPsicologa({ userData, onLogout }: { userData: any, onLogout: () => void }) {
+function AreaPsicologa({ 
+  userData, 
+  onLogout, 
+  isMobile, 
+  isTablet 
+}: { 
+  userData: any, 
+  onLogout: () => void,
+  isMobile: boolean,
+  isTablet: boolean
+}) {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -1090,7 +1162,7 @@ function AreaPsicologa({ userData, onLogout }: { userData: any, onLogout: () => 
       <header style={{ 
         backgroundColor: '#ffffff', 
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
-        padding: '1rem 0' 
+        padding: isMobile ? '0.5rem 0' : '1rem 0' 
       }}>
         <nav style={{ 
           maxWidth: '1200px', 
@@ -1098,7 +1170,9 @@ function AreaPsicologa({ userData, onLogout }: { userData: any, onLogout: () => 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          padding: '0 2rem'
+          padding: isMobile ? '0 1rem' : isTablet ? '0 1.5rem' : '0 2rem',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? '1rem' : '0'
         }}>
           <Link href="/" style={{ 
             display: 'flex',
@@ -1108,23 +1182,38 @@ function AreaPsicologa({ userData, onLogout }: { userData: any, onLogout: () => 
             <Image
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
-              width={160}
-              height={53}
+              width={isMobile ? 120 : isTablet ? 140 : 160}
+              height={isMobile ? 40 : isTablet ? 47 : 53}
+              className="logo"
               style={{ objectFit: 'contain' }}
               priority
             />
           </Link>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ color: '#666' }}>Olá, {userData.nome}</span>
+          <div style={{ 
+            display: 'flex', 
+            gap: isMobile ? '0.5rem' : '1rem', 
+            alignItems: 'center',
+            flexDirection: isMobile ? 'column' : 'row',
+            textAlign: isMobile ? 'center' : 'left'
+          }}>
+            <span style={{ 
+              color: '#666',
+              fontSize: isMobile ? '0.9rem' : '1rem',
+              whiteSpace: isMobile ? 'nowrap' : 'normal'
+            }}>
+              Olá, {userData.nome}
+            </span>
             <button 
               onClick={onLogout}
               style={{
-                padding: '8px 16px',
+                padding: isMobile ? '6px 12px' : '8px 16px',
                 backgroundColor: '#e74c3c',
                 color: 'white',
                 border: 'none',
                 borderRadius: '5px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                fontSize: isMobile ? '0.85rem' : '0.9rem',
+                whiteSpace: 'nowrap'
               }}
             >
               Sair
@@ -1133,16 +1222,25 @@ function AreaPsicologa({ userData, onLogout }: { userData: any, onLogout: () => 
         </nav>
       </header>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem' }}>
+      <div style={{ 
+        maxWidth: '1200px', 
+        margin: '0 auto', 
+        padding: isMobile ? '1rem' : isTablet ? '1.5rem' : '2rem' 
+      }}>
         {/* Menu de navegação */}
         <div style={{ 
           backgroundColor: 'white', 
           borderRadius: '10px', 
-          padding: '1rem',
-          marginBottom: '2rem',
+          padding: isMobile ? '0.75rem' : '1rem',
+          marginBottom: isMobile ? '1rem' : '2rem',
           boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: isMobile ? '0.5rem' : '1rem',
+            flexDirection: isMobile ? 'column' : 'row',
+            flexWrap: isTablet && !isMobile ? 'wrap' : 'nowrap'
+          }}>
             {[
               { key: 'dashboard', label: 'Dashboard' },
               { key: 'consultas', label: 'Consultas' },
@@ -1154,13 +1252,17 @@ function AreaPsicologa({ userData, onLogout }: { userData: any, onLogout: () => 
                 key={tab.key}
                 onClick={() => setActiveTab(tab.key)}
                 style={{
-                  padding: '10px 20px',
+                  padding: isMobile ? '8px 12px' : '10px 20px',
                   backgroundColor: activeTab === tab.key ? '#3498db' : 'transparent',
                   color: activeTab === tab.key ? 'white' : '#666',
                   border: 'none',
                   borderRadius: '5px',
                   cursor: 'pointer',
-                  fontWeight: activeTab === tab.key ? '600' : '400'
+                  fontWeight: activeTab === tab.key ? '600' : '400',
+                  fontSize: isMobile ? '0.85rem' : '0.9rem',
+                  textAlign: 'center',
+                  flex: isMobile ? '1' : 'none',
+                  minWidth: isMobile ? 'auto' : 'max-content'
                 }}
               >
                 {tab.label}
@@ -1175,6 +1277,8 @@ function AreaPsicologa({ userData, onLogout }: { userData: any, onLogout: () => 
             dashboardData={dashboardData} 
             loading={loading} 
             loadDashboardData={loadDashboardData}
+            isMobile={isMobile}
+            isTablet={isTablet}
           />
         )}
         
@@ -1202,11 +1306,15 @@ function AreaPsicologa({ userData, onLogout }: { userData: any, onLogout: () => 
 function DashboardPsicologa({ 
   dashboardData, 
   loading, 
-  loadDashboardData 
+  loadDashboardData,
+  isMobile,
+  isTablet
 }: { 
   dashboardData: any, 
   loading: boolean,
-  loadDashboardData: () => void 
+  loadDashboardData: () => void,
+  isMobile: boolean,
+  isTablet: boolean
 }) {
   const marcarNotificacaoLida = async (notificacaoId?: string) => {
     try {
@@ -1229,41 +1337,124 @@ function DashboardPsicologa({
   if (loading) return <div>Carregando...</div>;
 
   return (
-    <div style={{ display: 'grid', gap: '2rem' }}>
+    <div style={{ display: 'grid', gap: isMobile ? '1rem' : '2rem' }}>
       {/* Cards de estatísticas */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', textAlign: 'center' }}>
-          <h3 style={{ color: '#3498db', fontSize: '2rem', margin: '0 0 5px 0' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: isMobile 
+          ? 'repeat(2, 1fr)' 
+          : isTablet 
+            ? 'repeat(2, 1fr)' 
+            : 'repeat(4, 1fr)', 
+        gap: isMobile ? '0.75rem' : '1rem' 
+      }}>
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: isMobile ? '1rem' : '1.5rem', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
+          textAlign: 'center' 
+        }}>
+          <h3 style={{ 
+            color: '#3498db', 
+            fontSize: isMobile ? '1.5rem' : '2rem', 
+            margin: '0 0 5px 0' 
+          }}>
             {dashboardData?.consultasHoje?.length || 0}
           </h3>
-          <p style={{ margin: 0, color: '#666' }}>Consultas Hoje</p>
+          <p style={{ 
+            margin: 0, 
+            color: '#666', 
+            fontSize: isMobile ? '0.85rem' : '1rem' 
+          }}>
+            {isMobile ? 'Hoje' : 'Consultas Hoje'}
+          </p>
         </div>
         
-        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', textAlign: 'center' }}>
-          <h3 style={{ color: '#27ae60', fontSize: '2rem', margin: '0 0 5px 0' }}>
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: isMobile ? '1rem' : '1.5rem', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
+          textAlign: 'center' 
+        }}>
+          <h3 style={{ 
+            color: '#27ae60', 
+            fontSize: isMobile ? '1.5rem' : '2rem', 
+            margin: '0 0 5px 0' 
+          }}>
             {dashboardData?.consultasProximas?.length || 0}
           </h3>
-          <p style={{ margin: 0, color: '#666' }}>Próximos 7 dias</p>
+          <p style={{ 
+            margin: 0, 
+            color: '#666', 
+            fontSize: isMobile ? '0.85rem' : '1rem' 
+          }}>
+            {isMobile ? '7 dias' : 'Próximos 7 dias'}
+          </p>
         </div>
         
-        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', textAlign: 'center' }}>
-          <h3 style={{ color: '#f39c12', fontSize: '2rem', margin: '0 0 5px 0' }}>
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: isMobile ? '1rem' : '1.5rem', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
+          textAlign: 'center' 
+        }}>
+          <h3 style={{ 
+            color: '#f39c12', 
+            fontSize: isMobile ? '1.5rem' : '2rem', 
+            margin: '0 0 5px 0' 
+          }}>
             {dashboardData?.pacientes?.length || 0}
           </h3>
-          <p style={{ margin: 0, color: '#666' }}>Total Pacientes</p>
+          <p style={{ 
+            margin: 0, 
+            color: '#666', 
+            fontSize: isMobile ? '0.85rem' : '1rem' 
+          }}>
+            {isMobile ? 'Pacientes' : 'Total Pacientes'}
+          </p>
         </div>
         
-        <div style={{ backgroundColor: 'white', padding: '1.5rem', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', textAlign: 'center' }}>
-          <h3 style={{ color: '#e74c3c', fontSize: '2rem', margin: '0 0 5px 0' }}>
+        <div style={{ 
+          backgroundColor: 'white', 
+          padding: isMobile ? '1rem' : '1.5rem', 
+          borderRadius: '10px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
+          textAlign: 'center' 
+        }}>
+          <h3 style={{ 
+            color: '#e74c3c', 
+            fontSize: isMobile ? '1.5rem' : '2rem', 
+            margin: '0 0 5px 0' 
+          }}>
             {dashboardData?.notificacoes?.filter((n: any) => !n.lida).length || 0}
           </h3>
-          <p style={{ margin: 0, color: '#666' }}>Notificações</p>
+          <p style={{ 
+            margin: 0, 
+            color: '#666', 
+            fontSize: isMobile ? '0.85rem' : '1rem' 
+          }}>
+            {isMobile ? 'Novas' : 'Notificações'}
+          </p>
         </div>
       </div>
 
       {/* Consultas de hoje */}
-      <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        <h2 style={{ marginBottom: '1rem', color: '#2c3e50' }}>Consultas de Hoje</h2>
+      <div style={{ 
+        backgroundColor: 'white', 
+        padding: isMobile ? '1rem' : '2rem', 
+        borderRadius: '10px', 
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+      }}>
+        <h2 style={{ 
+          marginBottom: '1rem', 
+          color: '#2c3e50',
+          fontSize: isMobile ? '1.25rem' : '1.5rem'
+        }}>
+          Consultas de Hoje
+        </h2>
         {dashboardData?.consultasHoje?.length > 0 ? (
           <div style={{ display: 'grid', gap: '1rem' }}>
             {dashboardData.consultasHoje.map((consulta: any) => {
@@ -1289,23 +1480,42 @@ function DashboardPsicologa({
       </div>
 
       {/* Notificações recentes */}
-      <div style={{ backgroundColor: 'white', padding: '2rem', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 style={{ margin: 0, color: '#2c3e50' }}>Notificações Recentes</h2>
+      <div style={{ 
+        backgroundColor: 'white', 
+        padding: isMobile ? '1rem' : '2rem', 
+        borderRadius: '10px', 
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)' 
+      }}>
+        <div style={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: isMobile ? 'flex-start' : 'center', 
+          marginBottom: '1rem',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: isMobile ? '0.5rem' : '0'
+        }}>
+          <h2 style={{ 
+            margin: 0, 
+            color: '#2c3e50',
+            fontSize: isMobile ? '1.25rem' : '1.5rem'
+          }}>
+            {isMobile ? 'Notificações' : 'Notificações Recentes'}
+          </h2>
           {dashboardData?.notificacoes?.some((n: any) => !n.lida) && (
             <button
               onClick={() => marcarNotificacaoLida()}
               style={{
-                padding: '6px 12px',
+                padding: isMobile ? '4px 8px' : '6px 12px',
                 backgroundColor: '#17a2b8',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                fontSize: '12px'
+                fontSize: isMobile ? '11px' : '12px',
+                whiteSpace: 'nowrap'
               }}
             >
-              Marcar Todas como Lidas
+              {isMobile ? 'Marcar Todas' : 'Marcar Todas como Lidas'}
             </button>
           )}
         </div>
@@ -1314,18 +1524,35 @@ function DashboardPsicologa({
           <div style={{ display: 'grid', gap: '1rem' }}>
             {dashboardData.notificacoes.slice(0, 5).map((notificacao: any) => (
               <div key={notificacao.id} style={{ 
-                padding: '1rem', 
+                padding: isMobile ? '0.75rem' : '1rem', 
                 backgroundColor: notificacao.lida ? '#f8f9fa' : '#fff3cd',
                 borderRadius: '5px',
                 border: '1px solid #ddd',
                 display: 'flex',
                 justifyContent: 'space-between',
-                alignItems: 'flex-start'
+                alignItems: 'flex-start',
+                flexDirection: isMobile ? 'column' : 'row',
+                gap: isMobile ? '0.5rem' : '0'
               }}>
                 <div style={{ flex: 1 }}>
-                  <h4 style={{ margin: '0 0 5px 0', color: '#2c3e50' }}>{notificacao.titulo}</h4>
-                  <p style={{ margin: '0 0 5px 0', color: '#666' }}>{notificacao.mensagem}</p>
-                  <small style={{ color: '#999' }}>
+                  <h4 style={{ 
+                    margin: '0 0 5px 0', 
+                    color: '#2c3e50',
+                    fontSize: isMobile ? '1rem' : '1.1rem'
+                  }}>
+                    {notificacao.titulo}
+                  </h4>
+                  <p style={{ 
+                    margin: '0 0 5px 0', 
+                    color: '#666',
+                    fontSize: isMobile ? '0.85rem' : '1rem'
+                  }}>
+                    {notificacao.mensagem}
+                  </p>
+                  <small style={{ 
+                    color: '#999',
+                    fontSize: isMobile ? '0.75rem' : '0.85rem'
+                  }}>
                     {new Date(notificacao.criadaEm).toLocaleString('pt-BR')}
                   </small>
                 </div>
@@ -1334,17 +1561,19 @@ function DashboardPsicologa({
                   <button
                     onClick={() => marcarNotificacaoLida(notificacao.id)}
                     style={{
-                      padding: '4px 8px',
+                      padding: isMobile ? '3px 6px' : '4px 8px',
                       backgroundColor: '#28a745',
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      fontSize: '11px',
-                      marginLeft: '10px'
+                      fontSize: isMobile ? '10px' : '11px',
+                      marginLeft: isMobile ? '0' : '10px',
+                      alignSelf: isMobile ? 'flex-start' : 'auto',
+                      whiteSpace: 'nowrap'
                     }}
                   >
-                    Marcar como Lida
+                    {isMobile ? 'Lida' : 'Marcar como Lida'}
                   </button>
                 )}
               </div>

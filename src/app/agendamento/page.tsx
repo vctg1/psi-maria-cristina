@@ -177,13 +177,13 @@ export default function AgendamentoPage() {
       <header style={{ 
         backgroundColor: '#ffffff', 
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
-        padding: isMobile ? '0.8rem 0' : '1rem 0' 
+        padding: '0' 
       }}>
         <nav style={{ 
           maxWidth: '1200px', 
           margin: '0 auto', 
           display: 'flex', 
-          justifyContent: 'space-between', 
+          justifyContent: 'center', 
           alignItems: 'center',
           padding: isMobile ? '0 1rem' : '0 2rem'
         }}>
@@ -196,7 +196,7 @@ export default function AgendamentoPage() {
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
               width={isMobile ? 120 : isTablet ? 140 : 160}
-              height={isMobile ? 40 : isTablet ? 47 : 53}
+              height={isMobile ? 40 : isTablet ? 47 : 50}
               style={{ 
                 objectFit: 'contain',
                 maxWidth: '100%',
@@ -211,22 +211,13 @@ export default function AgendamentoPage() {
       <div style={{ 
         maxWidth: '800px', 
         margin: '0 auto', 
-        padding: isMobile ? '1rem' : isTablet ? '1.5rem' : '2rem' 
+        padding: '1rem' 
       }}>
-        <h1 style={{ 
-          textAlign: 'center', 
-          color: '#2c3e50', 
-          marginBottom: '2rem',
-          fontSize: isMobile ? '1.5rem' : isTablet ? '1.8rem' : '2rem'
-        }}>
-          Agendamento de Consulta
-        </h1>
-
         {/* Indicador de passos */}
         <div style={{ 
           display: 'flex', 
           justifyContent: 'center', 
-          marginBottom: isMobile ? '2rem' : '3rem',
+          marginBottom: '1rem',
           gap: isMobile ? '0.5rem' : '1rem'
         }}>
           {[1, 2, 3].map(num => (
