@@ -1,0 +1,34 @@
+[
+  {
+    "id": "58cecdaf-3344-4f3b-a267-7f6bd01a152a",
+    "tipo": "novo_agendamento",
+    "titulo": "Novo Agendamento",
+    "mensagem": "Victor Moura agendou uma consulta para 28/09/2025 às 10:00",
+    "lida": true,
+    "criadaEm": "2025-09-27T19:38:39.990Z"
+  },
+  {
+    "id": "7176210b-8461-43cb-9d69-37909e680d5f",
+    "tipo": "novo_agendamento",
+    "titulo": "Novo Agendamento",
+    "mensagem": "Victor Moura agendou uma consulta para 28/09/2025 às 09:00",
+    "lida": true,
+    "criadaEm": "2025-09-27T19:34:24.804Z"
+  },
+  {
+    "id": "8c68ef1f-4f54-41fe-9237-2cffe1278df8",
+    "tipo": "novo_agendamento",
+    "titulo": "Novo Agendamento",
+    "mensagem": "Victor Moura agendou uma consulta para 28/09/2025 às 10:00",
+    "lida": true,
+    "criadaEm": "2025-09-27T19:06:22.733Z"
+  },
+  {
+    "id": "ca7a913f-5489-4fbd-a0d1-feb3abd9fd39",
+    "tipo": "novo_agendamento",
+    "titulo": "Novo Agendamento",
+    "mensagem": "Victor Moura agendou uma consulta para 28/09/2025 às 09:00",
+    "lida": true,
+    "criadaEm": "2025-09-27T19:05:43.014Z"
+  }
+]

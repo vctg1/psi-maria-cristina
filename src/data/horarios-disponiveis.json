@@ -1,0 +1,65 @@
+[
+  {
+    "id": "h1",
+    "data": "",
+    "hora": "09:00",
+    "tipo": "recorrente",
+    "diaSemana": 1,
+    "ativo": true,
+    "criadoEm": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "h2",
+    "data": "",
+    "hora": "10:00",
+    "tipo": "recorrente",
+    "diaSemana": 1,
+    "ativo": true,
+    "criadoEm": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "h3",
+    "data": "",
+    "hora": "14:00",
+    "tipo": "recorrente",
+    "diaSemana": 2,
+    "ativo": true,
+    "criadoEm": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "h4",
+    "data": "",
+    "hora": "15:00",
+    "tipo": "recorrente",
+    "diaSemana": 2,
+    "ativo": true,
+    "criadoEm": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "h5",
+    "data": "",
+    "hora": "16:00",
+    "tipo": "recorrente",
+    "diaSemana": 3,
+    "ativo": true,
+    "criadoEm": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "h6",
+    "data": "",
+    "hora": "09:00",
+    "tipo": "recorrente",
+    "diaSemana": 6,
+    "ativo": true,
+    "criadoEm": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "h7",
+    "data": "",
+    "hora": "10:00",
+    "tipo": "recorrente",
+    "diaSemana": 6,
+    "ativo": true,
+    "criadoEm": "2024-01-01T00:00:00.000Z"
+  }
+]

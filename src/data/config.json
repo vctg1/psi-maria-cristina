@@ -1,0 +1,28 @@
+
+{
+  "nome": "Psicóloga Maria Cristina",
+  "email": "contato@psimariacristina.com",
+  "telefone": "(11) 99999-9999",
+  "valorConsulta": 150,
+  "sobre": "Psicóloga clínica com mais de 10 anos de experiência no atendimento de crianças, adolescentes e adultos. Especialista em terapia cognitivo-comportamental e psicoterapia familiar.",
+  "especialidades": [
+    "Terapia Cognitivo-Comportamental",
+    "Psicoterapia Infantil",
+    "Psicoterapia do Adolescente",
+    "Terapia Familiar",
+    "Transtornos de Ansiedade",
+    "Depressão",
+    "Dificuldades de Aprendizagem"
+  ],
+  "horarioFuncionamento": {
+    "inicio": "08:00",
+    "fim": "18:00",
+    "diasSemana": [1, 2, 3, 4, 5]
+  },
+  "dadosPagamento": {
+    "pix": "contato@psimariacristina.com",
+    "banco": "Banco do Brasil",
+    "agencia": "1234-5",
+    "conta": "12345-6"
+  }
+}
