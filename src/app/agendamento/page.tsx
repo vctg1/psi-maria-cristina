@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import CalendarioAgendamento from '@/components/CalendarioAgendamento';
 
 interface HorarioDisponivel {
@@ -19,6 +20,26 @@ export default function AgendamentoPage() {
   const [availableTimes, setAvailableTimes] = useState<HorarioDisponivel[]>([]);
   const [loading, setLoading] = useState(false);
   const [agendamentoRealizado, setAgendamentoRealizado] = useState<any>(null);
+  const [screenSize, setScreenSize] = useState('desktop');
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      if (window.innerWidth <= 768) {
+        setScreenSize('mobile');
+      } else if (window.innerWidth <= 1024) {
+        setScreenSize('tablet');
+      } else {
+        setScreenSize('desktop');
+      }
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  const isMobile = screenSize === 'mobile';
+  const isTablet = screenSize === 'tablet';
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -156,7 +177,7 @@ export default function AgendamentoPage() {
       <header style={{ 
         backgroundColor: '#ffffff', 
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
-        padding: '1rem 0' 
+        padding: isMobile ? '0.8rem 0' : '1rem 0' 
       }}>
         <nav style={{ 
           maxWidth: '1200px', 
@@ -164,21 +185,40 @@ export default function AgendamentoPage() {
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          padding: '0 2rem'
+          padding: isMobile ? '0 1rem' : '0 2rem'
         }}>
           <Link href="/" style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 'bold', 
-            color: '#2c3e50',
+            display: 'flex',
+            alignItems: 'center',
             textDecoration: 'none'
           }}>
-            Psicóloga Maria Cristina
+            <Image
+              src="/maria-cristina-logo.png"
+              alt="Psicóloga Maria Cristina"
+              width={isMobile ? 120 : isTablet ? 140 : 160}
+              height={isMobile ? 40 : isTablet ? 47 : 53}
+              style={{ 
+                objectFit: 'contain',
+                maxWidth: '100%',
+                height: 'auto'
+              }}
+              priority
+            />
           </Link>
         </nav>
       </header>
 
-      <div style={{ maxWidth: '800px', margin: '0 auto', padding: '2rem' }}>
-        <h1 style={{ textAlign: 'center', color: '#2c3e50', marginBottom: '2rem' }}>
+      <div style={{ 
+        maxWidth: '800px', 
+        margin: '0 auto', 
+        padding: isMobile ? '1rem' : isTablet ? '1.5rem' : '2rem' 
+      }}>
+        <h1 style={{ 
+          textAlign: 'center', 
+          color: '#2c3e50', 
+          marginBottom: '2rem',
+          fontSize: isMobile ? '1.5rem' : isTablet ? '1.8rem' : '2rem'
+        }}>
           Agendamento de Consulta
         </h1>
 
@@ -186,20 +226,21 @@ export default function AgendamentoPage() {
         <div style={{ 
           display: 'flex', 
           justifyContent: 'center', 
-          marginBottom: '3rem',
-          gap: '1rem'
+          marginBottom: isMobile ? '2rem' : '3rem',
+          gap: isMobile ? '0.5rem' : '1rem'
         }}>
           {[1, 2, 3].map(num => (
             <div key={num} style={{
-              width: '40px',
-              height: '40px',
+              width: isMobile ? '30px' : '40px',
+              height: isMobile ? '30px' : '40px',
               borderRadius: '50%',
               backgroundColor: step >= num ? '#3498db' : '#ddd',
               color: step >= num ? 'white' : '#666',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              fontSize: isMobile ? '0.9rem' : '1rem'
             }}>
               {num}
             </div>
@@ -221,19 +262,48 @@ export default function AgendamentoPage() {
 
         {/* Passo 2: Dados do paciente */}
         {step === 2 && (
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '2rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ marginBottom: '1rem', color: '#2c3e50' }}>Dados do Paciente</h2>
-            <p style={{ marginBottom: '1rem', color: '#666' }}>
+          <div style={{ 
+            backgroundColor: 'white', 
+            borderRadius: '10px', 
+            padding: isMobile ? '1.5rem' : '2rem', 
+            boxShadow: '0 4px 6px rgba(0,0,0,0.1)' 
+          }}>
+            <h2 style={{ 
+              marginBottom: '1rem', 
+              color: '#2c3e50',
+              fontSize: isMobile ? '1.3rem' : '1.5rem'
+            }}>
+              Dados do Paciente
+            </h2>
+            <p style={{ 
+              marginBottom: '1rem', 
+              color: '#666',
+              fontSize: isMobile ? '0.9rem' : '1rem',
+              lineHeight: '1.4'
+            }}>
               Consulta agendada para: {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')} às {selectedTime}
             </p>
-            <p style={{ marginBottom: '2rem', color: '#2c3e50', fontSize: '1.1rem', fontWeight: '600' }}>
+            <p style={{ 
+              marginBottom: '2rem', 
+              color: '#2c3e50', 
+              fontSize: isMobile ? '1rem' : '1.1rem', 
+              fontWeight: '600',
+              lineHeight: '1.4'
+            }}>
               Valor da consulta: R$ 150,00 - <em>Pagamento será feito na área do paciente</em>
             </p>
 
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'grid', gap: '1rem' }}>
                 <div>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nome Completo*</label>
+                  <label style={{ 
+                    display: 'block', 
+                    marginBottom: '5px', 
+                    fontWeight: '500',
+                    fontSize: isMobile ? '0.9rem' : '1rem'
+                  }}>
+                    Nome Completo*
+                  </label>
                   <input
                     type="text"
                     name="nome"
@@ -241,16 +311,21 @@ export default function AgendamentoPage() {
                     onChange={handleInputChange}
                     style={{
                       width: '100%',
-                      padding: '12px',
+                      padding: isMobile ? '10px' : '12px',
                       border: errors.nome ? '1px solid #e74c3c' : '1px solid #ddd',
                       borderRadius: '5px',
-                      fontSize: '16px'
+                      fontSize: isMobile ? '14px' : '16px',
+                      boxSizing: 'border-box'
                     }}
                   />
-                  {errors.nome && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.nome}</span>}
+                  {errors.nome && <span style={{ color: '#e74c3c', fontSize: isMobile ? '12px' : '14px' }}>{errors.nome}</span>}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
+                  gap: '1rem' 
+                }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Email*</label>
                     <input

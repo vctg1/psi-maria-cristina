@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Calendario from '@/components/Calendario';
 import CheckoutTransparente from '@/components/CheckoutTransparente';
 import CalendarioAgendamento from '@/components/CalendarioAgendamento';
@@ -126,12 +127,22 @@ export default function AreaRestritaPage() {
             padding: '0 2rem'
           }}>
             <Link href="/" style={{ 
-              fontSize: '1.5rem', 
-              fontWeight: 'bold', 
-              color: '#2c3e50',
+              display: 'flex',
+              alignItems: 'center',
               textDecoration: 'none'
             }}>
-              Psicóloga Maria Cristina
+              <Image
+                src="/maria-cristina-logo.png"
+                alt="Psicóloga Maria Cristina"
+                width={160}
+                height={53}
+                style={{ 
+                  objectFit: 'contain',
+                  maxWidth: '100%',
+                  height: 'auto'
+                }}
+                priority
+              />
             </Link>
           </nav>
         </header>
@@ -319,12 +330,18 @@ function AreaPaciente({
           padding: '0 2rem'
         }}>
           <Link href="/" style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 'bold', 
-            color: '#2c3e50',
+            display: 'flex',
+            alignItems: 'center',
             textDecoration: 'none'
           }}>
-            Psicóloga Maria Cristina
+            <Image
+              src="/maria-cristina-logo.png"
+              alt="Psicóloga Maria Cristina"
+              width={160}
+              height={53}
+              style={{ objectFit: 'contain' }}
+              priority
+            />
           </Link>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <span style={{ color: '#666' }}>Olá, {userData.paciente.nome}</span>
@@ -1084,12 +1101,18 @@ function AreaPsicologa({ userData, onLogout }: { userData: any, onLogout: () => 
           padding: '0 2rem'
         }}>
           <Link href="/" style={{ 
-            fontSize: '1.5rem', 
-            fontWeight: 'bold', 
-            color: '#2c3e50',
+            display: 'flex',
+            alignItems: 'center',
             textDecoration: 'none'
           }}>
-            Psicóloga Maria Cristina
+            <Image
+              src="/maria-cristina-logo.png"
+              alt="Psicóloga Maria Cristina"
+              width={160}
+              height={53}
+              style={{ objectFit: 'contain' }}
+              priority
+            />
           </Link>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <span style={{ color: '#666' }}>Olá, {userData.nome}</span>

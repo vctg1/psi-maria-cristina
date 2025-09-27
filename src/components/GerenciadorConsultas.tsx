@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import CalendarioAgendamento from './CalendarioAgendamento';
 import { useNotificacao } from './NotificacaoProvider';
 import { useModalConfirmacao } from './ModalConfirmacao';
@@ -35,6 +35,26 @@ export default function GerenciadorConsultas({
   const [novaData, setNovaData] = useState('');
   const [novoHorario, setNovoHorario] = useState('');
   const [loading, setLoading] = useState(false);
+  const [screenSize, setScreenSize] = useState('desktop');
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      if (window.innerWidth <= 768) {
+        setScreenSize('mobile');
+      } else if (window.innerWidth <= 1024) {
+        setScreenSize('tablet');
+      } else {
+        setScreenSize('desktop');
+      }
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  const isMobile = screenSize === 'mobile';
+  const isTablet = screenSize === 'tablet';
   
   const { mostrarNotificacao } = useNotificacao();
   const { mostrarModal, Modal } = useModalConfirmacao();
@@ -237,37 +257,62 @@ export default function GerenciadorConsultas({
     <div style={{
       backgroundColor: 'white',
       borderRadius: '8px',
-      padding: '1.5rem',
+      padding: isMobile ? '1rem' : '1.5rem',
       marginBottom: '1rem',
       boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'stretch' : 'flex-start',
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? '1rem' : '0'
+      }}>
         <div style={{ flex: 1 }}>
           {mostrarPaciente && (
-            <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', color: '#333' }}>
+            <p style={{ 
+              margin: '0 0 0.5rem 0', 
+              fontWeight: 'bold', 
+              color: '#333',
+              fontSize: isMobile ? '0.9rem' : '1rem'
+            }}>
               Paciente: {consulta.pacienteNome || 'Nome não informado'}
             </p>
           )}
           
-          <p style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', fontWeight: 'bold' }}>
+          <p style={{ 
+            margin: '0 0 0.5rem 0', 
+            fontSize: isMobile ? '1rem' : '1.1rem', 
+            fontWeight: 'bold' 
+          }}>
             📅 {formatarData(consulta.data)} às {consulta.hora}
           </p>
           
           <p style={{ 
             margin: '0 0 0.5rem 0', 
             color: getStatusColor(consulta.status),
-            fontWeight: 'bold'
+            fontWeight: 'bold',
+            fontSize: isMobile ? '0.9rem' : '1rem'
           }}>
             Status: {getStatusTexto(consulta.status)}
           </p>
           
-          <p style={{ margin: '0 0 0.5rem 0', color: '#666', fontSize: '0.9rem' }}>
+          <p style={{ 
+            margin: '0 0 0.5rem 0', 
+            color: '#666', 
+            fontSize: isMobile ? '0.8rem' : '0.9rem' 
+          }}>
             Pagamento: {consulta.pagamento === 'pago' ? '✅ Pago' : '⏳ Pendente'}
           </p>
         </div>
 
         {podeGerenciar && ehFutura && (
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div style={{ 
+            display: 'flex', 
+            gap: isMobile ? '0.3rem' : '0.5rem', 
+            flexWrap: 'wrap',
+            justifyContent: isMobile ? 'center' : 'flex-end'
+          }}>
             {/* Botões de Status (apenas para psicóloga) */}
             {mostrarPaciente && (
               <>

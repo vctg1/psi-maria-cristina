@@ -27,6 +27,26 @@ export default function CalendarioAgendamento({
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<HorarioDisponivel[]>([]);
   const [horariosPorData, setHorariosPorData] = useState<{ [data: string]: string[] }>({});
   const [loading, setLoading] = useState(false);
+  const [screenSize, setScreenSize] = useState('desktop');
+
+  useEffect(() => {
+    const checkScreenSize = () => {
+      if (window.innerWidth <= 768) {
+        setScreenSize('mobile');
+      } else if (window.innerWidth <= 1024) {
+        setScreenSize('tablet');
+      } else {
+        setScreenSize('desktop');
+      }
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  const isMobile = screenSize === 'mobile';
+  const isTablet = screenSize === 'tablet';
 
   // Carregar dados de disponibilidade para o mês atual
   useEffect(() => {
@@ -217,25 +237,28 @@ export default function CalendarioAgendamento({
     <div style={{ 
       backgroundColor: 'white', 
       borderRadius: '12px', 
-      padding: '1.5rem',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)' 
+      padding: isMobile ? '1rem' : '1.5rem',
+      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+      width: '100%',
+      maxWidth: '100%',
+      overflow: 'hidden'
     }}>
       {/* Cabeçalho do calendário */}
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center',
-        marginBottom: '1.5rem'
+        marginBottom: isMobile ? '1rem' : '1.5rem'
       }}>
         <button
           onClick={mesAnterior}
           style={{
-            padding: '8px 12px',
+            padding: isMobile ? '6px 10px' : '8px 12px',
             backgroundColor: '#f8f9fa',
             border: '1px solid #ddd',
             borderRadius: '8px',
             cursor: 'pointer',
-            fontSize: '18px'
+            fontSize: isMobile ? '16px' : '18px'
           }}
         >
           ‹
@@ -244,8 +267,10 @@ export default function CalendarioAgendamento({
         <h3 style={{ 
           margin: 0, 
           color: '#2c3e50',
-          fontSize: '1.2rem',
-          fontWeight: '600'
+          fontSize: isMobile ? '1rem' : isTablet ? '1.1rem' : '1.2rem',
+          fontWeight: '600',
+          textAlign: 'center',
+          flex: 1
         }}>
           {meses[currentMonth.getMonth()]} {currentMonth.getFullYear()}
         </h3>
@@ -253,12 +278,12 @@ export default function CalendarioAgendamento({
         <button
           onClick={proximoMes}
           style={{
-            padding: '8px 12px',
+            padding: isMobile ? '6px 10px' : '8px 12px',
             backgroundColor: '#f8f9fa',
             border: '1px solid #ddd',
             borderRadius: '8px',
             cursor: 'pointer',
-            fontSize: '18px'
+            fontSize: isMobile ? '16px' : '18px'
           }}
         >
           ›
@@ -272,11 +297,11 @@ export default function CalendarioAgendamento({
         gap: '1px',
         marginBottom: '1rem'
       }}>
-        {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map(dia => (
-          <div key={dia} style={{
-            padding: '8px',
+        {(isMobile ? ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'] : ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']).map((dia, index) => (
+          <div key={index} style={{
+            padding: isMobile ? '6px 4px' : '8px',
             textAlign: 'center',
-            fontSize: '12px',
+            fontSize: isMobile ? '10px' : '12px',
             fontWeight: '600',
             color: '#666',
             backgroundColor: '#f8f9fa'
@@ -302,7 +327,7 @@ export default function CalendarioAgendamento({
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(7, 1fr)', 
-          gap: '1px'
+          gap: isMobile ? '2px' : '1px'
         }}>
           {calendario.map((item, index) => (
             <button
@@ -310,7 +335,7 @@ export default function CalendarioAgendamento({
               onClick={() => handleDateClick(item)}
               disabled={!item.disponivel || !item.mesAtual || item.passado}
               style={{
-                padding: '12px 8px',
+                padding: isMobile ? '8px 4px' : '12px 8px',
                 border: selectedDate === item.data ? '2px solid #3498db' : '1px solid #e0e0e0',
                 backgroundColor: 
                   selectedDate === item.data ? '#e3f2fd' :
@@ -325,11 +350,11 @@ export default function CalendarioAgendamento({
                   item.disponivel ? '#2c3e50' : '#999',
                 cursor: 
                   item.disponivel && item.mesAtual && !item.passado ? 'pointer' : 'not-allowed',
-                borderRadius: '8px',
-                fontSize: '14px',
+                borderRadius: isMobile ? '4px' : '8px',
+                fontSize: isMobile ? '12px' : '14px',
                 fontWeight: selectedDate === item.data ? '600' : '400',
                 transition: 'all 0.2s ease',
-                minHeight: '40px',
+                minHeight: isMobile ? '30px' : '40px',
                 opacity: !item.mesAtual ? 0.3 : 1
               }}
             >
@@ -342,37 +367,37 @@ export default function CalendarioAgendamento({
       {/* Horários disponíveis para a data selecionada */}
       {selectedDate && horariosDisponiveis.length > 0 && (
         <div style={{ 
-          marginTop: '1.5rem', 
-          padding: '1rem',
+          marginTop: isMobile ? '1rem' : '1.5rem', 
+          padding: isMobile ? '0.8rem' : '1rem',
           backgroundColor: '#f8f9fa',
           borderRadius: '8px'
         }}>
           <h4 style={{ 
             margin: '0 0 1rem 0', 
             color: '#2c3e50',
-            fontSize: '1rem'
+            fontSize: isMobile ? '0.9rem' : '1rem'
           }}>
-            Horários disponíveis para {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')}:
+            Horários para {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')}:
           </h4>
           
           <div style={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', 
-            gap: '8px' 
+            gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(80px, 1fr))' : 'repeat(auto-fill, minmax(100px, 1fr))', 
+            gap: isMobile ? '6px' : '8px' 
           }}>
             {horariosDisponiveis.map(horario => (
               <button
                 key={horario.id}
                 onClick={() => onTimeSelect && onTimeSelect(horario.hora)}
                 style={{
-                  padding: '10px',
+                  padding: isMobile ? '8px 6px' : '10px',
                   border: '1px solid #3498db',
                   backgroundColor: 'white',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   color: '#3498db',
                   fontWeight: '500',
-                  fontSize: '14px',
+                  fontSize: isMobile ? '12px' : '14px',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseOver={(e) => {
