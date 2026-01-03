@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { Button } from 'react-bootstrap';
+import Table from 'react-bootstrap/Table';
 
 interface CalendarioAgendamentoProps {
   onDateSelect: (date: string) => void;
@@ -250,19 +252,17 @@ export default function CalendarioAgendamento({
         alignItems: 'center',
         marginBottom: isMobile ? '1rem' : '1.5rem'
       }}>
-        <button
+        <Button
           onClick={mesAnterior}
           style={{
-            padding: isMobile ? '6px 10px' : '8px 12px',
-            backgroundColor: '#f8f9fa',
-            border: '1px solid #ddd',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: isMobile ? '16px' : '18px'
+            fontSize: isMobile ? '16px' : '18px',
+            width: isMobile ? '32px' : '36px',
           }}
+          variant='outline-light'
+          disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
         >
           ‹
-        </button>
+        </Button>
         
         <h3 style={{ 
           margin: 0, 
@@ -275,23 +275,20 @@ export default function CalendarioAgendamento({
           {meses[currentMonth.getMonth()]} {currentMonth.getFullYear()}
         </h3>
         
-        <button
+        <Button
           onClick={proximoMes}
           style={{
-            padding: isMobile ? '6px 10px' : '8px 12px',
-            backgroundColor: '#f8f9fa',
-            border: '1px solid #ddd',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: isMobile ? '16px' : '18px'
+            fontSize: isMobile ? '16px' : '18px',
+            width: isMobile ? '32px' : '36px',
           }}
+          variant='outline-light'
+          disabled={currentMonth.getFullYear() >= new Date().getFullYear() + 1 && currentMonth.getMonth() >= 11}
         >
           ›
-        </button>
+        </Button>
       </div>
 
-      {/* Dias da semana */}
-      <div style={{ 
+      {/* <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(7, 1fr)', 
         gap: '1px',
@@ -299,9 +296,10 @@ export default function CalendarioAgendamento({
       }}>
         {(isMobile ? ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'] : ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']).map((dia, index) => (
           <div key={index} style={{
-            padding: isMobile ? '6px 4px' : '8px',
+            padding: isMobile ? '10px' : '10px',
             textAlign: 'center',
             fontSize: isMobile ? '10px' : '12px',
+            minWidth: isMobile ? '50px' : '60px',
             fontWeight: '600',
             color: '#666',
             backgroundColor: '#f8f9fa'
@@ -311,7 +309,6 @@ export default function CalendarioAgendamento({
         ))}
       </div>
 
-      {/* Loading indicator */}
       {loading && (
         <div style={{
           textAlign: 'center',
@@ -322,47 +319,79 @@ export default function CalendarioAgendamento({
         </div>
       )}
 
-      {/* Grade do calendário */}
       {!loading && (
         <div style={{ 
           display: 'grid', 
           gridTemplateColumns: 'repeat(7, 1fr)', 
-          gap: isMobile ? '2px' : '1px'
+          gap: isMobile ? '2px' : '1px',
+          overflowX: 'auto'
         }}>
           {calendario.map((item, index) => (
-            <button
+            <Button
               key={index}
               onClick={() => handleDateClick(item)}
+              variant={
+                item.data === selectedDate ? 'primary' :
+                item.disponivel && item.mesAtual ? 'outline-primary' :
+                'light'
+              }
               disabled={!item.disponivel || !item.mesAtual || item.passado}
               style={{
-                padding: isMobile ? '8px 4px' : '12px 8px',
-                border: selectedDate === item.data ? '2px solid #3498db' : '1px solid #e0e0e0',
-                backgroundColor: 
-                  selectedDate === item.data ? '#e3f2fd' :
-                  !item.mesAtual ? '#fafafa' :
-                  item.passado ? '#f0f0f0' :
-                  item.domingo ? '#f5f5f5' :
-                  item.disponivel ? 'white' : '#f0f0f0',
-                color: 
-                  !item.mesAtual ? '#ccc' :
-                  item.passado ? '#999' :
-                  item.domingo ? '#ccc' :
-                  item.disponivel ? '#2c3e50' : '#999',
                 cursor: 
                   item.disponivel && item.mesAtual && !item.passado ? 'pointer' : 'not-allowed',
-                borderRadius: isMobile ? '4px' : '8px',
-                fontSize: isMobile ? '12px' : '14px',
+                fontSize: isMobile ? '10px' : '14px',
                 fontWeight: selectedDate === item.data ? '600' : '400',
-                transition: 'all 0.2s ease',
                 minHeight: isMobile ? '30px' : '40px',
+                minWidth: isMobile ? '50px' : '60px',
                 opacity: !item.mesAtual ? 0.3 : 1
               }}
             >
               {item.dia}
-            </button>
+            </Button>
           ))}
         </div>
-      )}
+      )} */}
+      <div style={{ overflowX: 'auto' }}>
+        {loading ? 
+          <div style={{ textAlign: 'center', padding: isMobile ? '1rem' : '1.5rem', color: '#666' }}>
+            Carregando disponibilidade...
+          </div>:
+          <Table bordered hover responsive style={{ width: '100%', overflowX: 'auto' }}>
+              <thead>
+                <tr>
+                  {(isMobile ? ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'] : ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']).map((dia, index) => (
+                    <th key={index} >
+                      {dia}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: Math.ceil(calendario.length / 7) }).map((_, rowIndex) => (
+                  <tr key={rowIndex}>
+                    {calendario.slice(rowIndex * 7, rowIndex * 7 + 7).map((item, index) => (
+                      <td key={index}>
+                        <Button variant={item.data === selectedDate ? 'primary' : item.disponivel && item.mesAtual ? 'outline-primary' : 'light'}
+                          onClick={() => handleDateClick(item)}
+                          disabled={!item.disponivel || !item.mesAtual || item.passado}
+                          style={{
+                            cursor: item.disponivel && item.mesAtual && !item.passado ? 'pointer' : 'not-allowed',
+                            fontSize: isMobile ? '10px' : '14px',
+                            fontWeight: selectedDate === item.data ? '600' : '400',
+                            width: '100%',
+                            opacity: !item.mesAtual ? 0.3 : 1
+                          }}
+                        >
+                          {item.dia}
+                        </Button>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </Table>
+            }
+        </div>
 
       {/* Horários disponíveis para a data selecionada */}
       {selectedDate && horariosDisponiveis.length > 0 && (
@@ -386,31 +415,16 @@ export default function CalendarioAgendamento({
             gap: isMobile ? '6px' : '8px' 
           }}>
             {horariosDisponiveis.map(horario => (
-              <button
+              <Button
                 key={horario.id}
                 onClick={() => onTimeSelect && onTimeSelect(horario.hora)}
+                variant="light"
                 style={{
-                  padding: isMobile ? '8px 6px' : '10px',
-                  border: '1px solid #3498db',
-                  backgroundColor: 'white',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  color: '#3498db',
-                  fontWeight: '500',
                   fontSize: isMobile ? '12px' : '14px',
-                  transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.backgroundColor = '#3498db';
-                  e.currentTarget.style.color = 'white';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.backgroundColor = 'white';
-                  e.currentTarget.style.color = '#3498db';
                 }}
               >
                 {horario.hora}
-              </button>
+              </Button>
             ))}
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import CalendarioAgendamento from '@/components/CalendarioAgendamento';
+import Button from 'react-bootstrap/esm/Button';
 
 interface HorarioDisponivel {
   id: string;
@@ -48,7 +49,9 @@ export default function AgendamentoPage() {
     dataNascimento: '',
     cpf: '',
     responsavel: '',
-    telefoneResponsavel: ''
+    telefoneResponsavel: '',
+    motivo: '',
+    observacoes: ''
   });
 
   const [errors, setErrors] = useState<{[key: string]: string}>({});
@@ -111,6 +114,7 @@ export default function AgendamentoPage() {
     if (!formData.telefone) newErrors.telefone = 'Telefone é obrigatório';
     if (!formData.dataNascimento) newErrors.dataNascimento = 'Data de nascimento é obrigatória';
     if (!formData.cpf) newErrors.cpf = 'CPF é obrigatório';
+    if (!formData.motivo) newErrors.motivo = 'Motivo é obrigatório';
 
     // Validar se é menor de idade
     const birthDate = new Date(formData.dataNascimento);
@@ -131,38 +135,52 @@ export default function AgendamentoPage() {
     
     if (!validateForm()) return;
 
-    try {
-      setLoading(true);
-      const response = await fetch('/api/agendamento', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          paciente: formData,
-          data: selectedDate,
-          hora: selectedTime
-        })
-      });
+    // try {
+    //   setLoading(true);
+    //   const response = await fetch('/api/agendamento', {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //     },
+    //     body: JSON.stringify({
+    //       paciente: formData,
+    //       data: selectedDate,
+    //       hora: selectedTime
+    //     })
+    //   });
 
-      const result = await response.json();
+    //   const result = await response.json();
 
-      if (response.ok) {
-        setAgendamentoRealizado(result);
-        setStep(3);
-      } else {
-        alert(result.error || 'Erro ao realizar agendamento');
-      }
-    } catch (error) {
-      console.error('Erro:', error);
-      alert('Erro ao realizar agendamento');
-    } finally {
-      setLoading(false);
-    }
+    //   if (response.ok) {
+    //     setAgendamentoRealizado(result);
+    //     setStep(3);
+    //   } else {
+    //     alert(result.error || 'Erro ao realizar agendamento');
+    //   }
+    // } catch (error) {
+    //   console.error('Erro:', error);
+    //   alert('Erro ao realizar agendamento');
+    // } finally {
+    //   setLoading(false);
+    // }
+    // Enviar a pessoa para o whatsapp com os dados do agendamento
+    const whatsappNumber = '5561995391540';
+    const message = `Olá, gostaria de agendar uma consulta.\n\nDados do Paciente:
+      Nome: ${formData.nome}
+      Email: ${formData.email}
+      Telefone: ${formData.telefone}
+      Data de Nascimento: ${new Date(formData.dataNascimento + 'T12:00:00').toLocaleDateString('pt-BR')}
+      CPF: ${formData.cpf}\n\nConsulta:
+      Data: ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+      Horário: ${selectedTime}
+      Motivo: ${formData.motivo}
+      ${formData.observacoes?`Observações: ${formData.observacoes}` : ''}`;
+    const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappURL, '_blank');
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target; 
     setFormData(prev => ({ ...prev, [name]: value }));
     
     // Limpar erro do campo quando usuário começar a digitar
@@ -240,8 +258,8 @@ export default function AgendamentoPage() {
 
         {/* Passo 1: Seleção de data e horário */}
         {step === 1 && (
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '2rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ marginBottom: '2rem', color: '#2c3e50' }}>Escolha a data e horário</h2>
+          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: isMobile ? '1rem' : '2rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
+            <h2 style={{ marginBottom: '2rem', color: '#2c3e50', textAlign: isMobile ? 'center' : 'left' }}>Escolha a data e horário</h2>
             
             <CalendarioAgendamento
               selectedDate={selectedDate}
@@ -281,7 +299,7 @@ export default function AgendamentoPage() {
               fontWeight: '600',
               lineHeight: '1.4'
             }}>
-              Valor da consulta: R$ 150,00 - <em>Pagamento será feito na área do paciente</em>
+              Valor da consulta: R$ 150,00
             </p>
 
             <form onSubmit={handleSubmit}>
@@ -293,7 +311,7 @@ export default function AgendamentoPage() {
                     fontWeight: '500',
                     fontSize: isMobile ? '0.9rem' : '1rem'
                   }}>
-                    Nome Completo*
+                    Nome Completo
                   </label>
                   <input
                     type="text"
@@ -318,7 +336,7 @@ export default function AgendamentoPage() {
                   gap: '1rem' 
                 }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Email*</label>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Email</label>
                     <input
                       type="email"
                       name="email"
@@ -334,14 +352,14 @@ export default function AgendamentoPage() {
                     />
                     {errors.email && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.email}</span>}
                   </div>
-
                   <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Telefone*</label>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Telefone</label>
                     <input
                       type="tel"
                       name="telefone"
-                      value={formData.telefone}
+                      value={formData.telefone.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2')}
                       onChange={handleInputChange}
+                      maxLength={15}
                       style={{
                         width: '100%',
                         padding: '12px',
@@ -353,14 +371,13 @@ export default function AgendamentoPage() {
                     {errors.telefone && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.telefone}</span>}
                   </div>
                 </div>
-
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Data de Nascimento*</label>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Data de Nascimento</label>
                     <input
                       type="date"
                       name="dataNascimento"
-                      value={formData.dataNascimento}
+                      value={formData.dataNascimento || "2000-01-01"}
                       onChange={handleInputChange}
                       style={{
                         width: '100%',
@@ -374,12 +391,13 @@ export default function AgendamentoPage() {
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>CPF*</label>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>CPF</label>
                     <input
                       type="text"
                       name="cpf"
-                      value={formData.cpf}
+                      value={formData.cpf.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2')}
                       onChange={handleInputChange}
+                      maxLength={14}
                       style={{
                         width: '100%',
                         padding: '12px',
@@ -394,75 +412,112 @@ export default function AgendamentoPage() {
 
                 {/* Campos do responsável (aparecem se menor de idade) */}
                 {formData.dataNascimento && new Date().getFullYear() - new Date(formData.dataNascimento).getFullYear() < 18 && (
-                  <>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nome do Responsável*</label>
-                      <input
-                        type="text"
-                        name="responsavel"
-                        value={formData.responsavel}
-                        onChange={handleInputChange}
-                        style={{
-                          width: '100%',
-                          padding: '12px',
-                          border: errors.responsavel ? '1px solid #e74c3c' : '1px solid #ddd',
-                          borderRadius: '5px',
-                          fontSize: '16px'
-                        }}
-                      />
-                      {errors.responsavel && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.responsavel}</span>}
-                    </div>
+                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f0f0f0', borderRadius: '5px', border: '1px solid #ffcccc' }}>
+                    <h3 style={{ marginBottom: '1rem', color: '#2c3e50' }}>Dados do Responsável</h3>
+                    <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr 1fr' }}>
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nome do Responsável</label>
+                        <input
+                          type="text"
+                          name="responsavel"
+                          value={formData.responsavel}
+                          onChange={handleInputChange}
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            border: errors.responsavel ? '1px solid #e74c3c' : '1px solid #ddd',
+                            borderRadius: '5px',
+                            fontSize: '16px'
+                          }}
+                        />
+                        {errors.responsavel && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.responsavel}</span>}
+                      </div>
 
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Telefone do Responsável*</label>
-                      <input
-                        type="tel"
-                        name="telefoneResponsavel"
-                        value={formData.telefoneResponsavel}
-                        onChange={handleInputChange}
-                        style={{
-                          width: '100%',
-                          padding: '12px',
-                          border: errors.telefoneResponsavel ? '1px solid #e74c3c' : '1px solid #ddd',
-                          borderRadius: '5px',
-                          fontSize: '16px'
-                        }}
-                      />
-                      {errors.telefoneResponsavel && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.telefoneResponsavel}</span>}
+                      <div>
+                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Telefone do Responsável</label>
+                        <input
+                          type="tel"
+                          name="telefoneResponsavel"
+                          value={formData.telefoneResponsavel}
+                          onChange={handleInputChange}
+                          style={{
+                            width: '100%',
+                            padding: '12px',
+                            border: errors.telefoneResponsavel ? '1px solid #e74c3c' : '1px solid #ddd',
+                            borderRadius: '5px',
+                            fontSize: '16px'
+                          }}
+                        />
+                        {errors.telefoneResponsavel && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.telefoneResponsavel}</span>}
+                      </div>
                     </div>
-                  </>
+                  </div>
                 )}
+                <div style={{ display: 'grid', gap: '1rem' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Motivo</label>
+                    <select 
+                      name="motivo"
+                      value={formData.motivo}
+                      onChange={handleInputChange}
+                      style={{
+                        backgroundColor: 'white',
+                        width: '100%',
+                        padding: '12px',
+                        border: errors.motivo ? '1px solid #e74c3c' : '1px solid #ddd',
+                        borderRadius: '5px',
+                        fontSize: '16px'
+                      }}
+                    >
+                      <option value="">Selecione um motivo</option>
+                      <option value="Dificuldade acadêmica">Dificuldades de Aprendizagem</option>
+                      <option value="terapia">Terapia Infantil</option>
+                      <option value="orientacao pais">Orientação para Pais</option>
+                      <option value="ansiedade">Ansiedade</option>
+                      <option value="depressao">Depressão</option>
+                      <option value="outro">Outro</option>
+                    </select>
+                    {errors.motivo && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.motivo}</span>}
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Observações</label>
+                    <textarea
+                      name="observacoes"
+                      value={formData.observacoes}
+                      onChange={handleInputChange}
+                      style={{
+                        width: '100%',
+                        padding: '12px',
+                        borderRadius: '5px',
+                        fontSize: '16px',
+                        resize: 'vertical'
+                      }}
+                      maxLength={500}
+                      rows={7}
+                    />
+                    <span style={{ float:"right" }}>{formData.observacoes.length}/500</span>
+                  </div>
+                  {/* Exemplo de observação:
+                    Sou Ana Clara, tenho 10 anos e estou enfrentando dificuldades na escola com matemática e leitura. Meus pais estão preocupados e gostariam de ajuda para melhorar meu desempenho acadêmico.
+                  */}
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-                <button
+                <Button
                   type="button"
                   onClick={() => setStep(1)}
-                  style={{
-                    padding: '12px 24px',
-                    border: '1px solid #ddd',
-                    backgroundColor: 'white',
-                    borderRadius: '5px',
-                    cursor: 'pointer'
-                  }}
+                  variant='outline-info'
                 >
                   Voltar
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant='success'
                   type="submit"
                   disabled={loading}
-                  style={{
-                    padding: '12px 24px',
-                    border: 'none',
-                    backgroundColor: loading ? '#ccc' : '#3498db',
-                    color: 'white',
-                    borderRadius: '5px',
-                    cursor: loading ? 'not-allowed' : 'pointer',
-                    fontWeight: '500'
-                  }}
                 >
                   {loading ? 'Agendando...' : 'Confirmar Agendamento'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>

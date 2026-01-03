@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import React from "react";
+import Button from 'react-bootstrap/Button'
 
 export default function Home() {
   const [screenSize, setScreenSize] = useState('desktop');
@@ -52,6 +54,7 @@ export default function Home() {
             alignItems: 'center',
             gap: '0.5rem'
           }}>
+            <Link href="/">
             <Image
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
@@ -64,6 +67,7 @@ export default function Home() {
               }}
               priority
             />
+            </Link>
           </div>
           <div style={{ 
             display: 'flex',
@@ -71,19 +75,12 @@ export default function Home() {
             flexDirection: isMobile ? 'column' : 'row',
             width: isMobile ? '100%' : 'auto'
           }}>
-            <Link href="/agendamento" style={{ 
-              padding: isMobile ? '0.6rem 1rem' : '0.75rem 1.5rem',
-              backgroundColor: '#3498db',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '5px',
-              fontWeight: '500',
-              textAlign: 'center',
-              fontSize: isMobile ? '0.9rem' : '1rem'
-            }}>
+            <Link href="/agendamento">
+            <Button variant="primary" size="lg" style={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}  >
               Agendar Consulta
+            </Button>
             </Link>
-            <Link href="/area-restrita" style={{ 
+            {/* <Link href="/area-restrita" style={{ 
               padding: isMobile ? '0.6rem 1rem' : '0.75rem 1.5rem',
               backgroundColor: '#27ae60',
               color: 'white',
@@ -94,7 +91,7 @@ export default function Home() {
               fontSize: isMobile ? '0.9rem' : '1rem'
             }}>
               Área Restrita
-            </Link>
+            </Link> */}
           </div>
         </nav>
       </header>
@@ -168,18 +165,6 @@ export default function Home() {
                   ))}
                 </ul>
               </div>
-                <Link href="/agendamento" style={{ 
-                  display: 'inline-block',
-                  padding: isMobile ? '0.8rem 1.5rem' : isTablet ? '0.9rem 1.8rem' : '1rem 2rem', 
-                  backgroundColor: '#e74c3c', 
-                  color: 'white', 
-                  textDecoration: 'none', 
-                  borderRadius: '8px',
-                  fontSize: isMobile ? '1rem' : isTablet ? '1.1rem' : '1.2rem',
-                  fontWeight: '600'
-                }}>
-                  Agende Sua Consulta Online
-                </Link>
             </div>
           </div>
         </div>
@@ -268,7 +253,7 @@ export default function Home() {
                 lineHeight: '1.6',
                 fontSize: isMobile ? '0.9rem' : '1rem'
               }}>
-                Receba por email a confirmação do agendamento e dados para pagamento.
+                Receba a confirmação do agendamento no whatsapp.
               </p>
             </div>
             
@@ -278,7 +263,7 @@ export default function Home() {
               borderRadius: '10px',
               boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
               gridColumn: isMobile ? '1' : isTablet ? 'span 2' : 'span 1'
-            }}>
+              }}>
               <div style={{ 
                 width: isMobile ? '50px' : '60px', 
                 height: isMobile ? '50px' : '60px', 
@@ -298,15 +283,20 @@ export default function Home() {
                 marginBottom: '1rem',
                 fontSize: isMobile ? '1.1rem' : '1.2rem'
               }}>
-                Consulta Online
+                Consulta Online / Presencial
               </h3>
               <p style={{ 
                 color: '#666', 
                 lineHeight: '1.6',
                 fontSize: isMobile ? '0.9rem' : '1rem'
               }}>
-                Acesse sua área restrita e participe da consulta via Google Meet.
+                Participe da consulta no horário agendado via Google Meet.<br /> OU <br />Compareça ao consultório para atendimento presencial.
               </p>
+            <Link href="/agendamento">
+              <Button variant="danger" size="lg" style={{ marginTop: '1rem', fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}  >
+                Agendar Consulta
+              </Button>
+            </Link>
             </div>
           </div>
         </div>
@@ -344,7 +334,7 @@ export default function Home() {
                 fontSize: isMobile ? '0.9rem' : '1rem',
                 wordBreak: 'break-word'
               }}>
-                contato@psimariacristina.com
+                mariacriscassia02@gmail.com
               </p>
             </div>
             <div style={{ 
@@ -363,7 +353,7 @@ export default function Home() {
                 color: '#666',
                 fontSize: isMobile ? '0.9rem' : '1rem'
               }}>
-                (11) 99999-9999
+                (61) 99539-1540
               </p>
             </div>
             <div style={{ 
@@ -404,7 +394,7 @@ export default function Home() {
             fontSize: isMobile ? '0.9rem' : '1rem',
             lineHeight: '1.4'
           }}>
-            © 2024 Psicóloga Maria Cristina - Todos os direitos reservados
+            © {new Date().getFullYear()} Psicóloga Maria Cristina - Todos os direitos reservados
           </p>
           <p style={{ 
             margin: '0.5rem 0 0 0', 
