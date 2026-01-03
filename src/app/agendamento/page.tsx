@@ -50,6 +50,7 @@ export default function AgendamentoPage() {
     cpf: '',
     responsavel: '',
     telefoneResponsavel: '',
+    tipo: '',
     motivo: '',
     observacoes: ''
   });
@@ -115,6 +116,7 @@ export default function AgendamentoPage() {
     if (!formData.dataNascimento) newErrors.dataNascimento = 'Data de nascimento é obrigatória';
     if (!formData.cpf) newErrors.cpf = 'CPF é obrigatório';
     if (!formData.motivo) newErrors.motivo = 'Motivo é obrigatório';
+    if (!formData.tipo) newErrors.tipo = 'Tipo é obrigatório';
 
     // Validar se é menor de idade
     const birthDate = new Date(formData.dataNascimento);
@@ -173,6 +175,7 @@ export default function AgendamentoPage() {
       CPF: ${formData.cpf}\n\nConsulta:
       Data: ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')}
       Horário: ${selectedTime}
+      Tipo: ${formData.tipo}
       Motivo: ${formData.motivo}
       ${formData.observacoes?`Observações: ${formData.observacoes}` : ''}`;
     const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
@@ -320,10 +323,10 @@ export default function AgendamentoPage() {
                     onChange={handleInputChange}
                     style={{
                       width: '100%',
-                      padding: isMobile ? '10px' : '12px',
+                      padding: '12px',
                       border: errors.nome ? '1px solid #e74c3c' : '1px solid #ddd',
                       borderRadius: '5px',
-                      fontSize: isMobile ? '14px' : '16px',
+                      fontSize: '16px',
                       boxSizing: 'border-box'
                     }}
                   />
@@ -371,7 +374,7 @@ export default function AgendamentoPage() {
                     {errors.telefone && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.telefone}</span>}
                   </div>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Data de Nascimento</label>
                     <input
@@ -453,7 +456,28 @@ export default function AgendamentoPage() {
                     </div>
                   </div>
                 )}
-                <div style={{ display: 'grid', gap: '1rem' }}>
+                <div style={{ display:'grid', gap:'1rem', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Tipo</label>
+                    <select 
+                      name="tipo"
+                      value={formData.tipo}
+                      onChange={handleInputChange}
+                      style={{
+                        backgroundColor: 'white',
+                        width: '100%',
+                        padding: '12px',
+                        border: errors.tipo ? '1px solid #e74c3c' : '1px solid #ddd',
+                        borderRadius: '5px',
+                        fontSize: '16px'
+                      }}
+                    >
+                      <option value="">...</option>
+                      <option value="Presencial">Presencial</option>
+                      <option value="Online">Online</option>
+                    </select>
+                    {errors.tipo && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.tipo}</span>}
+                  </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Motivo</label>
                     <select 
@@ -469,16 +493,18 @@ export default function AgendamentoPage() {
                         fontSize: '16px'
                       }}
                     >
-                      <option value="">Selecione um motivo</option>
-                      <option value="Dificuldade acadêmica">Dificuldades de Aprendizagem</option>
-                      <option value="terapia">Terapia Infantil</option>
-                      <option value="orientacao pais">Orientação para Pais</option>
-                      <option value="ansiedade">Ansiedade</option>
-                      <option value="depressao">Depressão</option>
-                      <option value="outro">Outro</option>
+                      <option value="">...</option>
+                      <option value="Dificuldade de Aprendizagem">Dificuldades de Aprendizagem</option>
+                      <option value="Terapia Infantil">Terapia Infantil</option>
+                      <option value="Orientação para pais">Orientação para Pais</option>
+                      <option value="Ansiedade">Ansiedade</option>
+                      <option value="Depressão">Depressão</option>
+                      <option value="Outro">Outro</option>
                     </select>
                     {errors.motivo && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.motivo}</span>}
                   </div>
+                </div>
+                <div style={{ display: 'grid', gap: '1rem' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Observações</label>
                     <textarea
@@ -497,25 +523,34 @@ export default function AgendamentoPage() {
                     />
                     <span style={{ float:"right" }}>{formData.observacoes.length}/500</span>
                   </div>
-                  {/* Exemplo de observação:
-                    Sou Ana Clara, tenho 10 anos e estou enfrentando dificuldades na escola com matemática e leitura. Meus pais estão preocupados e gostariam de ajuda para melhorar meu desempenho acadêmico.
-                  */}
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem', width: '100%' }}>
                 <Button
                   type="button"
                   onClick={() => setStep(1)}
                   variant='outline-info'
+                  style={{
+                    width: isMobile ? "fit-content" : "auto",
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
                 >
-                  Voltar
+                  <i className="bi bi-arrow-left" style={{marginRight:'.2rem'}} /> Voltar
                 </Button>
                 <Button
                   variant='success'
                   type="submit"
                   disabled={loading}
+                  style={{
+                    marginLeft: 'auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    width: isMobile ? "fit-content" : "auto",
+                  }}
                 >
+                  <i className="bi bi-whatsapp" style={{marginRight:'.2rem'}}/>
                   {loading ? 'Agendando...' : 'Confirmar Agendamento'}
                 </Button>
               </div>

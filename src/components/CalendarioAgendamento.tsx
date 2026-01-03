@@ -351,14 +351,14 @@ export default function CalendarioAgendamento({
           ))}
         </div>
       )} */}
-      <div style={{ overflowX: 'auto' }}>
+      <div>
         {loading ? 
           <div style={{ textAlign: 'center', padding: isMobile ? '1rem' : '1.5rem', color: '#666' }}>
             Carregando disponibilidade...
           </div>:
-          <Table bordered hover responsive style={{ width: '100%', overflowX: 'auto' }}>
+          <Table borderless responsive style={{ width: '100%', overflowX: 'auto' }}>
               <thead>
-                <tr>
+                <tr style={{textAlign:'center'}}>
                   {(isMobile ? ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'] : ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']).map((dia, index) => (
                     <th key={index} >
                       {dia}
@@ -371,15 +371,15 @@ export default function CalendarioAgendamento({
                   <tr key={rowIndex}>
                     {calendario.slice(rowIndex * 7, rowIndex * 7 + 7).map((item, index) => (
                       <td key={index}>
-                        <Button variant={item.data === selectedDate ? 'primary' : item.disponivel && item.mesAtual ? 'outline-primary' : 'light'}
+                        <Button variant={item.data === selectedDate ? 'secondary' : item.disponivel && item.mesAtual ? 'outline-secondary' : 'light'}
                           onClick={() => handleDateClick(item)}
                           disabled={!item.disponivel || !item.mesAtual || item.passado}
                           style={{
                             cursor: item.disponivel && item.mesAtual && !item.passado ? 'pointer' : 'not-allowed',
-                            fontSize: isMobile ? '10px' : '14px',
+                            fontSize: '14px',
                             fontWeight: selectedDate === item.data ? '600' : '400',
                             width: '100%',
-                            opacity: !item.mesAtual ? 0.3 : 1
+                            opacity: !item.mesAtual ? 0.3 : 1,
                           }}
                         >
                           {item.dia}
@@ -418,9 +418,9 @@ export default function CalendarioAgendamento({
               <Button
                 key={horario.id}
                 onClick={() => onTimeSelect && onTimeSelect(horario.hora)}
-                variant="light"
+                variant="outline-primary"
                 style={{
-                  fontSize: isMobile ? '12px' : '14px',
+                  fontSize: '14px',
                 }}
               >
                 {horario.hora}

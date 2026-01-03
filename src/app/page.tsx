@@ -27,16 +27,28 @@ export default function Home() {
 
   const isMobile = screenSize === 'mobile';
   const isTablet = screenSize === 'tablet';
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <div style={{ minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
       {/* Header */}
+      <div style={{ height: isScrolled ? '6rem' : '0'}}></div>
       <header style={{ 
         backgroundColor: '#ffffff', 
         boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
         padding: isMobile ? '0.8rem 0' : '0',
-        position: 'sticky',
+        position: isScrolled ? 'fixed' : 'sticky',
         top: 0,
+        width: '100%',
         zIndex: 1000
       }}>
         <nav style={{ 
@@ -46,7 +58,7 @@ export default function Home() {
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: isMobile ? '0 1rem' : '0 2rem',
-          flexDirection: isMobile ? 'column' : 'row',
+          flexDirection: (isMobile && !isScrolled) ? 'column' : 'row',
           gap: isMobile ? '1rem' : '0'
         }}>
           <div style={{ 
@@ -59,11 +71,11 @@ export default function Home() {
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
               width={isMobile ? 120 : isTablet ? 140 : 160}
-              height={isMobile ? 40 : isTablet ? 47 : 53}
+              height={isScrolled ? (isMobile ? 40 : 53) : (isMobile ? 120 : isTablet ? 140 : 160)}
               style={{ 
                 objectFit: 'contain',
                 maxWidth: '100%',
-                height: 'auto'
+                transition: 'height 0.2s ease-in-out'
               }}
               priority
             />
@@ -219,6 +231,7 @@ export default function Home() {
               }}>
                 Escolha o dia e horário disponível que melhor se adequa à sua rotina.
               </p>
+              <i className="bi bi-calendar-check" style={{ fontSize: isMobile ? '4rem' : '5rem', color: '#3498db', marginTop: '1rem' }}></i>
             </div>
             
             <div style={{ 
@@ -255,6 +268,7 @@ export default function Home() {
               }}>
                 Receba a confirmação do agendamento no whatsapp.
               </p>
+              <i className="bi bi-chat-dots" style={{ fontSize: isMobile ? '4rem' : '5rem', color: '#27ae60', marginTop: '1rem' }}></i>
             </div>
             
             <div style={{ 
@@ -293,7 +307,8 @@ export default function Home() {
                 Participe da consulta no horário agendado via Google Meet.<br /> OU <br />Compareça ao consultório para atendimento presencial.
               </p>
             <Link href="/agendamento">
-              <Button variant="danger" size="lg" style={{ marginTop: '1rem', fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}  >
+              <Button variant="outline-danger" size="lg" style={{ marginTop: '1rem', fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}  >
+                <i className="bi bi-calendar-plus" style={{ marginRight: '0.5rem' }}></i>
                 Agendar Consulta
               </Button>
             </Link>
@@ -303,7 +318,7 @@ export default function Home() {
       </section>
 
       {/* Contact Section */}
-      <section style={{ padding: isMobile ? '2rem 1rem' : isTablet ? '3rem 1.5rem' : '4rem 2rem' }}>
+      {/* <section style={{ padding: isMobile ? '2rem 1rem' : isTablet ? '3rem 1.5rem' : '4rem 2rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
           <h2 style={{ 
             fontSize: isMobile ? '1.8rem' : isTablet ? '2.2rem' : '2.5rem', 
@@ -379,7 +394,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* Footer */}
       <footer style={{ 
@@ -388,6 +403,21 @@ export default function Home() {
         padding: isMobile ? '1.5rem 1rem' : '2rem', 
         textAlign: 'center' 
       }}>
+          {/* CONTATO E ENDEREÇO BOOTSTRAP COM PREVIEW map GOOGLE MAPS https://maps.app.goo.gl/QPZNEDAxiE5qVB7x6 */}
+        <address>
+          <ul className="list-unstyled">
+            <li>Telefone: <a href="tel:+5561995391540" style={{ color: 'white', textDecoration: 'underline' }}>(61) 99539-1540</a></li>
+            <li>Email: <a href="mailto:mariacriscassia02@gmail.com" style={{ color: 'white', textDecoration: 'underline' }}>mariacriscassia02@gmail.com</a></li>
+            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d61528.48265927053!2d-47.644439255551625!3d-15.455889216215418!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x935a6ff8c53ef657%3A0x6bacb765fe50147d!2sPlanaltina%2C%20GO!5e0!3m2!1spt-BR!2sbr!4v1767480094006!5m2!1spt-BR!2sbr"
+              width={isMobile ? "250" : "400"}
+              height={isMobile ? "150" : "200"}
+              style={{ border: 0, marginTop: '1rem' }}
+              allowFullScreen={true}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            ></iframe>
+          </ul>
+        </address>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
           <p style={{ 
             margin: 0, 
