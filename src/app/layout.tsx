@@ -1,19 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Nunito_Sans } from "next/font/google";
 import "./globals.css";
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import "./tema.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const display = Fraunces({
+  variable: "--font-display",
   subsets: ["latin"],
+  axes: ["opsz", "SOFT"],
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const corpo = Nunito_Sans({
+  variable: "--font-corpo",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -54,7 +58,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${display.variable} ${corpo.variable}`}>
         <AuthProvider>{children}</AuthProvider>
       </body>
     </html>

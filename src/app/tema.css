@@ -1,0 +1,359 @@
+/* ============================================================================
+   TEMA — psi-maria-cristina · sistema de design "consultório acolhedor"
+   Fonte única de cor, tipo, espaço, raio, sombra e forma. Nenhuma tela define
+   cor/fonte/espaçamento próprio: muda-se aqui, muda o site todo.
+   Convive com o Bootstrap 5: os tokens --pmc-* são a verdade; os --bs-* abaixo
+   são ponte para que os componentes react-bootstrap herdem o tema.
+   Documentação e racional: DESIGN.md (raiz).
+   ========================================================================== */
+
+:root {
+  /* ---------- Cor · superfícies (do mais claro ao mais escuro) ---------- */
+  --pmc-fundo:        #FAF6F0;   /* off-white quente — página */
+  --pmc-areia:        #F1E8DC;   /* superfície 2 — seções alternadas, cards */
+  --pmc-bege:         #E4D6C3;   /* superfície 3 — bordas, divisores, chips neutros */
+  --pmc-argila-clara: #D9BFA8;   /* preenchimentos decorativos (blobs), nunca texto */
+
+  /* ---------- Cor · texto (ancoradouro escuro QUENTE, nunca preto/cinza frio) ---------- */
+  --pmc-texto:        #3B2F2A;   /* 12:1 sobre --pmc-fundo */
+  --pmc-texto-2:      #6B5B53;   /* 6:1 — secundário, legendas */
+  --pmc-texto-inv:    #F1E8DC;   /* sobre --pmc-terra-escura */
+
+  /* ---------- Cor · acento único (terracota suave) ---------- */
+  --pmc-terracota:        #A65A40;  /* botões (texto branco 5:1), ícones; como texto 4.65:1 ✓ */
+  --pmc-terracota-escura: #8A4A34;  /* hover, links em texto corrido (6.3:1) */
+  --pmc-terracota-suave:  #E7C5B4;  /* fundos de chip/destaque, ilustração */
+
+  /* ---------- Cor · apoio natureza (sálvia) — respiro, sucesso ---------- */
+  --pmc-salvia:        #8C9A84;   /* preenchimentos, ícones decorativos */
+  --pmc-salvia-escura: #5E6E58;   /* texto de apoio/sucesso (5:1) */
+  --pmc-salvia-suave:  #DCE2D6;   /* fundo de chip/alerta suave */
+
+  /* ---------- Cor · fundo escuro quente (rodapé, blocos de ênfase) ---------- */
+  --pmc-terra-escura: #3B2F2A;
+
+  /* ---------- Cor · estados (semânticos, separados do acento) ---------- */
+  --pmc-sucesso:       var(--pmc-salvia-escura);
+  --pmc-sucesso-fundo: var(--pmc-salvia-suave);
+  --pmc-aviso:         #8A6A2F;   /* ocre escuro, 5:1 */
+  --pmc-aviso-fundo:   #F0E4C8;
+  --pmc-erro:          #9A3B2E;   /* terracota avermelhada, 6:1 */
+  --pmc-erro-fundo:    #F3D9D2;
+  --pmc-info:          #5F7A83;   /* azul-cinza aquecido, 4.6:1 */
+  --pmc-info-fundo:    #DCE6E9;
+
+  /* ---------- Tipografia ---------- */
+  /* Famílias são injetadas por next/font em layout.tsx como --font-display / --font-corpo */
+  --pmc-fonte-display: var(--font-display, "Fraunces", Georgia, "Times New Roman", serif);
+  --pmc-fonte-corpo:   var(--font-corpo, "Nunito Sans", -apple-system, "Segoe UI", Roboto, Arial, sans-serif);
+
+  /* escala (rem) — corpo 17px: legibilidade no celular, lido em momentos de fragilidade */
+  --pmc-t-xs:   0.8125rem;  /* 13 — rótulos em caixa alta, notas */
+  --pmc-t-sm:   0.9375rem;  /* 15 — legendas, metadados */
+  --pmc-t-md:   1.0625rem;  /* 17 — corpo */
+  --pmc-t-lg:   1.25rem;    /* 20 — lead, subtítulo */
+  --pmc-t-xl:   1.5625rem;  /* 25 — h3 */
+  --pmc-t-2xl:  2rem;       /* 32 — h2 */
+  --pmc-t-3xl:  2.75rem;    /* 44 — h1 mobile */
+  --pmc-t-4xl:  3.5rem;     /* 56 — h1 desktop */
+
+  --pmc-altura-corpo:  1.65;
+  --pmc-altura-titulo: 1.12;
+  --pmc-peso-normal:   400;
+  --pmc-peso-medio:    600;
+  --pmc-peso-titulo:   500;   /* Fraunces fica quente em 500; 700 endurece */
+  --pmc-medida:        62ch;  /* largura máxima de texto corrido */
+  --pmc-rastreio-rotulo: 0.08em;
+
+  /* ---------- Espaço (base 4px; ritmo vertical em múltiplos de 8) ---------- */
+  --pmc-e-1: 0.25rem;
+  --pmc-e-2: 0.5rem;
+  --pmc-e-3: 0.75rem;
+  --pmc-e-4: 1rem;
+  --pmc-e-5: 1.5rem;
+  --pmc-e-6: 2rem;
+  --pmc-e-7: 3rem;
+  --pmc-e-8: 4rem;
+  --pmc-e-9: 6rem;
+  --pmc-secao-y: clamp(3rem, 8vw, 6rem);    /* respiro entre seções */
+  --pmc-gutter:  clamp(1rem, 4vw, 2rem);    /* margem lateral mínima 16px */
+  --pmc-largura-max: 1140px;
+
+  /* ---------- Forma ---------- */
+  --pmc-raio-sm:  8px;
+  --pmc-raio-md:  14px;
+  --pmc-raio-lg:  24px;
+  --pmc-raio-pill: 999px;
+  /* forma orgânica: dois raios diferentes por eixo → "pedra polida" */
+  --pmc-raio-organico:   58% 42% 55% 45% / 48% 56% 44% 52%;
+  --pmc-raio-organico-2: 42% 58% 46% 54% / 55% 45% 55% 45%;
+
+  /* ---------- Sombra (marrom quente translúcido, nunca preto) ---------- */
+  --pmc-sombra-sm: 0 1px 2px rgba(59, 47, 42, 0.06), 0 2px 8px rgba(59, 47, 42, 0.05);
+  --pmc-sombra-md: 0 6px 20px rgba(59, 47, 42, 0.10);
+  --pmc-sombra-lg: 0 18px 48px rgba(59, 47, 42, 0.14);
+
+  /* ---------- Movimento (discreto; desligado em reduced-motion) ---------- */
+  --pmc-transicao: 180ms ease-out;
+
+  /* ---------- Textura: grão de papel, gerado (SVG feTurbulence), sem asset externo ---------- */
+  --pmc-textura-papel: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.23 0 0 0 0 0.18 0 0 0 0 0.16 0 0 0 0.06 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23g)'/%3E%3C/svg%3E");
+
+  /* ======================= Ponte para o Bootstrap ======================= */
+  --bs-body-bg:            var(--pmc-fundo);
+  --bs-body-color:         var(--pmc-texto);
+  --bs-body-font-family:   var(--pmc-fonte-corpo);
+  --bs-body-font-size:     var(--pmc-t-md);
+  --bs-body-line-height:   var(--pmc-altura-corpo);
+  --bs-heading-color:      var(--pmc-texto);
+  --bs-secondary-color:    var(--pmc-texto-2);
+  --bs-border-color:       var(--pmc-bege);
+  --bs-border-radius:      var(--pmc-raio-md);
+  --bs-border-radius-sm:   var(--pmc-raio-sm);
+  --bs-border-radius-lg:   var(--pmc-raio-lg);
+  --bs-border-radius-pill: var(--pmc-raio-pill);
+  --bs-link-color:         var(--pmc-terracota-escura);
+  --bs-link-color-rgb:     138, 74, 52;
+  --bs-link-hover-color:   var(--pmc-terracota);
+  --bs-link-hover-color-rgb: 166, 90, 64;
+  --bs-primary:            var(--pmc-terracota);
+  --bs-primary-rgb:        166, 90, 64;
+  --bs-secondary:          var(--pmc-salvia-escura);
+  --bs-secondary-rgb:      94, 110, 88;
+  --bs-success:            var(--pmc-sucesso);
+  --bs-success-rgb:        94, 110, 88;
+  --bs-warning:            var(--pmc-aviso);
+  --bs-warning-rgb:        138, 106, 47;
+  --bs-danger:             var(--pmc-erro);
+  --bs-danger-rgb:         154, 59, 46;
+  --bs-info:               var(--pmc-info);
+  --bs-info-rgb:           95, 122, 131;
+  --bs-light:              var(--pmc-areia);
+  --bs-dark:               var(--pmc-terra-escura);
+  --bs-focus-ring-color:   rgba(166, 90, 64, 0.35);
+}
+
+/* ============================================================================
+   BASE
+   ========================================================================== */
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--pmc-fundo);
+  background-image: var(--pmc-textura-papel);
+  color: var(--pmc-texto);
+  font-family: var(--pmc-fonte-corpo);
+  font-size: var(--pmc-t-md);
+  line-height: var(--pmc-altura-corpo);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4, .h1, .h2, .h3, .h4, .pmc-display {
+  font-family: var(--pmc-fonte-display);
+  font-weight: var(--pmc-peso-titulo);
+  line-height: var(--pmc-altura-titulo);
+  letter-spacing: -0.01em;
+  color: var(--pmc-texto);
+  text-wrap: balance;
+}
+h1, .h1 { font-size: clamp(var(--pmc-t-3xl), 2.2rem + 2vw, var(--pmc-t-4xl)); }
+h2, .h2 { font-size: var(--pmc-t-2xl); }
+h3, .h3 { font-size: var(--pmc-t-xl); }
+h4, .h4 { font-size: var(--pmc-t-lg); font-family: var(--pmc-fonte-corpo); font-weight: var(--pmc-peso-medio); }
+
+p { max-width: var(--pmc-medida); }
+.lead { font-size: var(--pmc-t-lg); color: var(--pmc-texto-2); font-weight: var(--pmc-peso-normal); }
+a { text-underline-offset: 0.15em; }
+
+/* rótulo em caixa alta ("eyebrow") — estrutura, não decoração */
+.pmc-rotulo {
+  display: inline-block;
+  font-size: var(--pmc-t-xs);
+  font-weight: var(--pmc-peso-medio);
+  letter-spacing: var(--pmc-rastreio-rotulo);
+  text-transform: uppercase;
+  color: var(--pmc-terracota-escura);
+}
+
+/* ============================================================================
+   LAYOUT
+   ========================================================================== */
+.pmc-container {
+  width: 100%;
+  max-width: var(--pmc-largura-max);
+  margin-inline: auto;
+  padding-inline: var(--pmc-gutter);
+}
+.pmc-secao { padding-block: var(--pmc-secao-y); position: relative; }
+.pmc-secao--areia { background-color: var(--pmc-areia); }
+.pmc-secao--escura { background-color: var(--pmc-terra-escura); color: var(--pmc-texto-inv); }
+.pmc-secao--escura h1, .pmc-secao--escura h2, .pmc-secao--escura h3 { color: var(--pmc-texto-inv); }
+.pmc-secao--escura a { color: var(--pmc-terracota-suave); }
+.pmc-secao--escura a:hover { color: #fff; }
+
+/* separador em onda entre seções (substitui a borda reta) */
+.pmc-onda { display: block; width: 100%; height: clamp(28px, 5vw, 64px); line-height: 0; }
+.pmc-onda svg { width: 100%; height: 100%; display: block; }
+
+/* ============================================================================
+   FORMAS ORGÂNICAS · moldura de imagem e manchas decorativas
+   ========================================================================== */
+.pmc-blob {
+  border-radius: var(--pmc-raio-organico);
+  overflow: hidden;
+  box-shadow: var(--pmc-sombra-lg);
+}
+.pmc-blob img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.pmc-mancha {                      /* mancha de cor atrás de um elemento */
+  position: absolute;
+  border-radius: var(--pmc-raio-organico-2);
+  background: var(--pmc-terracota-suave);
+  opacity: 0.55;
+  z-index: 0;
+  pointer-events: none;
+}
+.pmc-mancha--salvia { background: var(--pmc-salvia-suave); }
+.pmc-mancha--areia  { background: var(--pmc-argila-clara); opacity: 0.35; }
+.pmc-acima { position: relative; z-index: 1; }
+
+/* mancha grande atrás da foto do hero (Etapa 1 — home) */
+.pmc-mancha--hero {
+  position: absolute;
+  inset: -6% -8% auto auto;
+  width: 88%;
+  aspect-ratio: 1;
+  z-index: 0;
+}
+
+/* wrapper de mídia embutida (mapa do rodapé) com moldura orgânica do tema */
+.pmc-mapa {
+  border-radius: var(--pmc-raio-lg);
+  overflow: hidden;
+  box-shadow: var(--pmc-sombra-md);
+}
+.pmc-mapa iframe { border: 0; width: 100%; height: 100%; }
+
+/* ============================================================================
+   COMPONENTES · sobreposições do Bootstrap via variáveis do próprio Bootstrap
+   ========================================================================== */
+.btn {
+  --bs-btn-font-family: var(--pmc-fonte-corpo);
+  --bs-btn-font-weight: var(--pmc-peso-medio);
+  --bs-btn-padding-y: 0.7rem;
+  --bs-btn-padding-x: 1.4rem;
+  --bs-btn-border-radius: var(--pmc-raio-pill);
+  transition: transform var(--pmc-transicao), box-shadow var(--pmc-transicao), background-color var(--pmc-transicao);
+}
+.btn:hover { transform: translateY(-1px); }
+.btn-lg { --bs-btn-padding-y: 0.9rem; --bs-btn-padding-x: 1.8rem; --bs-btn-font-size: var(--pmc-t-md); }
+
+.btn-primary {
+  --bs-btn-bg: var(--pmc-terracota);
+  --bs-btn-border-color: var(--pmc-terracota);
+  --bs-btn-color: #fff;
+  --bs-btn-hover-bg: var(--pmc-terracota-escura);
+  --bs-btn-hover-border-color: var(--pmc-terracota-escura);
+  --bs-btn-active-bg: var(--pmc-terracota-escura);
+  --bs-btn-active-border-color: var(--pmc-terracota-escura);
+  --bs-btn-disabled-bg: var(--pmc-argila-clara);
+  --bs-btn-disabled-border-color: var(--pmc-argila-clara);
+  box-shadow: var(--pmc-sombra-sm);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--pmc-terracota-escura);
+  --bs-btn-border-color: var(--pmc-terracota);
+  --bs-btn-hover-bg: var(--pmc-terracota);
+  --bs-btn-hover-border-color: var(--pmc-terracota);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--pmc-terracota-escura);
+}
+.btn-outline-secondary {
+  --bs-btn-color: var(--pmc-texto);
+  --bs-btn-border-color: var(--pmc-bege);
+  --bs-btn-hover-bg: var(--pmc-areia);
+  --bs-btn-hover-border-color: var(--pmc-argila-clara);
+  --bs-btn-hover-color: var(--pmc-texto);
+}
+.btn-link { --bs-btn-color: var(--pmc-terracota-escura); --bs-btn-hover-color: var(--pmc-terracota); }
+
+.card {
+  --bs-card-bg: #fff;
+  --bs-card-border-color: var(--pmc-bege);
+  --bs-card-border-radius: var(--pmc-raio-lg);
+  --bs-card-inner-border-radius: calc(var(--pmc-raio-lg) - 1px);
+  --bs-card-spacer-y: var(--pmc-e-5);
+  --bs-card-spacer-x: var(--pmc-e-5);
+  box-shadow: var(--pmc-sombra-sm);
+}
+.card--areia { --bs-card-bg: var(--pmc-areia); }
+
+.form-control, .form-select {
+  --bs-border-color: var(--pmc-bege);
+  background-color: #fff;
+  border-radius: var(--pmc-raio-md);
+  padding: 0.7rem 0.9rem;
+  font-size: var(--pmc-t-md);
+}
+.form-control:focus, .form-select:focus {
+  border-color: var(--pmc-terracota);
+  box-shadow: 0 0 0 0.25rem var(--bs-focus-ring-color);
+}
+.form-label { font-weight: var(--pmc-peso-medio); color: var(--pmc-texto); }
+
+.alert { --bs-alert-border-radius: var(--pmc-raio-md); border-width: 0; }
+.alert-success { --bs-alert-bg: var(--pmc-sucesso-fundo); --bs-alert-color: var(--pmc-sucesso); }
+.alert-warning { --bs-alert-bg: var(--pmc-aviso-fundo);   --bs-alert-color: var(--pmc-aviso); }
+.alert-danger  { --bs-alert-bg: var(--pmc-erro-fundo);    --bs-alert-color: var(--pmc-erro); }
+.alert-info    { --bs-alert-bg: var(--pmc-info-fundo);    --bs-alert-color: var(--pmc-info); }
+
+.badge { --bs-badge-border-radius: var(--pmc-raio-pill); --bs-badge-font-weight: var(--pmc-peso-medio); }
+
+.navbar { --bs-navbar-color: var(--pmc-texto); --bs-navbar-hover-color: var(--pmc-terracota-escura); --bs-navbar-active-color: var(--pmc-terracota-escura); }
+.table { --bs-table-border-color: var(--pmc-bege); --bs-table-striped-bg: var(--pmc-areia); --bs-table-hover-bg: var(--pmc-areia); }
+.modal-content { border-radius: var(--pmc-raio-lg); border-color: var(--pmc-bege); box-shadow: var(--pmc-sombra-lg); }
+
+/* chip de especialidade / lista com marcador orgânico */
+.pmc-chip {
+  display: inline-flex; align-items: center; gap: var(--pmc-e-2);
+  padding: 0.4rem 0.9rem;
+  border-radius: var(--pmc-raio-pill);
+  background: var(--pmc-areia);
+  border: 1px solid var(--pmc-bege);
+  color: var(--pmc-texto);
+  font-size: var(--pmc-t-sm);
+}
+.pmc-chip::before {
+  content: ""; width: 8px; height: 8px; flex: none;
+  border-radius: var(--pmc-raio-organico);
+  background: var(--pmc-salvia);
+}
+
+/* ícone em disco orgânico (passos do "como funciona") */
+.pmc-icone {
+  width: 3.5rem; height: 3.5rem; display: grid; place-items: center;
+  border-radius: var(--pmc-raio-organico);
+  background: var(--pmc-terracota-suave);
+  color: var(--pmc-terracota-escura);
+  font-size: 1.5rem;
+}
+.pmc-icone--salvia { background: var(--pmc-salvia-suave); color: var(--pmc-salvia-escura); }
+
+/* cabeçalho fixo translúcido */
+.pmc-header {
+  position: sticky; top: 0; z-index: 1020;
+  background: color-mix(in srgb, var(--pmc-fundo) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid color-mix(in srgb, var(--pmc-bege) 70%, transparent);
+}
+@supports not (background: color-mix(in srgb, red 50%, transparent)) {
+  .pmc-header { background: rgba(250, 246, 240, 0.92); border-bottom-color: var(--pmc-bege); }
+}
+
+/* foco visível em tudo que é interativo */
+:focus-visible { outline: 3px solid var(--pmc-terracota); outline-offset: 2px; border-radius: var(--pmc-raio-sm); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .btn, .btn:hover { transition: none; transform: none; }
+}

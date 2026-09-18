@@ -2,449 +2,243 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import React from "react";
-import Button from 'react-bootstrap/Button'
+import Button from 'react-bootstrap/Button';
+import Container from 'react-bootstrap/Container';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
+import Navbar from 'react-bootstrap/Navbar';
+import Nav from 'react-bootstrap/Nav';
 import { useAuth } from '@/contexts/AuthContext';
+
+const especialidades = [
+  'Terapia Cognitivo-Comportamental',
+  'Psicoterapia Infantil',
+  'Psicoterapia do Adolescente',
+  'Terapia Familiar',
+  'Transtornos de Ansiedade',
+  'Depressão',
+  'Dificuldades de Aprendizagem',
+];
+
+function OndaBaixo({ cor }: { cor: string }) {
+  return (
+    <div className="pmc-onda" aria-hidden="true">
+      <svg viewBox="0 0 1440 64" preserveAspectRatio="none">
+        <path
+          d="M0,32 C240,64 480,0 720,16 C960,32 1200,64 1440,32 L1440,64 L0,64 Z"
+          fill={cor}
+        />
+      </svg>
+    </div>
+  );
+}
 
 export default function Home() {
   const { usuario, logout } = useAuth();
-  const [screenSize, setScreenSize] = useState('desktop');
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      if (window.innerWidth <= 768) {
-        setScreenSize('mobile');
-      } else if (window.innerWidth <= 1024) {
-        setScreenSize('tablet');
-      } else {
-        setScreenSize('desktop');
-      }
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  const isMobile = screenSize === 'mobile';
-  const isTablet = screenSize === 'tablet';
-  const [isScrolled, setIsScrolled] = useState(false);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 0);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   return (
-    <div style={{ minHeight: '100vh', fontFamily: 'Arial, sans-serif' }}>
+    <div>
       {/* Header */}
-      <div style={{ height: isScrolled ? '6rem' : '0'}}></div>
-      <header style={{ 
-        backgroundColor: '#ffffff', 
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
-        padding: isMobile ? '0.8rem 0' : '0',
-        position: isScrolled ? 'fixed' : 'sticky',
-        top: 0,
-        width: '100%',
-        zIndex: 1000
-      }}>
-        <nav style={{ 
-          maxWidth: '1200px',
-          margin: '0 auto',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: isMobile ? '0 1rem' : '0 2rem',
-          flexDirection: (isMobile && !isScrolled) ? 'column' : 'row',
-          gap: isMobile ? '1rem' : '0'
-        }}>
-          <div style={{ 
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem'
-          }}>
-            <Link href="/">
+      <Navbar expand="md" className="pmc-header" as="header">
+        <Container className="pmc-container">
+          <Navbar.Brand as={Link} href="/">
             <Image
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
-              width={isMobile ? 120 : isTablet ? 140 : 160}
-              height={isScrolled ? (isMobile ? 40 : 53) : (isMobile ? 120 : isTablet ? 140 : 160)}
-              style={{ 
-                objectFit: 'contain',
-                maxWidth: '100%',
-                transition: 'height 0.2s ease-in-out'
-              }}
+              width={140}
+              height={140}
+              style={{ objectFit: 'contain', maxWidth: '100%', height: 'auto' }}
               priority
             />
-            </Link>
-          </div>
-          <div style={{ 
-            display: 'flex',
-            gap: isMobile ? '0.5rem' : '2rem',
-            flexDirection: isMobile ? 'column' : 'row',
-            width: isMobile ? '100%' : 'auto'
-          }}>
-            <Link href="/agendamento">
-            <Button variant="primary" size="lg" style={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}  >
-              Agendar Consulta
-            </Button>
-            </Link>
-            <Link href="/area-restrita">
-              <Button
-                variant="success"
-                size="lg"
-                style={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}
-              >
-                <i className="bi bi-person-lock me-2" />
-                {usuario ? 'Minha área' : 'Área restrita'}
-              </Button>
-            </Link>
-            {usuario && (
-              <Button
-                variant="outline-secondary"
-                size="lg"
-                style={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}
-                onClick={() => logout()}
-              >
-                Sair
-              </Button>
-            )}
-          </div>
-        </nav>
-      </header>
+          </Navbar.Brand>
+          <Navbar.Toggle aria-controls="navbar-principal" />
+          <Navbar.Collapse id="navbar-principal" className="justify-content-end">
+            <Nav className="align-items-md-center gap-2 py-2 py-md-0">
+              <Link href="/agendamento">
+                <Button variant="primary">Agendar consulta</Button>
+              </Link>
+              <Link href="/area-restrita">
+                <Button variant="outline-secondary">
+                  <i className="bi bi-person-lock me-2" />
+                  {usuario ? 'Minha área' : 'Área restrita'}
+                </Button>
+              </Link>
+              {usuario && (
+                <Button variant="outline-secondary" onClick={() => logout()}>
+                  Sair
+                </Button>
+              )}
+            </Nav>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
 
-      {/* About Section */}
-      <section style={{ padding: isMobile ? '2rem 1rem' : '1rem'}}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : isTablet ? '1fr' : '1fr 2fr', 
-            gap: isMobile ? '2rem' : isTablet ? '2.5rem' : '3rem', 
-            alignItems: 'center' 
-          }}>
-            <div>
-              <Image
-                src="/CristinaLivro.jpeg"
-                alt="Psicóloga Maria Cristina"
-                width={400}
-                height={500}
-                style={{ borderRadius: '10px', width: '100%', height: 'auto', maxWidth: (isMobile || isTablet) ? '400px' : '100%', margin: isMobile ? '0 auto' : '0' }}
-              />
-            </div>
-            <div>
-              <h2 style={{ 
-                fontSize: isMobile ? '1.8rem' : isTablet ? '2.2rem' : '2.5rem', 
-                color: '#2c3e50', 
-              }}>
-                Sobre a Psicóloga
-              </h2>
-              <p style={{ 
-                fontSize: isMobile ? '1rem' : isTablet ? '1.05rem' : '1.1rem', 
-                color: '#555', 
-                lineHeight: '1.8', 
-                marginBottom: '1.5rem'
-              }}>
-                Psicóloga clínica com experiência no atendimento de crianças, 
+      {/* Hero */}
+      <section className="pmc-secao">
+        <Container className="pmc-container">
+          <Row className="align-items-center g-5">
+            <Col md={7} className="order-2 order-md-1">
+              <span className="pmc-rotulo">Psicologia clínica · Planaltina-DF e online</span>
+              <h1 className="mt-3">Um lugar para respirar, entender e recomeçar.</h1>
+              <p className="lead">
+                Atendimento psicológico para crianças, adolescentes e adultos, com terapia
+                cognitivo-comportamental e psicoterapia familiar — presencial em Planaltina-DF
+                ou online, no seu tempo.
+              </p>
+              <div className="d-flex flex-wrap gap-3 mt-4">
+                <Link href="/agendamento">
+                  <Button variant="primary" size="lg">Agendar consulta</Button>
+                </Link>
+                <a
+                  href="https://wa.me/5561995391540"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Falar com a psicóloga Maria Cristina pelo WhatsApp"
+                >
+                  <Button variant="outline-primary" size="lg">
+                    <i className="bi bi-whatsapp me-2" />
+                    Falar no WhatsApp
+                  </Button>
+                </a>
+              </div>
+            </Col>
+            <Col md={5} className="order-1 order-md-2">
+              <div className="position-relative">
+                <div className="pmc-mancha pmc-mancha--salvia pmc-mancha--hero" />
+                <div className="pmc-blob pmc-acima">
+                  <Image
+                    src="/CristinaLivro.jpeg"
+                    alt="Psicóloga Maria Cristina sorrindo, segurando um livro"
+                    width={480}
+                    height={560}
+                    style={{ width: '100%', height: 'auto' }}
+                    priority
+                  />
+                </div>
+              </div>
+            </Col>
+          </Row>
+        </Container>
+      </section>
+
+      <OndaBaixo cor="var(--pmc-areia)" />
+
+      {/* Sobre */}
+      <section className="pmc-secao pmc-secao--areia">
+        <Container className="pmc-container">
+          <Row className="align-items-center g-5">
+            <Col md={7}>
+              <span className="pmc-rotulo">Sobre a psicóloga</span>
+              <h2 className="mt-3">Sobre a Psicóloga</h2>
+              <p>
+                Psicóloga clínica com experiência no atendimento de crianças,
                 adolescentes e adultos. Terapia cognitivo-comportamental e psicoterapia familiar.
               </p>
-              <div style={{ marginBottom: '1.5rem' }}>
-                <h3 style={{ 
-                  color: '#2c3e50', 
-                  marginBottom: '1rem',
-                  fontSize: isMobile ? '1.2rem' : '1.3rem',
-                  textAlign: 'left'
-                }}>
-                  Especialidades:
-                </h3>
-                <ul style={{ 
-                  listStyle: 'none', 
-                  padding: 0,
-                  maxWidth: isMobile ? '300px' : '100%',
-                  margin: '0'
-                }}>
-                  {[
-                    'Terapia Cognitivo-Comportamental',
-                    'Psicoterapia Infantil',
-                    'Psicoterapia do Adolescente',
-                    'Terapia Familiar',
-                    'Transtornos de Ansiedade',
-                    'Depressão',
-                    'Dificuldades de Aprendizagem'
-                  ].map(especialidade => (
-                    <li key={especialidade} style={{ 
-                      padding: '0.5rem 0', 
-                      borderBottom: '1px solid #ecf0f1',
-                      color: '#555',
-                      fontSize: isMobile ? '0.9rem' : '1rem'
-                    }}>
-                      ✓ {especialidade}
-                    </li>
-                  ))}
-                </ul>
+              <div className="d-flex flex-wrap gap-2 mt-4">
+                {especialidades.map((especialidade) => (
+                  <span key={especialidade} className="pmc-chip">
+                    {especialidade}
+                  </span>
+                ))}
               </div>
-            </div>
-          </div>
-        </div>
+            </Col>
+            <Col md={5} className="d-none d-md-block">
+              <div className="pmc-blob">
+                <Image
+                  src="/CristinaVestido.jpeg"
+                  alt="Psicóloga Maria Cristina em pé, sorrindo"
+                  width={400}
+                  height={480}
+                  style={{ width: '100%', height: 'auto' }}
+                />
+              </div>
+            </Col>
+          </Row>
+        </Container>
       </section>
 
-      {/* Services Section */}
-      <section style={{ backgroundColor: '#f8f9fa', padding: isMobile ? '2rem 1rem' : isTablet ? '3rem 1.5rem' : '4rem 2rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ 
-            fontSize: isMobile ? '1.8rem' : isTablet ? '2.2rem' : '2.5rem', 
-            color: '#2c3e50', 
-            marginBottom: isMobile ? '2rem' : '3rem' 
-          }}>
-            Como Funciona
-          </h2>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', 
-            gap: isMobile ? '1.5rem' : '2rem' 
-          }}>
-            <div style={{ 
-              backgroundColor: 'white', 
-              padding: isMobile ? '1.5rem' : '2rem', 
-              borderRadius: '10px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-            }}>
-              <div style={{ 
-                width: isMobile ? '50px' : '60px', 
-                height: isMobile ? '50px' : '60px', 
-                backgroundColor: '#3498db', 
-                borderRadius: '50%', 
-                margin: '0 auto 1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: isMobile ? '1.2rem' : '1.5rem',
-                color: 'white'
-              }}>
-                1
+      <OndaBaixo cor="var(--pmc-fundo)" />
+
+      {/* Como funciona */}
+      <section className="pmc-secao">
+        <Container className="pmc-container text-center">
+          <h2>Como Funciona</h2>
+          <Row className="g-4 mt-2">
+            <Col md={4}>
+              <div className="pmc-icone mx-auto mb-3">
+                <i className="bi bi-calendar-check" />
               </div>
-              <h3 style={{ 
-                color: '#2c3e50', 
-                marginBottom: '1rem',
-                fontSize: isMobile ? '1.1rem' : '1.2rem'
-              }}>
-                Agendamento Online
-              </h3>
-              <p style={{ 
-                color: '#666', 
-                lineHeight: '1.6',
-                fontSize: isMobile ? '0.9rem' : '1rem'
-              }}>
+              <span className="pmc-rotulo">Passo 1</span>
+              <h3>Agendamento Online</h3>
+              <p className="mx-auto">
                 Escolha o dia e horário disponível que melhor se adequa à sua rotina.
               </p>
-              <i className="bi bi-calendar-check" style={{ fontSize: isMobile ? '4rem' : '5rem', color: '#3498db', marginTop: '1rem' }}></i>
-            </div>
-            
-            <div style={{ 
-              backgroundColor: 'white', 
-              padding: isMobile ? '1.5rem' : '2rem', 
-              borderRadius: '10px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-            }}>
-              <div style={{ 
-                width: isMobile ? '50px' : '60px', 
-                height: isMobile ? '50px' : '60px', 
-                backgroundColor: '#27ae60', 
-                borderRadius: '50%', 
-                margin: '0 auto 1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: isMobile ? '1.2rem' : '1.5rem',
-                color: 'white'
-              }}>
-                2
+            </Col>
+            <Col md={4}>
+              <div className="pmc-icone mx-auto mb-3">
+                <i className="bi bi-whatsapp" />
               </div>
-              <h3 style={{ 
-                color: '#2c3e50', 
-                marginBottom: '1rem',
-                fontSize: isMobile ? '1.1rem' : '1.2rem'
-              }}>
-                Confirmação
-              </h3>
-              <p style={{ 
-                color: '#666', 
-                lineHeight: '1.6',
-                fontSize: isMobile ? '0.9rem' : '1rem'
-              }}>
+              <span className="pmc-rotulo">Passo 2</span>
+              <h3>Confirmação</h3>
+              <p className="mx-auto">
                 Receba a confirmação do agendamento no whatsapp.
               </p>
-              <i className="bi bi-chat-dots" style={{ fontSize: isMobile ? '4rem' : '5rem', color: '#27ae60', marginTop: '1rem' }}></i>
-            </div>
-            
-            <div style={{ 
-              backgroundColor: 'white', 
-              padding: isMobile ? '1.5rem' : '2rem', 
-              borderRadius: '10px',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-              gridColumn: isMobile ? '1' : isTablet ? 'span 2' : 'span 1'
-              }}>
-              <div style={{ 
-                width: isMobile ? '50px' : '60px', 
-                height: isMobile ? '50px' : '60px', 
-                backgroundColor: '#e74c3c', 
-                borderRadius: '50%', 
-                margin: '0 auto 1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: isMobile ? '1.2rem' : '1.5rem',
-                color: 'white'
-              }}>
-                3
+            </Col>
+            <Col md={4}>
+              <div className="pmc-icone mx-auto mb-3">
+                <i className="bi bi-camera-video" />
               </div>
-              <h3 style={{ 
-                color: '#2c3e50', 
-                marginBottom: '1rem',
-                fontSize: isMobile ? '1.1rem' : '1.2rem'
-              }}>
-                Consulta Online / Presencial
-              </h3>
-              <p style={{ 
-                color: '#666', 
-                lineHeight: '1.6',
-                fontSize: isMobile ? '0.9rem' : '1rem'
-              }}>
-                Participe da consulta no horário agendado via Google Meet.<br /> OU <br />Compareça ao consultório para atendimento presencial.
+              <span className="pmc-rotulo">Passo 3</span>
+              <h3>Consulta Online / Presencial</h3>
+              <p className="mx-auto">
+                Participe da consulta no horário agendado via Google Meet.<br /> OU <br />
+                Compareça ao consultório para atendimento presencial.
               </p>
-            <Link href="/agendamento">
-              <Button variant="outline-danger" size="lg" style={{ marginTop: '1rem', fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}  >
-                <i className="bi bi-calendar-plus" style={{ marginRight: '0.5rem' }}></i>
-                Agendar Consulta
-              </Button>
-            </Link>
-            </div>
-          </div>
-        </div>
+            </Col>
+          </Row>
+          <Link href="/agendamento">
+            <Button variant="primary" size="lg" className="mt-5">
+              <i className="bi bi-calendar-plus me-2" />
+              Agendar Consulta
+            </Button>
+          </Link>
+        </Container>
       </section>
 
-      {/* Contact Section */}
-      {/* <section style={{ padding: isMobile ? '2rem 1rem' : isTablet ? '3rem 1.5rem' : '4rem 2rem' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'center' }}>
-          <h2 style={{ 
-            fontSize: isMobile ? '1.8rem' : isTablet ? '2.2rem' : '2.5rem', 
-            color: '#2c3e50', 
-            marginBottom: '2rem' 
-          }}>
-            Contato
-          </h2>
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', 
-            gap: isMobile ? '1.5rem' : '2rem' 
-          }}>
-            <div style={{ 
-              padding: isMobile ? '1rem' : '1.5rem',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '10px'
-            }}>
-              <h3 style={{ 
-                color: '#2c3e50', 
-                marginBottom: '1rem',
-                fontSize: isMobile ? '1.1rem' : '1.2rem'
-              }}>
-                Email
-              </h3>
-              <p style={{ 
-                color: '#666',
-                fontSize: isMobile ? '0.9rem' : '1rem',
-                wordBreak: 'break-word'
-              }}>
-                mariacriscassia02@gmail.com
-              </p>
-            </div>
-            <div style={{ 
-              padding: isMobile ? '1rem' : '1.5rem',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '10px'
-            }}>
-              <h3 style={{ 
-                color: '#2c3e50', 
-                marginBottom: '1rem',
-                fontSize: isMobile ? '1.1rem' : '1.2rem'
-              }}>
-                Telefone
-              </h3>
-              <p style={{ 
-                color: '#666',
-                fontSize: isMobile ? '0.9rem' : '1rem'
-              }}>
-                (61) 99539-1540
-              </p>
-            </div>
-            <div style={{ 
-              padding: isMobile ? '1rem' : '1.5rem',
-              backgroundColor: '#f8f9fa',
-              borderRadius: '10px',
-              gridColumn: isMobile ? '1' : isTablet ? 'span 2' : '3'
-            }}>
-              <h3 style={{ 
-                color: '#2c3e50', 
-                marginBottom: '1rem',
-                fontSize: isMobile ? '1.1rem' : '1.2rem'
-              }}>
-                Valor da Consulta
-              </h3>
-              <p style={{ 
-                color: '#85BB65', 
-                fontSize: isMobile ? '1.1rem' : '1.2rem', 
-                fontWeight: '600' 
-              }}>
-                R$ 150,00
-              </p>
-            </div>
-          </div>
-        </div>
-      </section> */}
-
       {/* Footer */}
-      <footer style={{ 
-        backgroundColor: '#2c3e50', 
-        color: 'white', 
-        padding: isMobile ? '1.5rem 1rem' : '2rem', 
-        textAlign: 'center' 
-      }}>
-          {/* CONTATO E ENDEREÇO BOOTSTRAP COM PREVIEW map GOOGLE MAPS https://maps.app.goo.gl/QPZNEDAxiE5qVB7x6 */}
-        <address>
-          <ul className="list-unstyled">
-            <li>Telefone: <a href="tel:+5561995391540" style={{ color: 'white', textDecoration: 'underline' }}>(61) 99539-1540</a></li>
-            <li>Email: <a href="mailto:mariacriscassia02@gmail.com" style={{ color: 'white', textDecoration: 'underline' }}>mariacriscassia02@gmail.com</a></li>
-            <iframe src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d246113.82756486596!2d-47.603239!3d-15.455976!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x935a133ab4a4a4dd%3A0x5f4b18fb11591ca3!2sPlanaltina%2C%20Bras%C3%ADlia%20-%20DF!5e0!3m2!1spt-BR!2sbr!4v1789690332483!5m2!1spt-BR!2sbr"
-              width={isMobile ? "250" : "400"}
-              height={isMobile ? "150" : "200"}
-              style={{ border: 0, marginTop: '1rem' }}
-              allowFullScreen={true}
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-            ></iframe>
-          </ul>
-        </address>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-          <p style={{ 
-            margin: 0, 
-            fontSize: isMobile ? '0.9rem' : '1rem',
-            lineHeight: '1.4'
-          }}>
+      <footer className="pmc-secao pmc-secao--escura">
+        <Container className="pmc-container">
+          <Row className="g-5">
+            <Col md={5}>
+              <h3>Contato</h3>
+              <address className="mb-0">
+                <p className="mb-2">
+                  <i className="bi bi-telephone me-2" />
+                  <a href="tel:+5561995391540">(61) 99539-1540</a>
+                </p>
+                <p className="mb-3">
+                  <i className="bi bi-envelope me-2" />
+                  <a href="mailto:mariacriscassia02@gmail.com">mariacriscassia02@gmail.com</a>
+                </p>
+              </address>
+              <p className="mb-0">Atendimento online • Crianças, Adolescentes e Adultos</p>
+            </Col>
+            <Col md={7}>
+              <div className="pmc-mapa ratio ratio-16x9">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d246113.82756486596!2d-47.603239!3d-15.455976!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x935a133ab4a4a4dd%3A0x5f4b18fb11591ca3!2sPlanaltina%2C%20Bras%C3%ADlia%20-%20DF!5e0!3m2!1spt-BR!2sbr!4v1789690332483!5m2!1spt-BR!2sbr"
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Localização do consultório em Planaltina-DF"
+                />
+              </div>
+            </Col>
+          </Row>
+          <p className="text-center mt-5 mb-0">
             © {new Date().getFullYear()} Psicóloga Maria Cristina - Todos os direitos reservados
           </p>
-          <p style={{ 
-            margin: '0.5rem 0 0 0', 
-            fontSize: isMobile ? '0.8rem' : '0.9rem', 
-            opacity: 0.8,
-            lineHeight: '1.4'
-          }}>
-            Atendimento online • Crianças, Adolescentes e Adultos
-          </p>
-        </div>
+        </Container>
       </footer>
     </div>
   );
