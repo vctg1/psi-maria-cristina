@@ -7,7 +7,6 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
-import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
@@ -208,16 +207,17 @@ export default function DetalhePacientePage() {
 
   return (
     <LayoutPsicologa>
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+      <div className="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
         <div>
-          <h1 className="h3 mb-1">{paciente.nome}</h1>
+          <span className="pmc-rotulo">Área da psicóloga</span>
+          <h1 className="h3 mb-1 mt-1">{paciente.nome}</h1>
           <div>
             {paciente.primeiroAcessoPendente && (
-              <Badge bg="warning" text="dark" className="me-2">
-                Primeiro acesso pendente
-              </Badge>
+              <span className="pmc-badge-aviso me-2">Primeiro acesso pendente</span>
             )}
-            <Badge bg={paciente.ativo ? 'success' : 'secondary'}>{paciente.ativo ? 'Ativo' : 'Inativo'}</Badge>
+            <span className={paciente.ativo ? 'pmc-badge-ok' : 'pmc-badge-neutro'}>
+              {paciente.ativo ? 'Ativo' : 'Inativo'}
+            </span>
           </div>
         </div>
         <div className="d-flex align-items-center gap-3 flex-wrap">
@@ -243,6 +243,7 @@ export default function DetalhePacientePage() {
 
       <Card className="mb-4">
         <Card.Body>
+          <span className="pmc-rotulo d-block mb-3">Dados de contato</span>
           <Row>
             <Col md={4}>
               <strong>CPF:</strong> {paciente.cpf ?? 'Não informado'}
@@ -276,13 +277,13 @@ export default function DetalhePacientePage() {
           <Modal.Title>Link gerado</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p className="text-break mb-0">{modalLink?.link}</p>
+          <Form.Control readOnly value={modalLink?.link ?? ''} />
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={copiarLink}>
             Copiar
           </Button>
-          <Button variant="success" onClick={enviarWhatsapp}>
+          <Button variant="primary" onClick={enviarWhatsapp}>
             <i className="bi bi-whatsapp me-2" />
             Enviar por WhatsApp
           </Button>

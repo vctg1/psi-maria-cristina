@@ -136,6 +136,7 @@ export default function PacienteForm({
 
   return (
     <Form onSubmit={handleSubmit} noValidate>
+      <span className="pmc-rotulo d-block mb-3">Dados pessoais</span>
       <Row>
         <Col md={6}>
           <Form.Group className="mb-3" controlId="pacienteNome">
@@ -198,6 +199,8 @@ export default function PacienteForm({
       </Row>
 
       {menorDeIdade && (
+        <>
+        <span className="pmc-rotulo d-block mb-3">Responsável</span>
         <Row>
           <Col md={6}>
             <Form.Group className="mb-3" controlId="pacienteResponsavel">
@@ -222,10 +225,12 @@ export default function PacienteForm({
             </Form.Group>
           </Col>
         </Row>
+        </>
       )}
 
       {mostrarObservacoes && (
         <Form.Group className="mb-3" controlId="pacienteObservacoes">
+          <span className="pmc-rotulo d-block mb-2">Observações</span>
           <Form.Label>Observações</Form.Label>
           <Form.Control
             as="textarea"
@@ -239,6 +244,8 @@ export default function PacienteForm({
       )}
 
       {mostrarSenha && (
+        <>
+        <span className="pmc-rotulo d-block mb-3">Acesso</span>
         <Row>
           <Col md={6}>
             <Form.Group className="mb-3" controlId="pacienteSenha">
@@ -265,6 +272,7 @@ export default function PacienteForm({
             </Form.Group>
           </Col>
         </Row>
+        </>
       )}
 
       <div className="d-grid d-md-flex justify-content-md-end">

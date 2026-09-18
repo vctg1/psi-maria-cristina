@@ -60,5 +60,8 @@ Todos os pares texto/fundo acima cumprem WCAG AA (4.5:1) para texto normal. Tons
 
 ## Status
 
-- Etapa 1 (esta): tokens + home (`src/app/page.tsx`) como tela de referência.
-- Etapa 2 (após aprovação): login, área da psicóloga, cadastro, primeiro acesso, agendamento — só com estas classes e tokens.
+- Etapa 1: tokens + home (`src/app/page.tsx`) como tela de referência. ✔
+- Etapa 2: login, primeiro acesso/redefinição, área da psicóloga (layout, lista, cadastro, detalhe), agendamento público, componentes compartilhados (`CalendarioAgendamento`, `Loading`, `NotificacaoProvider` → Toast, `ModalConfirmacao` → Modal). `globals.css` reduzido ao reset; `page.module.css` removido. ✔
+- Fora do tema por enquanto (fluxo legado a ser reescrito nas Fases 4/5): `CheckoutTransparente`, `GerenciadorConsultas`, `Calendario`. Ao reescrever, usar só `tema.css`.
+
+Classes adicionadas na Etapa 2: `.pmc-auth`, `.pmc-auth-card`, `.pmc-auth-logo`, `.pmc-texto-2`, `.pmc-area-conteudo`, `.pmc-tabela`, `.pmc-badge-aviso` / `-ok` / `-neutro`.

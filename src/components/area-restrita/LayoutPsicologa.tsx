@@ -7,6 +7,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Navbar from 'react-bootstrap/Navbar';
 import Nav from 'react-bootstrap/Nav';
+import Badge from 'react-bootstrap/Badge';
+import Button from 'react-bootstrap/Button';
 import Container from 'react-bootstrap/Container';
 import Spinner from 'react-bootstrap/Spinner';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,14 +32,15 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
     return (
       <Container className="py-5 text-center">
         <Spinner animation="border" role="status" />
+        <p className="pmc-texto-2 mt-3 mb-0">Carregando…</p>
       </Container>
     );
   }
 
   return (
     <>
-      <Navbar bg="white" expand="md" className="shadow-sm mb-4">
-        <Container>
+      <Navbar expand="md" className="pmc-header mb-4" as="header">
+        <Container className="pmc-container">
           <Navbar.Brand as={Link} href="/area-restrita/pacientes">
             <Image
               src="/maria-cristina-logo.png"
@@ -54,13 +57,20 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
                 Pacientes
               </Nav.Link>
             </Nav>
-            <Nav>
-              <Nav.Link onClick={() => logout()}>Sair</Nav.Link>
+            <Nav className="align-items-md-center gap-2">
+              <Badge bg="light" text="dark" className="align-self-center">
+                Psicóloga
+              </Badge>
+              <Button variant="outline-secondary" size="sm" onClick={() => logout()}>
+                Sair
+              </Button>
             </Nav>
           </Navbar.Collapse>
         </Container>
       </Navbar>
-      <Container className="pb-5">{children}</Container>
+      <Container className="pmc-container pmc-area-conteudo">
+        {children}
+      </Container>
     </>
   );
 }

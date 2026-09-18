@@ -4,8 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Table from 'react-bootstrap/Table';
 import Form from 'react-bootstrap/Form';
+import Card from 'react-bootstrap/Card';
 import Button from 'react-bootstrap/Button';
-import Badge from 'react-bootstrap/Badge';
 import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import Modal from 'react-bootstrap/Modal';
@@ -106,8 +106,11 @@ export default function ListaPacientesPage() {
 
   return (
     <LayoutPsicologa>
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
-        <h1 className="h3 mb-0">Pacientes</h1>
+      <div className="d-flex justify-content-between align-items-end flex-wrap gap-3 mb-4">
+        <div>
+          <span className="pmc-rotulo">Área da psicóloga</span>
+          <h1 className="h3 mb-0 mt-1">Pacientes</h1>
+        </div>
         <Button variant="primary" onClick={() => router.push('/area-restrita/pacientes/novo')}>
           <i className="bi bi-plus-lg me-2" />
           Novo paciente
@@ -132,65 +135,71 @@ export default function ListaPacientesPage() {
           <Spinner animation="border" role="status" />
         </div>
       ) : (
-        <Table responsive hover>
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Telefone</th>
-              <th>E-mail</th>
-              <th>Status</th>
-              <th>Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {pacientes.length === 0 && (
-              <tr>
-                <td colSpan={5} className="text-center text-muted py-4">
-                  Nenhum paciente encontrado.
-                </td>
-              </tr>
-            )}
-            {pacientes.map((paciente) => (
-              <tr
-                key={paciente.id}
-                onClick={() => router.push(`/area-restrita/pacientes/${paciente.id}`)}
-                style={{ cursor: 'pointer' }}
-              >
-                <td>{paciente.nome}</td>
-                <td>{paciente.telefone}</td>
-                <td>{paciente.email}</td>
-                <td>
-                  {paciente.primeiroAcessoPendente && (
-                    <Badge bg="warning" text="dark">
-                      Primeiro acesso pendente
-                    </Badge>
-                  )}
-                  {!paciente.ativo && (
-                    <Badge bg="secondary" className="ms-1">
-                      Inativo
-                    </Badge>
-                  )}
-                </td>
-                <td onClick={(e) => e.stopPropagation()}>
-                  {paciente.primeiroAcessoPendente && (
-                    <Button
-                      size="sm"
-                      variant="outline-primary"
-                      disabled={gerandoLinkId === paciente.id}
-                      onClick={() => gerarLink(paciente)}
+        <Card>
+          <Card.Body className="p-0">
+            {pacientes.length === 0 ? (
+              <div className="text-center py-5">
+                <div className="pmc-icone pmc-icone--salvia mx-auto mb-3">
+                  <i className="bi bi-people" />
+                </div>
+                <p className="pmc-texto-2 mb-3">Nenhum paciente cadastrado ainda.</p>
+                <Button variant="primary" onClick={() => router.push('/area-restrita/pacientes/novo')}>
+                  <i className="bi bi-plus-lg me-2" />
+                  Cadastrar primeiro paciente
+                </Button>
+              </div>
+            ) : (
+              <Table responsive hover className="pmc-tabela mb-0">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Telefone</th>
+                    <th>E-mail</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pacientes.map((paciente) => (
+                    <tr
+                      key={paciente.id}
+                      role="button"
+                      onClick={() => router.push(`/area-restrita/pacientes/${paciente.id}`)}
                     >
-                      {gerandoLinkId === paciente.id ? (
-                        <Spinner animation="border" size="sm" />
-                      ) : (
-                        'Gerar link de acesso'
-                      )}
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </Table>
+                      <td className="pmc-col-nome">{paciente.nome}</td>
+                      <td>{paciente.telefone}</td>
+                      <td>{paciente.email}</td>
+                      <td>
+                        {paciente.primeiroAcessoPendente && (
+                          <span className="pmc-badge-aviso">Primeiro acesso pendente</span>
+                        )}
+                        {!paciente.ativo && (
+                          <span className="pmc-badge-neutro ms-1">Inativo</span>
+                        )}
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        {paciente.primeiroAcessoPendente && (
+                          <Button
+                            size="sm"
+                            variant="outline-primary"
+                            disabled={gerandoLinkId === paciente.id}
+                            onClick={() => gerarLink(paciente)}
+                          >
+                            {gerandoLinkId === paciente.id ? (
+                              <Spinner animation="border" size="sm" />
+                            ) : (
+                              'Gerar link de acesso'
+                            )}
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </Table>
+            )}
+          </Card.Body>
+        </Card>
       )}
 
       <Modal show={modalLink !== null} onHide={() => setModalLink(null)} centered>
@@ -198,13 +207,13 @@ export default function ListaPacientesPage() {
           <Modal.Title>Link de acesso</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p className="text-break mb-0">{modalLink?.link}</p>
+          <Form.Control readOnly value={modalLink?.link ?? ''} />
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={copiarLink}>
             Copiar
           </Button>
-          <Button variant="success" onClick={enviarWhatsapp}>
+          <Button variant="primary" onClick={enviarWhatsapp}>
             <i className="bi bi-whatsapp me-2" />
             Enviar por WhatsApp
           </Button>

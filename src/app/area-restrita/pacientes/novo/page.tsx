@@ -94,7 +94,10 @@ export default function NovoPacientePage() {
 
   return (
     <LayoutPsicologa>
-      <h1 className="h3 mb-4">Novo paciente</h1>
+      <div className="mb-4">
+        <span className="pmc-rotulo">Área da psicóloga</span>
+        <h1 className="h3 mb-0 mt-1">Novo paciente</h1>
+      </div>
       {erro && <Alert variant="danger">{erro}</Alert>}
       <Card>
         <Card.Body>
@@ -122,7 +125,7 @@ export default function NovoPacientePage() {
               {gerandoLink ? 'Gerando...' : 'Gerar link de primeiro acesso'}
             </Button>
           ) : (
-            <Button variant="success" onClick={enviarWhatsapp}>
+            <Button variant="primary" onClick={enviarWhatsapp}>
               <i className="bi bi-whatsapp me-2" />
               Enviar por WhatsApp
             </Button>

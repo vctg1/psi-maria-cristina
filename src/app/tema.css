@@ -350,6 +350,54 @@ a { text-underline-offset: 0.15em; }
   .pmc-header { background: rgba(250, 246, 240, 0.92); border-bottom-color: var(--pmc-bege); }
 }
 
+/* ============================================================================
+   AUTENTICAÇÃO · login, primeiro acesso, redefinição de senha (Etapa 2A)
+   ========================================================================== */
+.pmc-auth {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: var(--pmc-secao-y) var(--pmc-gutter);
+  position: relative;
+  overflow: hidden;
+}
+.pmc-auth-card {
+  width: 100%;
+  max-width: 440px;
+}
+.pmc-auth-logo {
+  display: block;
+  margin-inline: auto;
+}
+.pmc-texto-2 { color: var(--pmc-texto-2); }
+.pmc-area-conteudo { padding-block: var(--pmc-e-7); }
+
+/* ============================================================================
+   ÁREA DA PSICÓLOGA · tabela de pacientes e badges de status (Etapa 2A)
+   ========================================================================== */
+.pmc-tabela th {
+  color: var(--pmc-texto-2);
+  text-transform: uppercase;
+  font-size: var(--pmc-t-xs);
+  letter-spacing: var(--pmc-rastreio-rotulo);
+  font-weight: var(--pmc-peso-medio);
+  border-bottom-width: 1px;
+}
+.pmc-tabela td { vertical-align: middle; }
+.pmc-tabela td.pmc-col-nome { font-weight: var(--pmc-peso-medio); }
+.pmc-tabela tr[role="button"] { cursor: pointer; }
+
+.pmc-badge-aviso, .pmc-badge-ok, .pmc-badge-neutro {
+  display: inline-block;
+  border-radius: var(--pmc-raio-pill);
+  font-weight: var(--pmc-peso-medio);
+  font-size: var(--pmc-t-xs);
+  padding: 0.35em 0.75em;
+}
+.pmc-badge-aviso  { background: var(--pmc-aviso-fundo);   color: var(--pmc-aviso); }
+.pmc-badge-ok     { background: var(--pmc-sucesso-fundo); color: var(--pmc-sucesso); }
+.pmc-badge-neutro { background: var(--pmc-bege);          color: var(--pmc-texto-2); }
+
 /* foco visível em tudo que é interativo */
 :focus-visible { outline: 3px solid var(--pmc-terracota); outline-offset: 2px; border-radius: var(--pmc-raio-sm); }
 

@@ -5,8 +5,10 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Container from 'react-bootstrap/Container';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
+import Card from 'react-bootstrap/Card';
 import Spinner from 'react-bootstrap/Spinner';
-import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -29,20 +31,32 @@ export default function AreaRestritaPage() {
     return (
       <Container className="py-5 text-center">
         <Spinner animation="border" role="status" />
+        <p className="pmc-texto-2 mt-3 mb-0">Carregando…</p>
       </Container>
     );
   }
 
   return (
-    <Container className="py-5">
-      <Alert variant="info" className="text-center">
-        Área do paciente em construção.
-      </Alert>
-      <div className="text-center">
-        <Button variant="outline-secondary" onClick={() => logout()}>
-          Sair
-        </Button>
-      </div>
+    <Container className="pmc-container py-5">
+      <Row className="justify-content-center">
+        <Col xs={12} md={8} lg={6}>
+          <Card className="text-center">
+            <Card.Body>
+              <div className="pmc-icone pmc-icone--salvia mx-auto mb-3">
+                <i className="bi bi-hourglass-split" />
+              </div>
+              <span className="pmc-rotulo">Área do paciente</span>
+              <h1 className="h3 mt-2">Sua área está sendo preparada.</h1>
+              <p className="pmc-texto-2 mb-4">
+                Em breve você poderá acompanhar suas consultas por aqui.
+              </p>
+              <Button variant="outline-secondary" onClick={() => logout()}>
+                Sair
+              </Button>
+            </Card.Body>
+          </Card>
+        </Col>
+      </Row>
     </Container>
   );
 }

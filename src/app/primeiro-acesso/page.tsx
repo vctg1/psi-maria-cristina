@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import Container from 'react-bootstrap/Container';
-import Row from 'react-bootstrap/Row';
-import Col from 'react-bootstrap/Col';
 import Card from 'react-bootstrap/Card';
 import Alert from 'react-bootstrap/Alert';
+import Button from 'react-bootstrap/Button';
 import DefinirSenhaForm from '@/components/DefinirSenhaForm';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -53,26 +53,43 @@ export default function PrimeiroAcessoPage() {
   };
 
   return (
-    <Container className="py-5">
-      <Row className="justify-content-center">
-        <Col xs={12} sm={10} md={6} lg={5}>
-          <Card>
-            <Card.Body>
-              <Card.Title className="mb-4 text-center">Primeiro acesso</Card.Title>
-              {erro && <Alert variant="danger">{erro}</Alert>}
-              {prontoParaLer && !token ? (
-                <Alert variant="warning" className="mb-0">
-                  Link inválido. Peça um novo link à psicóloga.
-                </Alert>
-              ) : (
-                prontoParaLer && (
-                  <DefinirSenhaForm onSubmit={handleSubmit} enviando={enviando} rotulo="Definir senha" />
-                )
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-    </Container>
+    <div className="pmc-auth">
+      <div className="pmc-mancha pmc-mancha--salvia" style={{ top: '-8%', left: '-10%', width: '46%', aspectRatio: 1 }} aria-hidden="true" />
+      <div className="pmc-mancha" style={{ bottom: '-10%', right: '-8%', width: '40%', aspectRatio: 1 }} aria-hidden="true" />
+      <Card className="pmc-auth-card pmc-acima">
+        <Card.Body>
+          <Image
+            src="/maria-cristina-logo.png"
+            alt="Psicóloga Maria Cristina"
+            width={72}
+            height={72}
+            className="pmc-auth-logo mb-3"
+            style={{ objectFit: 'contain' }}
+          />
+          <div className="text-center">
+            <span className="pmc-rotulo">Primeiro acesso</span>
+            <h1 className="h3 mt-2">Crie sua senha.</h1>
+            <p className="mb-4 pmc-texto-2">
+              Defina uma senha para acessar sua área do paciente.
+            </p>
+          </div>
+          {erro && <Alert variant="danger">{erro}</Alert>}
+          {prontoParaLer && !token ? (
+            <Alert variant="warning" className="mb-0">
+              Link inválido. Peça um novo link à psicóloga.
+            </Alert>
+          ) : (
+            prontoParaLer && (
+              <DefinirSenhaForm onSubmit={handleSubmit} enviando={enviando} rotulo="Definir senha" />
+            )
+          )}
+          <div className="text-center mt-3">
+            <Link href="/">
+              <Button variant="link" size="sm">Voltar ao início</Button>
+            </Link>
+          </div>
+        </Card.Body>
+      </Card>
+    </div>
   );
 }

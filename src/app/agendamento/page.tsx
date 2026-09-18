@@ -1,11 +1,16 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import Container from 'react-bootstrap/Container';
+import Row from 'react-bootstrap/Row';
+import Col from 'react-bootstrap/Col';
+import Card from 'react-bootstrap/Card';
+import Form from 'react-bootstrap/Form';
+import Button from 'react-bootstrap/Button';
+import Navbar from 'react-bootstrap/Navbar';
 import CalendarioAgendamento from '@/components/CalendarioAgendamento';
-import Button from 'react-bootstrap/esm/Button';
 
 interface HorarioDisponivel {
   id: string;
@@ -14,33 +19,25 @@ interface HorarioDisponivel {
   tipo: string;
 }
 
+interface AgendamentoRealizado {
+  consulta: { id: string; data: string; hora: string };
+  paciente: { nome: string };
+  acessoAreaRestrita: { email: string; senha: string };
+}
+
+const passos = [
+  { numero: 1, rotulo: 'Horário', icone: 'bi-calendar-check' },
+  { numero: 2, rotulo: 'Seus dados', icone: 'bi-person-vcard' },
+  { numero: 3, rotulo: 'Confirmação', icone: 'bi-check-circle' },
+];
+
 export default function AgendamentoPage() {
   const [step, setStep] = useState(1);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [availableTimes, setAvailableTimes] = useState<HorarioDisponivel[]>([]);
+  const [, setAvailableTimes] = useState<HorarioDisponivel[]>([]);
   const [loading, setLoading] = useState(false);
-  const [agendamentoRealizado, setAgendamentoRealizado] = useState<any>(null);
-  const [screenSize, setScreenSize] = useState('desktop');
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      if (window.innerWidth <= 768) {
-        setScreenSize('mobile');
-      } else if (window.innerWidth <= 1024) {
-        setScreenSize('tablet');
-      } else {
-        setScreenSize('desktop');
-      }
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  const isMobile = screenSize === 'mobile';
-  const isTablet = screenSize === 'tablet';
+  const [agendamentoRealizado, setAgendamentoRealizado] = useState<AgendamentoRealizado | null>(null);
 
   const [formData, setFormData] = useState({
     nome: '',
@@ -56,26 +53,6 @@ export default function AgendamentoPage() {
   });
 
   const [errors, setErrors] = useState<{[key: string]: string}>({});
-
-  // Gerar próximos 30 dias úteis (incluindo sábados)
-  const generateAvailableDates = () => {
-    const dates = [];
-    const today = new Date();
-    
-    for (let i = 1; i <= 30; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      
-      // Pular apenas domingos (domingo = 0)
-      if (date.getDay() !== 0) {
-        dates.push(date.toISOString().split('T')[0]);
-      }
-    }
-    
-    return dates;
-  };
-
-  const availableDates = generateAvailableDates();
 
   // Buscar horários disponíveis para a data selecionada
   useEffect(() => {
@@ -122,7 +99,7 @@ export default function AgendamentoPage() {
     const birthDate = new Date(formData.dataNascimento);
     const today = new Date();
     const age = today.getFullYear() - birthDate.getFullYear();
-    
+
     if (age < 18) {
       if (!formData.responsavel) newErrors.responsavel = 'Nome do responsável é obrigatório para menores de idade';
       if (!formData.telefoneResponsavel) newErrors.telefoneResponsavel = 'Telefone do responsável é obrigatório para menores de idade';
@@ -134,7 +111,7 @@ export default function AgendamentoPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
 
     // try {
@@ -183,470 +160,328 @@ export default function AgendamentoPage() {
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target; 
+    const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
-    
+
     // Limpar erro do campo quando usuário começar a digitar
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));
     }
   };
 
+  const menorDeIdade = Boolean(
+    formData.dataNascimento &&
+    new Date().getFullYear() - new Date(formData.dataNascimento).getFullYear() < 18
+  );
+
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa', fontFamily: 'Arial, sans-serif' }}>
+    <div>
       {/* Header */}
-      <header style={{ 
-        backgroundColor: '#ffffff', 
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)', 
-        padding: '0' 
-      }}>
-        <nav style={{ 
-          maxWidth: '1200px', 
-          margin: '0 auto', 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center',
-          padding: isMobile ? '0 1rem' : '0 2rem'
-        }}>
-          <Link href="/" style={{ 
-            display: 'flex',
-            alignItems: 'center',
-            textDecoration: 'none'
-          }}>
+      <Navbar expand="md" className="pmc-header" as="header">
+        <Container className="pmc-container justify-content-center">
+          <Navbar.Brand as={Link} href="/">
             <Image
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
-              width={isMobile ? 120 : isTablet ? 140 : 160}
-              height={isMobile ? 40 : isTablet ? 47 : 50}
-              style={{ 
-                objectFit: 'contain',
-                maxWidth: '100%',
-                height: 'auto'
-              }}
+              width={140}
+              height={140}
+              style={{ objectFit: 'contain', maxWidth: '100%', height: 'auto' }}
               priority
             />
-          </Link>
-        </nav>
-      </header>
+          </Navbar.Brand>
+        </Container>
+      </Navbar>
 
-      <div style={{ 
-        maxWidth: '800px', 
-        margin: '0 auto', 
-        padding: '1rem' 
-      }}>
-        {/* Indicador de passos */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          marginBottom: '1rem',
-          gap: isMobile ? '0.5rem' : '1rem'
-        }}>
-          {[1, 2, 3].map(num => (
-            <div key={num} style={{
-              width: isMobile ? '30px' : '40px',
-              height: isMobile ? '30px' : '40px',
-              borderRadius: '50%',
-              backgroundColor: step >= num ? '#3498db' : '#ddd',
-              color: step >= num ? 'white' : '#666',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 'bold',
-              fontSize: isMobile ? '0.9rem' : '1rem'
-            }}>
-              {num}
-            </div>
-          ))}
-        </div>
-
-        {/* Passo 1: Seleção de data e horário */}
-        {step === 1 && (
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: isMobile ? '1rem' : '2rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-            <h2 style={{ marginBottom: '2rem', color: '#2c3e50', textAlign: isMobile ? 'center' : 'left' }}>Escolha a data e horário</h2>
-            
-            <CalendarioAgendamento
-              selectedDate={selectedDate}
-              onDateSelect={handleDateSelect}
-              onTimeSelect={handleTimeSelect}
-            />
+      <section className="pmc-secao pb-0">
+        <Container className="pmc-container">
+          <div className="text-center mb-5">
+            <span className="pmc-rotulo">Agendamento</span>
+            <h1 className="mt-2">Escolha um horário que caiba na sua semana.</h1>
           </div>
-        )}
 
-        {/* Passo 2: Dados do paciente */}
-        {step === 2 && (
-          <div style={{ 
-            backgroundColor: 'white', 
-            borderRadius: '10px', 
-            padding: isMobile ? '1.5rem' : '2rem', 
-            boxShadow: '0 4px 6px rgba(0,0,0,0.1)' 
-          }}>
-            <h2 style={{ 
-              marginBottom: '1rem', 
-              color: '#2c3e50',
-              fontSize: isMobile ? '1.3rem' : '1.5rem'
-            }}>
-              Dados do Paciente
-            </h2>
-            <p style={{ 
-              marginBottom: '1rem', 
-              color: '#666',
-              fontSize: isMobile ? '0.9rem' : '1rem',
-              lineHeight: '1.4'
-            }}>
-              Consulta agendada para: {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')} às {selectedTime}
-            </p>
-            <p style={{ 
-              marginBottom: '2rem', 
-              color: '#2c3e50', 
-              fontSize: isMobile ? '1rem' : '1.1rem', 
-              fontWeight: '600',
-              lineHeight: '1.4'
-            }}>
-              Valor da consulta: R$ 150,00
-            </p>
-
-            <form onSubmit={handleSubmit}>
-              <div style={{ display: 'grid', gap: '1rem' }}>
-                <div>
-                  <label style={{ 
-                    display: 'block', 
-                    marginBottom: '5px', 
-                    fontWeight: '500',
-                    fontSize: isMobile ? '0.9rem' : '1rem'
-                  }}>
-                    Nome Completo
-                  </label>
-                  <input
-                    type="text"
-                    name="nome"
-                    value={formData.nome}
-                    onChange={handleInputChange}
-                    style={{
-                      width: '100%',
-                      padding: '12px',
-                      border: errors.nome ? '1px solid #e74c3c' : '1px solid #ddd',
-                      borderRadius: '5px',
-                      fontSize: '16px',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  {errors.nome && <span style={{ color: '#e74c3c', fontSize: isMobile ? '12px' : '14px' }}>{errors.nome}</span>}
-                </div>
-
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', 
-                  gap: '1rem' 
-                }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Email</label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleInputChange}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: errors.email ? '1px solid #e74c3c' : '1px solid #ddd',
-                        borderRadius: '5px',
-                        fontSize: '16px'
-                      }}
-                    />
-                    {errors.email && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.email}</span>}
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Telefone</label>
-                    <input
-                      type="tel"
-                      name="telefone"
-                      value={formData.telefone.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2')}
-                      onChange={handleInputChange}
-                      maxLength={15}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: errors.telefone ? '1px solid #e74c3c' : '1px solid #ddd',
-                        borderRadius: '5px',
-                        fontSize: '16px'
-                      }}
-                    />
-                    {errors.telefone && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.telefone}</span>}
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Data de Nascimento</label>
-                    <input
-                      type="date"
-                      name="dataNascimento"
-                      value={formData.dataNascimento || "2000-01-01"}
-                      onChange={handleInputChange}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: errors.dataNascimento ? '1px solid #e74c3c' : '1px solid #ddd',
-                        borderRadius: '5px',
-                        fontSize: '16px'
-                      }}
-                    />
-                    {errors.dataNascimento && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.dataNascimento}</span>}
-                  </div>
-
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>CPF</label>
-                    <input
-                      type="text"
-                      name="cpf"
-                      value={formData.cpf.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2')}
-                      onChange={handleInputChange}
-                      maxLength={14}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        border: errors.cpf ? '1px solid #e74c3c' : '1px solid #ddd',
-                        borderRadius: '5px',
-                        fontSize: '16px'
-                      }}
-                    />
-                    {errors.cpf && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.cpf}</span>}
-                  </div>
-                </div>
-
-                {/* Campos do responsável (aparecem se menor de idade) */}
-                {formData.dataNascimento && new Date().getFullYear() - new Date(formData.dataNascimento).getFullYear() < 18 && (
-                  <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#f0f0f0', borderRadius: '5px', border: '1px solid #ffcccc' }}>
-                    <h3 style={{ marginBottom: '1rem', color: '#2c3e50' }}>Dados do Responsável</h3>
-                    <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr 1fr' }}>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Nome do Responsável</label>
-                        <input
-                          type="text"
-                          name="responsavel"
-                          value={formData.responsavel}
-                          onChange={handleInputChange}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: errors.responsavel ? '1px solid #e74c3c' : '1px solid #ddd',
-                            borderRadius: '5px',
-                            fontSize: '16px'
-                          }}
-                        />
-                        {errors.responsavel && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.responsavel}</span>}
-                      </div>
-
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Telefone do Responsável</label>
-                        <input
-                          type="tel"
-                          name="telefoneResponsavel"
-                          value={formData.telefoneResponsavel}
-                          onChange={handleInputChange}
-                          style={{
-                            width: '100%',
-                            padding: '12px',
-                            border: errors.telefoneResponsavel ? '1px solid #e74c3c' : '1px solid #ddd',
-                            borderRadius: '5px',
-                            fontSize: '16px'
-                          }}
-                        />
-                        {errors.telefoneResponsavel && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.telefoneResponsavel}</span>}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                <div style={{ display:'grid', gap:'1rem', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Tipo</label>
-                    <select 
-                      name="tipo"
-                      value={formData.tipo}
-                      onChange={handleInputChange}
-                      style={{
-                        backgroundColor: 'white',
-                        width: '100%',
-                        padding: '12px',
-                        border: errors.tipo ? '1px solid #e74c3c' : '1px solid #ddd',
-                        borderRadius: '5px',
-                        fontSize: '16px'
-                      }}
-                    >
-                      <option value="">...</option>
-                      <option value="Presencial">Presencial</option>
-                      <option value="Online">Online</option>
-                    </select>
-                    {errors.tipo && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.tipo}</span>}
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Motivo</label>
-                    <select 
-                      name="motivo"
-                      value={formData.motivo}
-                      onChange={handleInputChange}
-                      style={{
-                        backgroundColor: 'white',
-                        width: '100%',
-                        padding: '12px',
-                        border: errors.motivo ? '1px solid #e74c3c' : '1px solid #ddd',
-                        borderRadius: '5px',
-                        fontSize: '16px'
-                      }}
-                    >
-                      <option value="">...</option>
-                      <option value="Dificuldade de Aprendizagem">Dificuldades de Aprendizagem</option>
-                      <option value="Terapia Infantil">Terapia Infantil</option>
-                      <option value="Orientação para pais">Orientação para Pais</option>
-                      <option value="Ansiedade">Ansiedade</option>
-                      <option value="Depressão">Depressão</option>
-                      <option value="Outro">Outro</option>
-                    </select>
-                    {errors.motivo && <span style={{ color: '#e74c3c', fontSize: '14px' }}>{errors.motivo}</span>}
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '5px', fontWeight: '500' }}>Observações</label>
-                    <textarea
-                      name="observacoes"
-                      value={formData.observacoes}
-                      onChange={handleInputChange}
-                      style={{
-                        width: '100%',
-                        padding: '12px',
-                        borderRadius: '5px',
-                        fontSize: '16px',
-                        resize: 'vertical'
-                      }}
-                      maxLength={500}
-                      rows={7}
-                    />
-                    <span style={{ float:"right" }}>{formData.observacoes.length}/500</span>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem', width: '100%' }}>
-                <Button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  variant='outline-info'
-                  style={{
-                    width: isMobile ? "fit-content" : "auto",
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}
+          {/* Indicador de passos */}
+          <div className="d-flex justify-content-center gap-4 gap-md-5 mb-5">
+            {passos.map((passo) => (
+              <div key={passo.numero} className="text-center">
+                <div
+                  className={`pmc-icone mx-auto mb-2 fs-5 ${step >= passo.numero ? '' : 'pmc-icone--salvia opacity-50'}`}
                 >
-                  <i className="bi bi-arrow-left" style={{marginRight:'.2rem'}} /> Voltar
-                </Button>
-                <Button
-                  variant='success'
-                  type="submit"
-                  disabled={loading}
-                  style={{
-                    marginLeft: 'auto',
-                    display: 'flex',
-                    alignItems: 'center',
-                    width: isMobile ? "fit-content" : "auto",
-                  }}
-                >
-                  <i className="bi bi-whatsapp" style={{marginRight:'.2rem'}}/>
-                  {loading ? 'Agendando...' : 'Confirmar Agendamento'}
-                </Button>
+                  <i className={`bi ${passo.icone}`} />
+                </div>
+                <span className="pmc-rotulo d-block">{passo.rotulo}</span>
               </div>
-            </form>
+            ))}
           </div>
-        )}
+        </Container>
+      </section>
 
-        {/* Passo 3: Confirmação */}
-        {step === 3 && agendamentoRealizado && (
-          <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '2rem', boxShadow: '0 4px 6px rgba(0,0,0,0.1)' }}>
-            <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-              <div style={{ 
-                width: '80px', 
-                height: '80px', 
-                backgroundColor: '#27ae60', 
-                borderRadius: '50%', 
-                margin: '0 auto 1rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '2rem',
-                color: 'white'
-              }}>
-                ✓
-              </div>
-              <h2 style={{ color: '#27ae60', marginBottom: '1rem' }}>Agendamento Realizado com Sucesso!</h2>
-            </div>
+      <section className="pmc-secao pt-0">
+        <Container className="pmc-container" style={{ maxWidth: '800px' }}>
+          {/* Passo 1: Seleção de data e horário */}
+          {step === 1 && (
+            <Card>
+              <Card.Body>
+                <h2 className="mb-4">Escolha a data e horário</h2>
+                <CalendarioAgendamento
+                  selectedDate={selectedDate}
+                  onDateSelect={handleDateSelect}
+                  onTimeSelect={handleTimeSelect}
+                />
+              </Card.Body>
+            </Card>
+          )}
 
-            <div style={{ backgroundColor: '#f8f9fa', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-              <h3 style={{ marginBottom: '1rem', color: '#2c3e50' }}>Dados do Agendamento:</h3>
-              <p><strong>Data:</strong> {new Date(agendamentoRealizado.consulta.data + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
-              <p><strong>Horário:</strong> {agendamentoRealizado.consulta.hora}</p>
-              <p><strong>Paciente:</strong> {agendamentoRealizado.paciente.nome}</p>
-              <p><strong>ID da Consulta:</strong> {agendamentoRealizado.consulta.id}</p>
-            </div>
-
-            <div style={{ backgroundColor: '#e3f2fd', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-              <h3 style={{ marginBottom: '1rem', color: '#1976d2' }}>Pagamento:</h3>
-              <p><strong>Valor:</strong> R$ 150,00</p>
-              <p><strong>Status:</strong> Pendente</p>
-              
-              <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#fff3cd', borderRadius: '5px', border: '1px solid #ffeaa7' }}>
-                <p style={{ margin: 0, color: '#856404', fontWeight: '500' }}>
-                  💳 O pagamento deve ser realizado na área do paciente após o agendamento.
+          {/* Passo 2: Dados do paciente */}
+          {step === 2 && (
+            <Card>
+              <Card.Body>
+                <h2 className="mb-3">Dados do Paciente</h2>
+                <p className="text-secondary mb-1">
+                  Consulta agendada para: {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')} às {selectedTime}
                 </p>
-              </div>
-            </div>
+                <p className="fw-semibold mb-4">Valor da consulta: R$ 150,00</p>
 
-            <div style={{ backgroundColor: '#fff3cd', padding: '1.5rem', borderRadius: '8px', marginBottom: '2rem' }}>
-              <h3 style={{ marginBottom: '1rem', color: '#856404' }}>Acesso à Área Restrita:</h3>
-              <p><strong>Email:</strong> {agendamentoRealizado.acessoAreaRestrita.email}</p>
-              <p><strong>Senha:</strong> {agendamentoRealizado.acessoAreaRestrita.senha}</p>
-              <p style={{ fontSize: '14px', color: '#666', marginTop: '10px' }}>
-                Use estes dados para acessar sua área restrita e receber o link da consulta.
-              </p>
-            </div>
+                <Form onSubmit={handleSubmit} noValidate>
+                  <Row className="g-3">
+                    <Col md={12}>
+                      <Form.Group controlId="nome">
+                        <Form.Label>Nome Completo</Form.Label>
+                        <Form.Control
+                          type="text"
+                          name="nome"
+                          value={formData.nome}
+                          onChange={handleInputChange}
+                          isInvalid={!!errors.nome}
+                        />
+                        <Form.Control.Feedback type="invalid">{errors.nome}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
 
-            <div style={{ textAlign: 'center' }}>
-              <Link href="/area-restrita" style={{
-                display: 'inline-block',
-                padding: '12px 24px',
-                backgroundColor: '#3498db',
-                color: 'white',
-                textDecoration: 'none',
-                borderRadius: '5px',
-                fontWeight: '500',
-                marginRight: '1rem'
-              }}>
-                Acessar Área Restrita
-              </Link>
-              <Link href="/" style={{
-                display: 'inline-block',
-                padding: '12px 24px',
-                border: '1px solid #ddd',
-                color: '#666',
-                textDecoration: 'none',
-                borderRadius: '5px'
-              }}>
-                Voltar ao Início
-              </Link>
-            </div>
+                    <Col md={6}>
+                      <Form.Group controlId="email">
+                        <Form.Label>Email</Form.Label>
+                        <Form.Control
+                          type="email"
+                          name="email"
+                          value={formData.email}
+                          onChange={handleInputChange}
+                          isInvalid={!!errors.email}
+                        />
+                        <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group controlId="telefone">
+                        <Form.Label>Telefone</Form.Label>
+                        <Form.Control
+                          type="tel"
+                          name="telefone"
+                          value={formData.telefone.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2')}
+                          onChange={handleInputChange}
+                          maxLength={15}
+                          isInvalid={!!errors.telefone}
+                        />
+                        <Form.Control.Feedback type="invalid">{errors.telefone}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
 
-            <div style={{ 
-              marginTop: '2rem', 
-              padding: '1rem', 
-              backgroundColor: '#d4edda', 
-              borderRadius: '8px',
-              border: '1px solid #c3e6cb'
-            }}>
-              <p style={{ margin: 0, color: '#155724', fontSize: '14px' }}>
-                <strong>📧 Importante:</strong> Você receberá um email com todas essas informações e o link para a consulta será enviado na sua área restrita próximo ao horário agendado.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
+                    <Col md={6}>
+                      <Form.Group controlId="dataNascimento">
+                        <Form.Label>Data de Nascimento</Form.Label>
+                        <Form.Control
+                          type="date"
+                          name="dataNascimento"
+                          value={formData.dataNascimento || '2000-01-01'}
+                          onChange={handleInputChange}
+                          isInvalid={!!errors.dataNascimento}
+                        />
+                        <Form.Control.Feedback type="invalid">{errors.dataNascimento}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group controlId="cpf">
+                        <Form.Label>CPF</Form.Label>
+                        <Form.Control
+                          type="text"
+                          name="cpf"
+                          value={formData.cpf.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2')}
+                          onChange={handleInputChange}
+                          maxLength={14}
+                          isInvalid={!!errors.cpf}
+                        />
+                        <Form.Control.Feedback type="invalid">{errors.cpf}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
+
+                    {/* Campos do responsável (aparecem se menor de idade) */}
+                    {menorDeIdade && (
+                      <Col md={12}>
+                        <Card className="card--areia">
+                          <Card.Body>
+                            <h3 className="h5 mb-3">Dados do Responsável</h3>
+                            <Row className="g-3">
+                              <Col md={6}>
+                                <Form.Group controlId="responsavel">
+                                  <Form.Label>Nome do Responsável</Form.Label>
+                                  <Form.Control
+                                    type="text"
+                                    name="responsavel"
+                                    value={formData.responsavel}
+                                    onChange={handleInputChange}
+                                    isInvalid={!!errors.responsavel}
+                                  />
+                                  <Form.Control.Feedback type="invalid">{errors.responsavel}</Form.Control.Feedback>
+                                </Form.Group>
+                              </Col>
+                              <Col md={6}>
+                                <Form.Group controlId="telefoneResponsavel">
+                                  <Form.Label>Telefone do Responsável</Form.Label>
+                                  <Form.Control
+                                    type="tel"
+                                    name="telefoneResponsavel"
+                                    value={formData.telefoneResponsavel}
+                                    onChange={handleInputChange}
+                                    isInvalid={!!errors.telefoneResponsavel}
+                                  />
+                                  <Form.Control.Feedback type="invalid">{errors.telefoneResponsavel}</Form.Control.Feedback>
+                                </Form.Group>
+                              </Col>
+                            </Row>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    )}
+
+                    <Col md={6}>
+                      <Form.Group controlId="tipo">
+                        <Form.Label>Tipo</Form.Label>
+                        <Form.Select
+                          name="tipo"
+                          value={formData.tipo}
+                          onChange={handleInputChange}
+                          isInvalid={!!errors.tipo}
+                        >
+                          <option value="">...</option>
+                          <option value="Presencial">Presencial</option>
+                          <option value="Online">Online</option>
+                        </Form.Select>
+                        <Form.Control.Feedback type="invalid">{errors.tipo}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
+                    <Col md={6}>
+                      <Form.Group controlId="motivo">
+                        <Form.Label>Motivo</Form.Label>
+                        <Form.Select
+                          name="motivo"
+                          value={formData.motivo}
+                          onChange={handleInputChange}
+                          isInvalid={!!errors.motivo}
+                        >
+                          <option value="">...</option>
+                          <option value="Dificuldade de Aprendizagem">Dificuldades de Aprendizagem</option>
+                          <option value="Terapia Infantil">Terapia Infantil</option>
+                          <option value="Orientação para pais">Orientação para Pais</option>
+                          <option value="Ansiedade">Ansiedade</option>
+                          <option value="Depressão">Depressão</option>
+                          <option value="Outro">Outro</option>
+                        </Form.Select>
+                        <Form.Control.Feedback type="invalid">{errors.motivo}</Form.Control.Feedback>
+                      </Form.Group>
+                    </Col>
+
+                    <Col md={12}>
+                      <Form.Group controlId="observacoes">
+                        <Form.Label>Observações</Form.Label>
+                        <Form.Control
+                          as="textarea"
+                          name="observacoes"
+                          value={formData.observacoes}
+                          onChange={handleInputChange}
+                          maxLength={500}
+                          rows={5}
+                        />
+                        <Form.Text className="d-block text-end">{formData.observacoes.length}/500</Form.Text>
+                      </Form.Group>
+                    </Col>
+                  </Row>
+
+                  <div className="d-flex gap-3 mt-4">
+                    <Button type="button" variant="outline-secondary" onClick={() => setStep(1)}>
+                      <i className="bi bi-arrow-left me-2" />
+                      Voltar
+                    </Button>
+                    <Button type="submit" variant="primary" disabled={loading} className="ms-auto">
+                      <i className="bi bi-whatsapp me-2" />
+                      {loading ? 'Agendando...' : 'Continuar no WhatsApp'}
+                    </Button>
+                  </div>
+                </Form>
+              </Card.Body>
+            </Card>
+          )}
+
+          {/* Passo 3: Confirmação (fluxo antigo, hoje inalcançável — ver comentário no submit) */}
+          {step === 3 && agendamentoRealizado && (
+            <Card>
+              <Card.Body>
+                <div className="text-center mb-4">
+                  <div className="pmc-icone pmc-icone--salvia mx-auto mb-3 fs-1">
+                    <i className="bi bi-check-lg" />
+                  </div>
+                  <h2>Agendamento Realizado com Sucesso!</h2>
+                </div>
+
+                <Card className="card--areia mb-4">
+                  <Card.Body>
+                    <h3 className="h5 mb-3">Dados do Agendamento:</h3>
+                    <p><strong>Data:</strong> {new Date(agendamentoRealizado.consulta.data + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
+                    <p><strong>Horário:</strong> {agendamentoRealizado.consulta.hora}</p>
+                    <p><strong>Paciente:</strong> {agendamentoRealizado.paciente.nome}</p>
+                    <p className="mb-0"><strong>ID da Consulta:</strong> {agendamentoRealizado.consulta.id}</p>
+                  </Card.Body>
+                </Card>
+
+                <Card bg="info" className="mb-4">
+                  <Card.Body>
+                    <h3 className="h5 mb-3">Pagamento:</h3>
+                    <p><strong>Valor:</strong> R$ 150,00</p>
+                    <p className="mb-3"><strong>Status:</strong> Pendente</p>
+                    <p className="mb-0">
+                      <i className="bi bi-credit-card me-2" />
+                      O pagamento deve ser realizado na área do paciente após o agendamento.
+                    </p>
+                  </Card.Body>
+                </Card>
+
+                <Card bg="warning" className="mb-4">
+                  <Card.Body>
+                    <h3 className="h5 mb-3">Acesso à Área Restrita:</h3>
+                    <p><strong>Email:</strong> {agendamentoRealizado.acessoAreaRestrita.email}</p>
+                    <p><strong>Senha:</strong> {agendamentoRealizado.acessoAreaRestrita.senha}</p>
+                    <p className="small mb-0">
+                      Use estes dados para acessar sua área restrita e receber o link da consulta.
+                    </p>
+                  </Card.Body>
+                </Card>
+
+                <div className="d-flex flex-wrap justify-content-center gap-3">
+                  <Link href="/area-restrita">
+                    <Button variant="primary">Acessar Área Restrita</Button>
+                  </Link>
+                  <Link href="/">
+                    <Button variant="outline-secondary">Voltar ao Início</Button>
+                  </Link>
+                </div>
+
+                <div className="alert alert-success mt-4 mb-0">
+                  <i className="bi bi-envelope me-2" />
+                  <strong>Importante:</strong> Você receberá um email com todas essas informações e o link para a consulta será enviado na sua área restrita próximo ao horário agendado.
+                </div>
+              </Card.Body>
+            </Card>
+          )}
+        </Container>
+      </section>
     </div>
   );
 }

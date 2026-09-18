@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Button } from 'react-bootstrap';
+import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
+import Spinner from 'react-bootstrap/Spinner';
 
 interface CalendarioAgendamentoProps {
   onDateSelect: (date: string) => void;
@@ -19,52 +20,41 @@ interface HorarioDisponivel {
   ativo: boolean;
 }
 
-export default function CalendarioAgendamento({ 
-  onDateSelect, 
-  selectedDate, 
-  onTimeSelect 
+interface DiaCalendario {
+  data: string;
+  dia: number;
+  mesAtual: boolean;
+  disponivel: boolean;
+  passado: boolean;
+  domingo?: boolean;
+}
+
+export default function CalendarioAgendamento({
+  onDateSelect,
+  selectedDate,
+  onTimeSelect
 }: CalendarioAgendamentoProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [datasComHorarios, setDatasComHorarios] = useState<string[]>([]);
   const [horariosDisponiveis, setHorariosDisponiveis] = useState<HorarioDisponivel[]>([]);
   const [horariosPorData, setHorariosPorData] = useState<{ [data: string]: string[] }>({});
   const [loading, setLoading] = useState(false);
-  const [screenSize, setScreenSize] = useState('desktop');
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      if (window.innerWidth <= 768) {
-        setScreenSize('mobile');
-      } else if (window.innerWidth <= 1024) {
-        setScreenSize('tablet');
-      } else {
-        setScreenSize('desktop');
-      }
-    };
-
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  const isMobile = screenSize === 'mobile';
-  const isTablet = screenSize === 'tablet';
 
   const carregarDisponibilidadeMes = useCallback(async () => {
     try {
       setLoading(true);
       const ano = currentMonth.getFullYear();
       const mes = currentMonth.getMonth(); // 0-11
-      
+
       // Usar o novo endpoint otimizado que retorna todas as disponibilidades do mês
       const response = await fetch(`/api/disponibilidade?ano=${ano}&mes=${mes}`);
-      
+
       if (response.ok) {
         const data = await response.json();
         // Extrair apenas as datas que têm horários disponíveis
         const datasDisponiveis = Object.keys(data.disponibilidades || {});
         setDatasComHorarios(datasDisponiveis);
-        
+
         // Salvar os horários para cada data para uso posterior
         setHorariosPorData(data.disponibilidades || {});
       } else {
@@ -105,7 +95,7 @@ export default function CalendarioAgendamento({
         setHorariosDisponiveis(horariosFormatados);
         return;
       }
-      
+
       // Se não estiver em cache, fazer requisição individual (fallback)
       const response = await fetch(`/api/horarios?data=${data}&disponiveis=true`);
       if (response.ok) {
@@ -117,46 +107,23 @@ export default function CalendarioAgendamento({
     }
   };
 
-  const gerarDatasDoMes = (mes: Date) => {
-    const datas = [];
-    const ano = mes.getFullYear();
-    const mesAtual = mes.getMonth();
-    const hoje = new Date();
-    
-    // Primeiro dia do mês
-    const primeiroDia = new Date(ano, mesAtual, 1);
-    // Último dia do mês
-    const ultimoDia = new Date(ano, mesAtual + 1, 0);
-
-    for (let dia = primeiroDia.getDate(); dia <= ultimoDia.getDate(); dia++) {
-      const data = new Date(ano, mesAtual, dia);
-      
-      // Só incluir datas futuras e que não sejam domingo
-      if (data >= hoje && data.getDay() !== 0) {
-        datas.push(data.toISOString().split('T')[0]);
-      }
-    }
-
-    return datas;
-  };
-
-  const gerarCalendario = () => {
+  const gerarCalendario = (): DiaCalendario[] => {
     const ano = currentMonth.getFullYear();
     const mes = currentMonth.getMonth();
-    
+
     // Primeiro dia do mês
     const primeiroDia = new Date(ano, mes, 1);
     // Último dia do mês
     const ultimoDia = new Date(ano, mes + 1, 0);
-    
+
     // Dia da semana do primeiro dia (0 = domingo, 1 = segunda, etc.)
     const primeiroDiaSemana = primeiroDia.getDay();
-    
+
     // Calcular quantos dias do mês anterior mostrar
     const diasAnteriores = primeiroDiaSemana === 0 ? 6 : primeiroDiaSemana - 1;
-    
-    const calendario = [];
-    
+
+    const calendario: DiaCalendario[] = [];
+
     // Adicionar dias do mês anterior (desabilitados)
     for (let i = diasAnteriores; i > 0; i--) {
       const data = new Date(ano, mes, -i + 1);
@@ -168,7 +135,7 @@ export default function CalendarioAgendamento({
         passado: true
       });
     }
-    
+
     // Adicionar dias do mês atual
     const hoje = new Date();
     for (let dia = 1; dia <= ultimoDia.getDate(); dia++) {
@@ -176,7 +143,7 @@ export default function CalendarioAgendamento({
       const dataString = data.toISOString().split('T')[0];
       const ehPassado = data < hoje;
       const ehDomingo = data.getDay() === 0;
-      
+
       calendario.push({
         data: dataString,
         dia: dia,
@@ -186,7 +153,7 @@ export default function CalendarioAgendamento({
         domingo: ehDomingo
       });
     }
-    
+
     // Completar semana com dias do próximo mês (se necessário)
     const totalDias = calendario.length;
     const diasRestantes = totalDias % 7;
@@ -203,7 +170,7 @@ export default function CalendarioAgendamento({
         });
       }
     }
-    
+
     return calendario;
   };
 
@@ -214,15 +181,15 @@ export default function CalendarioAgendamento({
   const mesAnterior = () => {
     const hoje = new Date();
     const novoMes = new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1);
-    
+
     // Não permitir ir para meses anteriores ao atual
-    if (novoMes.getFullYear() > hoje.getFullYear() || 
+    if (novoMes.getFullYear() > hoje.getFullYear() ||
         (novoMes.getFullYear() === hoje.getFullYear() && novoMes.getMonth() >= hoje.getMonth())) {
       setCurrentMonth(novoMes);
     }
   };
 
-  const handleDateClick = async (item: any) => {
+  const handleDateClick = async (item: DiaCalendario) => {
     if (item.disponivel && item.mesAtual) {
       onDateSelect(item.data);
       await carregarHorariosData(item.data);
@@ -236,192 +203,93 @@ export default function CalendarioAgendamento({
   ];
 
   return (
-    <div style={{ 
-      backgroundColor: 'white', 
-      borderRadius: '12px', 
-      padding: isMobile ? '1rem' : '1.5rem',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
-      width: '100%',
-      maxWidth: '100%',
-      overflow: 'hidden'
-    }}>
+    <div>
       {/* Cabeçalho do calendário */}
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: isMobile ? '1rem' : '1.5rem'
-      }}>
+      <div className="d-flex justify-content-between align-items-center mb-4">
         <Button
           onClick={mesAnterior}
-          style={{
-            fontSize: isMobile ? '16px' : '18px',
-            width: isMobile ? '32px' : '36px',
-          }}
-          variant='outline-light'
+          variant="link"
+          className="fs-4"
           disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
+          aria-label="Mês anterior"
         >
           ‹
         </Button>
-        
-        <h3 style={{ 
-          margin: 0, 
-          color: '#2c3e50',
-          fontSize: isMobile ? '1rem' : isTablet ? '1.1rem' : '1.2rem',
-          fontWeight: '600',
-          textAlign: 'center',
-          flex: 1
-        }}>
+
+        <h3 className="mb-0 text-center flex-grow-1">
           {meses[currentMonth.getMonth()]} {currentMonth.getFullYear()}
         </h3>
-        
+
         <Button
           onClick={proximoMes}
-          style={{
-            fontSize: isMobile ? '16px' : '18px',
-            width: isMobile ? '32px' : '36px',
-          }}
-          variant='outline-light'
+          variant="link"
+          className="fs-4"
           disabled={currentMonth.getFullYear() >= new Date().getFullYear() + 1 && currentMonth.getMonth() >= 11}
+          aria-label="Próximo mês"
         >
           ›
         </Button>
       </div>
 
-      {/* <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(7, 1fr)', 
-        gap: '1px',
-        marginBottom: '1rem'
-      }}>
-        {(isMobile ? ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'] : ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']).map((dia, index) => (
-          <div key={index} style={{
-            padding: isMobile ? '10px' : '10px',
-            textAlign: 'center',
-            fontSize: isMobile ? '10px' : '12px',
-            minWidth: isMobile ? '50px' : '60px',
-            fontWeight: '600',
-            color: '#666',
-            backgroundColor: '#f8f9fa'
-          }}>
-            {dia}
-          </div>
-        ))}
-      </div>
-
-      {loading && (
-        <div style={{
-          textAlign: 'center',
-          padding: '2rem',
-          color: '#666'
-        }}>
-          Carregando disponibilidade...
-        </div>
-      )}
-
-      {!loading && (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(7, 1fr)', 
-          gap: isMobile ? '2px' : '1px',
-          overflowX: 'auto'
-        }}>
-          {calendario.map((item, index) => (
-            <Button
-              key={index}
-              onClick={() => handleDateClick(item)}
-              variant={
-                item.data === selectedDate ? 'primary' :
-                item.disponivel && item.mesAtual ? 'outline-primary' :
-                'light'
-              }
-              disabled={!item.disponivel || !item.mesAtual || item.passado}
-              style={{
-                cursor: 
-                  item.disponivel && item.mesAtual && !item.passado ? 'pointer' : 'not-allowed',
-                fontSize: isMobile ? '10px' : '14px',
-                fontWeight: selectedDate === item.data ? '600' : '400',
-                minHeight: isMobile ? '30px' : '40px',
-                minWidth: isMobile ? '50px' : '60px',
-                opacity: !item.mesAtual ? 0.3 : 1
-              }}
-            >
-              {item.dia}
-            </Button>
-          ))}
-        </div>
-      )} */}
       <div>
-        {loading ? 
-          <div style={{ textAlign: 'center', padding: isMobile ? '1rem' : '1.5rem', color: '#666' }}>
-            Carregando disponibilidade...
-          </div>:
-          <Table borderless responsive style={{ width: '100%', overflowX: 'auto' }}>
-              <thead>
-                <tr style={{textAlign:'center'}}>
-                  {(isMobile ? ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'] : ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom']).map((dia, index) => (
-                    <th key={index} >
-                      {dia}
-                    </th>
+        {loading ? (
+          <div className="d-flex flex-column align-items-center gap-2 py-4">
+            <Spinner animation="border" variant="primary" size="sm" />
+            <span className="text-secondary">Carregando disponibilidade...</span>
+          </div>
+        ) : (
+          <Table borderless responsive className="text-center mb-0">
+            <thead>
+              <tr>
+                {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((dia) => (
+                  <th key={dia} className="pmc-rotulo">{dia}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: Math.ceil(calendario.length / 7) }).map((_, rowIndex) => (
+                <tr key={rowIndex}>
+                  {calendario.slice(rowIndex * 7, rowIndex * 7 + 7).map((item, index) => (
+                    <td key={index} className="p-1">
+                      <Button
+                        size="sm"
+                        variant={
+                          item.data === selectedDate
+                            ? 'primary'
+                            : item.disponivel && item.mesAtual
+                              ? 'outline-primary'
+                              : 'outline-secondary'
+                        }
+                        onClick={() => handleDateClick(item)}
+                        disabled={!item.disponivel || !item.mesAtual || item.passado}
+                        className={`w-100 ${!item.mesAtual ? 'opacity-50' : ''}`}
+                      >
+                        {item.dia}
+                      </Button>
+                    </td>
                   ))}
                 </tr>
-              </thead>
-              <tbody>
-                {Array.from({ length: Math.ceil(calendario.length / 7) }).map((_, rowIndex) => (
-                  <tr key={rowIndex}>
-                    {calendario.slice(rowIndex * 7, rowIndex * 7 + 7).map((item, index) => (
-                      <td key={index}>
-                        <Button variant={item.data === selectedDate ? 'secondary' : item.disponivel && item.mesAtual ? 'outline-secondary' : 'light'}
-                          onClick={() => handleDateClick(item)}
-                          disabled={!item.disponivel || !item.mesAtual || item.passado}
-                          style={{
-                            cursor: item.disponivel && item.mesAtual && !item.passado ? 'pointer' : 'not-allowed',
-                            fontSize: '14px',
-                            fontWeight: selectedDate === item.data ? '600' : '400',
-                            width: '100%',
-                            opacity: !item.mesAtual ? 0.3 : 1,
-                          }}
-                        >
-                          {item.dia}
-                        </Button>
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </Table>
-            }
-        </div>
+              ))}
+            </tbody>
+          </Table>
+        )}
+      </div>
 
       {/* Horários disponíveis para a data selecionada */}
       {selectedDate && horariosDisponiveis.length > 0 && (
-        <div style={{ 
-          marginTop: isMobile ? '1rem' : '1.5rem', 
-          padding: isMobile ? '0.8rem' : '1rem',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '8px'
-        }}>
-          <h4 style={{ 
-            margin: '0 0 1rem 0', 
-            color: '#2c3e50',
-            fontSize: isMobile ? '0.9rem' : '1rem'
-          }}>
+        <div className="mt-4 p-3 rounded-3 bg-light">
+          <h4 className="mb-3">
             Horários para {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')}:
           </h4>
-          
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(80px, 1fr))' : 'repeat(auto-fill, minmax(100px, 1fr))', 
-            gap: isMobile ? '6px' : '8px' 
-          }}>
+
+          <div className="d-flex flex-wrap gap-2">
             {horariosDisponiveis.map(horario => (
               <Button
                 key={horario.id}
                 onClick={() => onTimeSelect && onTimeSelect(horario.hora)}
                 variant="outline-primary"
-                style={{
-                  fontSize: '14px',
-                }}
+                size="sm"
+                className="rounded-pill"
               >
                 {horario.hora}
               </Button>
@@ -431,43 +299,18 @@ export default function CalendarioAgendamento({
       )}
 
       {/* Legenda */}
-      <div style={{ 
-        marginTop: '1rem', 
-        padding: '0.75rem',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '6px',
-        fontSize: '12px'
-      }}>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div style={{ 
-              width: '12px', 
-              height: '12px', 
-              backgroundColor: 'white', 
-              border: '1px solid #e0e0e0',
-              borderRadius: '2px'
-            }}></div>
-            <span style={{ color: '#666' }}>Disponível</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div style={{ 
-              width: '12px', 
-              height: '12px', 
-              backgroundColor: '#f0f0f0', 
-              borderRadius: '2px'
-            }}></div>
-            <span style={{ color: '#666' }}>Indisponível</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div style={{ 
-              width: '12px', 
-              height: '12px', 
-              backgroundColor: '#e3f2fd', 
-              border: '1px solid #3498db',
-              borderRadius: '2px'
-            }}></div>
-            <span style={{ color: '#666' }}>Selecionado</span>
-          </div>
+      <div className="d-flex flex-wrap gap-3 mt-3 pt-3 border-top">
+        <div className="d-flex align-items-center gap-2">
+          <span className="rounded-circle bg-primary" style={{ width: '10px', height: '10px' }} />
+          <span className="text-secondary small">Disponível</span>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <span className="rounded-circle bg-secondary" style={{ width: '10px', height: '10px' }} />
+          <span className="text-secondary small">Indisponível</span>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <span className="rounded-circle border border-primary" style={{ width: '10px', height: '10px' }} />
+          <span className="text-secondary small">Selecionado</span>
         </div>
       </div>
     </div>
