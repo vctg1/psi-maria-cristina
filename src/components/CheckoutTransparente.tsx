@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect } from 'react';
 
 declare global {
@@ -44,6 +46,13 @@ export default function CheckoutTransparente({
 
   // Inicializar MercadoPago SDK
   useEffect(() => {
+    const publicKey = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY;
+
+    if (!publicKey) {
+      setErroMensagem('Pagamento indisponível no momento');
+      return;
+    }
+
     const loadMercadoPagoSDK = () => {
       // Remover script existente se houver
       const existingScript = document.querySelector('script[src*="mercadopago"]');
@@ -54,17 +63,17 @@ export default function CheckoutTransparente({
       const script = document.createElement('script');
       script.src = 'https://sdk.mercadopago.com/js/v2';
       script.async = true;
-      
+
       script.onload = () => {
         try {
           if (window.MercadoPago) {
-            window.MercadoPago = new window.MercadoPago('TEST-635a37a4-8161-467b-9c67-43c36197cf73');
+            window.MercadoPago = new window.MercadoPago(publicKey);
             console.log('MercadoPago SDK carregado com sucesso');
           } else {
             console.error('MercadoPago SDK não encontrado após carregamento');
           }
-        } catch (error) {
-          console.error('Erro ao inicializar MercadoPago:', error);
+        } catch (error: any) {
+          console.error('Erro ao inicializar MercadoPago:', error?.message);
         }
       };
       
@@ -173,9 +182,6 @@ export default function CheckoutTransparente({
       // Detectar tipo de cartão
       const tipoCartao = detectarTipoCartao(numeroLimpo);
 
-      console.log('MercadoPago object:', window.MercadoPago);
-      console.log('Métodos disponíveis:', Object.getOwnPropertyNames(window.MercadoPago));
-
       // Verificar se a função createCardToken existe (v2 API)
       if (window.MercadoPago.createCardToken) {
         console.log('Usando createCardToken (v2)');
@@ -190,10 +196,7 @@ export default function CheckoutTransparente({
           identificationNumber: dadosPagador.documento
         };
 
-        console.log('Dados do cartão:', cardForm);
-
         const token = await window.MercadoPago.createCardToken(cardForm);
-        console.log('Token criado:', token);
 
         await processarPagamento(token.id, tipoCartao);
 
@@ -220,20 +223,19 @@ export default function CheckoutTransparente({
 
         window.MercadoPago.createToken(tokenData, async (err: any, token: any) => {
           if (err) {
-            console.error('Erro no createToken:', err);
+            console.error('Erro no createToken:', err?.message);
             setErroMensagem('Erro ao validar dados do cartão. Verifique as informações.');
             setProcessandoPagamento(false);
             return;
           }
 
-          console.log('Token criado (legacy):', token);
           await processarPagamento(token.id, tipoCartao);
         });
       }
 
     } catch (error: any) {
-      console.error('Erro ao processar cartão:', error);
-      
+      console.error('Erro ao processar cartão:', error?.message);
+
       let mensagem = 'Erro ao processar cartão de crédito';
       if (error.message && error.message.includes('createCardToken')) {
         mensagem = 'Erro na validação do cartão. Verifique os dados informados.';
@@ -248,8 +250,6 @@ export default function CheckoutTransparente({
 
   const processarPagamento = async (tokenId: string, tipoCartao: string) => {
     try {
-      console.log('Processando pagamento com token:', tokenId);
-
       const response = await fetch('/api/pagamento-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -267,7 +267,6 @@ export default function CheckoutTransparente({
       });
 
       const data = await response.json();
-      console.log('Resposta do pagamento:', data);
 
       if (data.success) {
         if (data.status === 'approved') {
@@ -511,10 +510,6 @@ export default function CheckoutTransparente({
                 <button
                   type="button"
                   onClick={() => {
-                    console.log('MercadoPago SDK Status:', {
-                      exists: !!window.MercadoPago,
-                      methods: window.MercadoPago ? Object.getOwnPropertyNames(window.MercadoPago) : 'N/A'
-                    });
                     alert(`MercadoPago carregado: ${!!window.MercadoPago ? 'SIM' : 'NÃO'}`);
                   }}
                   style={{

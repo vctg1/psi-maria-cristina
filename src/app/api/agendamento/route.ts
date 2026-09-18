@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Buscar ou criar paciente
-    let pacientes = getPacientes();
+    const pacientes = getPacientes();
     let pacienteExistente = pacientes.find(p => p.email === email);
 
     if (!pacienteExistente) {

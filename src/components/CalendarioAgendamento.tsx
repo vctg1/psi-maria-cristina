@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from 'react-bootstrap';
 import Table from 'react-bootstrap/Table';
 
@@ -50,17 +50,7 @@ export default function CalendarioAgendamento({
   const isMobile = screenSize === 'mobile';
   const isTablet = screenSize === 'tablet';
 
-  // Carregar dados de disponibilidade para o mês atual
-  useEffect(() => {
-    // Debounce para evitar múltiplas requisições
-    const timeoutId = setTimeout(() => {
-      carregarDisponibilidadeMes();
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [currentMonth]);
-
-  const carregarDisponibilidadeMes = async () => {
+  const carregarDisponibilidadeMes = useCallback(async () => {
     try {
       setLoading(true);
       const ano = currentMonth.getFullYear();
@@ -89,7 +79,17 @@ export default function CalendarioAgendamento({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentMonth]);
+
+  // Carregar dados de disponibilidade para o mês atual
+  useEffect(() => {
+    // Debounce para evitar múltiplas requisições
+    const timeoutId = setTimeout(() => {
+      carregarDisponibilidadeMes();
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [currentMonth, carregarDisponibilidadeMes]);
 
   const carregarHorariosData = async (data: string) => {
     try {

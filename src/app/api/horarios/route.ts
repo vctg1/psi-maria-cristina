@@ -125,7 +125,11 @@ export async function DELETE(request: NextRequest) {
     }
 
     let horarios = getHorarios();
-    horarios = horarios.filter(h => h.id !== id);
+    const existe = horarios.some(h => String(h.id) === id);
+    if (!existe) {
+      return NextResponse.json({ error: 'Horário não encontrado' }, { status: 404 });
+    }
+    horarios = horarios.filter(h => String(h.id) !== id);
     saveHorarios(horarios);
 
     return NextResponse.json({ success: true });

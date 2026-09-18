@@ -3,9 +3,13 @@ import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN || 'TEST-8724684112931840-092709-233ebae00e8e040b90e3c382f2699742-727330925'
-});
+function getClient(): MercadoPagoConfig | null {
+  const accessToken = process.env.MP_ACCESS_TOKEN;
+  if (!accessToken) {
+    return null;
+  }
+  return new MercadoPagoConfig({ accessToken });
+}
 
 const consultasPath = join(process.cwd(), 'src/data/consultas.json');
 
@@ -34,17 +38,17 @@ export async function POST(request: NextRequest) {
       valor = 150.00
     } = body;
 
-    console.log('Dados recebidos para pagamento:', {
-      consultaId,
-      metodoPagamento,
-      dadosCartao: { ...dadosCartao, token: dadosCartao.token ? 'TOKEN_PRESENTE' : 'TOKEN_AUSENTE' },
-      dadosPagador,
-      valor
-    });
+    console.log('Dados recebidos para pagamento:', { consultaId, metodoPagamento });
+
+    const client = getClient();
+    if (!client) {
+      console.error('MP_ACCESS_TOKEN ausente');
+      return NextResponse.json({ error: 'Pagamento indisponível' }, { status: 500 });
+    }
 
     const payment = new Payment(client);
-    
-    let paymentData: any = {
+
+    const paymentData: any = {
       transaction_amount: valor,
       description: `Consulta Psicológica - Psicóloga Maria Cristina`,
       payment_method_id: metodoPagamento,
@@ -70,8 +74,6 @@ export async function POST(request: NextRequest) {
         paymentData.issuer_id = dadosCartao.issuerId;
       }
     }
-
-    console.log('PaymentData enviado para MercadoPago:', paymentData);
 
     const response = await payment.create({ body: paymentData });
 
@@ -104,8 +106,12 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Erro ao processar pagamento:', error);
-    
+    console.error('Erro ao processar pagamento:', {
+      message: error?.message,
+      status: error?.status,
+      cause: Array.isArray(error?.cause) ? error.cause.map((c: any) => ({ code: c?.code, description: c?.description })) : undefined
+    });
+
     let errorMessage = 'Erro ao processar pagamento';
     let statusCode = 500;
     
@@ -137,8 +143,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Parâmetros obrigatórios faltando' }, { status: 400 });
     }
 
+    const client = getClient();
+    if (!client) {
+      console.error('MP_ACCESS_TOKEN ausente');
+      return NextResponse.json({ error: 'Pagamento indisponível' }, { status: 500 });
+    }
+
     const payment = new Payment(client);
-    
+
     const paymentData = {
       transaction_amount: 150.00,
       description: `Consulta Psicológica - Psicóloga Maria Cristina`,
@@ -161,11 +173,15 @@ export async function GET(request: NextRequest) {
       pixCopiaECola: response.point_of_interaction?.transaction_data?.qr_code
     });
 
-  } catch (error) {
-    console.error('Erro ao gerar PIX:', error);
-    return NextResponse.json({ 
+  } catch (error: any) {
+    console.error('Erro ao gerar PIX:', {
+      message: error?.message,
+      status: error?.status,
+      cause: Array.isArray(error?.cause) ? error.cause.map((c: any) => ({ code: c?.code, description: c?.description })) : undefined
+    });
+    return NextResponse.json({
       success: false,
-      error: 'Erro ao gerar PIX' 
+      error: 'Erro ao gerar PIX'
     }, { status: 500 });
   }
 }
@@ -175,6 +191,12 @@ export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
     const { paymentId, consultaId } = body;
+
+    const client = getClient();
+    if (!client) {
+      console.error('MP_ACCESS_TOKEN ausente');
+      return NextResponse.json({ error: 'Pagamento indisponível' }, { status: 500 });
+    }
 
     const payment = new Payment(client);
     const response = await payment.get({ id: paymentId });
@@ -198,11 +220,15 @@ export async function PUT(request: NextRequest) {
       statusDetail: response.status_detail
     });
 
-  } catch (error) {
-    console.error('Erro ao verificar pagamento:', error);
-    return NextResponse.json({ 
+  } catch (error: any) {
+    console.error('Erro ao verificar pagamento:', {
+      message: error?.message,
+      status: error?.status,
+      cause: Array.isArray(error?.cause) ? error.cause.map((c: any) => ({ code: c?.code, description: c?.description })) : undefined
+    });
+    return NextResponse.json({
       success: false,
-      error: 'Erro ao verificar pagamento' 
+      error: 'Erro ao verificar pagamento'
     }, { status: 500 });
   }
 }

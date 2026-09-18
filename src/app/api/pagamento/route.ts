@@ -1,14 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN!
-});
+function getClient(): MercadoPagoConfig | null {
+  const accessToken = process.env.MP_ACCESS_TOKEN;
+  if (!accessToken) {
+    return null;
+  }
+  return new MercadoPagoConfig({ accessToken });
+}
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { consultaId, pacienteNome, pacienteEmail, valor, metodoPagamento } = body;
+
+    const client = getClient();
+    if (!client) {
+      console.error('MP_ACCESS_TOKEN ausente');
+      return NextResponse.json({ error: 'Pagamento indisponível' }, { status: 500 });
+    }
 
     const preference = new Preference(client);
 
@@ -58,8 +68,12 @@ export async function POST(request: NextRequest) {
       qrCode: (response as any).qr_code
     });
 
-  } catch (error) {
-    console.error('Erro ao criar preferência:', error);
+  } catch (error: any) {
+    console.error('Erro ao criar preferência:', {
+      message: error?.message,
+      status: error?.status,
+      cause: Array.isArray(error?.cause) ? error.cause.map((c: any) => ({ code: c?.code, description: c?.description })) : undefined
+    });
     return NextResponse.json({ error: 'Erro ao processar pagamento' }, { status: 500 });
   }
 }
@@ -81,8 +95,12 @@ export async function PUT(request: NextRequest) {
     }
 
     return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error('Erro no webhook:', error);
+  } catch (error: any) {
+    console.error('Erro no webhook:', {
+      message: error?.message,
+      status: error?.status,
+      cause: Array.isArray(error?.cause) ? error.cause.map((c: any) => ({ code: c?.code, description: c?.description })) : undefined
+    });
     return NextResponse.json({ error: 'Erro no webhook' }, { status: 500 });
   }
 }

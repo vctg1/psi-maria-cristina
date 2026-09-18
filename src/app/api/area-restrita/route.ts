@@ -157,7 +157,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { consultaId, updates } = body;
 
-    let consultas = getConsultas();
+    const consultas = getConsultas();
     const consultaIndex = consultas.findIndex((c: any) => c.id === consultaId);
 
     if (consultaIndex === -1) {

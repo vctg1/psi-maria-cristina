@@ -3,9 +3,13 @@ import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
-const client = new MercadoPagoConfig({
-  accessToken: process.env.MP_ACCESS_TOKEN || 'TEST-8724684112931840-092709-233ebae00e8e040b90e3c382f2699742-727330925'
-});
+function getClient(): MercadoPagoConfig | null {
+  const accessToken = process.env.MP_ACCESS_TOKEN;
+  if (!accessToken) {
+    return null;
+  }
+  return new MercadoPagoConfig({ accessToken });
+}
 
 const consultasPath = join(process.cwd(), 'src/data/consultas.json');
 
@@ -33,10 +37,14 @@ export async function POST(request: NextRequest) {
       valor = 150.00
     } = body;
 
-    console.log('Processando pagamento direto para consulta:', consultaId);
+    const client = getClient();
+    if (!client) {
+      console.error('MP_ACCESS_TOKEN ausente');
+      return NextResponse.json({ error: 'Pagamento indisponível' }, { status: 500 });
+    }
 
     const payment = new Payment(client);
-    
+
     // Detectar tipo de cartão baseado no número
     const detectarTipoCartao = (numero: string) => {
       const numeroLimpo = numero.replace(/\s/g, '');
@@ -48,6 +56,8 @@ export async function POST(request: NextRequest) {
     };
 
     const tipoCartao = detectarTipoCartao(dadosCartao.numero);
+
+    console.log('Processando pagamento direto para consulta:', { consultaId, metodoPagamento: tipoCartao });
 
     const paymentData = {
       transaction_amount: valor,
@@ -78,15 +88,6 @@ export async function POST(request: NextRequest) {
       installments: dadosCartao.parcelas,
       external_reference: consultaId
     };
-
-    console.log('Dados do pagamento (sem dados sensíveis):', {
-      ...paymentData,
-      card: {
-        ...paymentData.card,
-        number: '**** **** **** ' + paymentData.card.number.slice(-4),
-        security_code: '***'
-      }
-    });
 
     const response = await payment.create({ body: paymentData });
 
@@ -123,8 +124,12 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    console.error('Erro ao processar pagamento direto:', error);
-    
+    console.error('Erro ao processar pagamento direto:', {
+      message: error?.message,
+      status: error?.status,
+      cause: Array.isArray(error?.cause) ? error.cause.map((c: any) => ({ code: c?.code, description: c?.description })) : undefined
+    });
+
     let errorMessage = 'Erro ao processar pagamento';
     let statusCode = 500;
     

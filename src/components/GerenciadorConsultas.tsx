@@ -4,25 +4,15 @@ import { useState, useEffect } from 'react';
 import CalendarioAgendamento from './CalendarioAgendamento';
 import { useNotificacao } from './NotificacaoProvider';
 import { useModalConfirmacao } from './ModalConfirmacao';
+import { Consulta, ConsultaStatus, CONSULTA_STATUS_OCUPA_HORARIO } from '@/types';
 
-interface Consulta {
-  id: string;
-  pacienteId: string;
-  data: string;
-  hora: string;
-  status: 'agendada' | 'realizada' | 'cancelada' | 'nao_compareceu';
-  pagamento: string;
-  criadaEm: string;
-  atualizadaEm: string;
-  pacienteNome?: string;
-  linkMeet?: string;
-}
+type ConsultaComPaciente = Consulta & { pacienteNome?: string };
 
 interface GerenciadorConsultasProps {
-  consulta: Consulta;
+  consulta: ConsultaComPaciente;
   onConsultaAtualizada: () => void;
   mostrarPaciente?: boolean; // Para área da psicóloga
-  onPagarConsulta?: (consulta: Consulta) => void; // Callback para pagamento
+  onPagarConsulta?: (consulta: ConsultaComPaciente) => void; // Callback para pagamento
 }
 
 export default function GerenciadorConsultas({ 
@@ -63,9 +53,10 @@ export default function GerenciadorConsultas({
     return new Date(data + 'T00:00:00').toLocaleDateString('pt-BR');
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: ConsultaStatus) => {
     switch (status) {
       case 'agendada': return '#2E8B57';
+      case 'confirmada': return '#1976D2';
       case 'realizada': return '#4CAF50';
       case 'cancelada': return '#f44336';
       case 'nao_compareceu': return '#FF9800';
@@ -73,9 +64,10 @@ export default function GerenciadorConsultas({
     }
   };
 
-  const getStatusTexto = (status: string) => {
+  const getStatusTexto = (status: ConsultaStatus) => {
     switch (status) {
       case 'agendada': return 'Agendada';
+      case 'confirmada': return 'Confirmada';
       case 'realizada': return 'Realizada';
       case 'cancelada': return 'Cancelada';
       case 'nao_compareceu': return 'Não Compareceu';
@@ -83,7 +75,7 @@ export default function GerenciadorConsultas({
     }
   };
 
-  const atualizarStatus = async (novoStatus: string) => {
+  const atualizarStatus = async (novoStatus: ConsultaStatus) => {
     mostrarModal({
       titulo: 'Confirmar Alteração',
       mensagem: `Confirma alterar status para "${getStatusTexto(novoStatus)}"?`,
@@ -247,7 +239,7 @@ export default function GerenciadorConsultas({
   };
 
   // Não mostrar ações para consultas já realizadas ou antigas
-  const podeGerenciar = consulta.status === 'agendada';
+  const podeGerenciar = CONSULTA_STATUS_OCUPA_HORARIO.includes(consulta.status);
   const dataConsulta = new Date(consulta.data + 'T00:00:00');
   const hoje = new Date();
   hoje.setHours(0, 0, 0, 0);
@@ -401,7 +393,7 @@ export default function GerenciadorConsultas({
             <strong>Valor:</strong> R$ 150,00
           </p>
           
-          {consulta.linkMeet && consulta.status === 'agendada' && (
+          {consulta.linkMeet && CONSULTA_STATUS_OCUPA_HORARIO.includes(consulta.status) && (
             <a 
               href={consulta.linkMeet} 
               target="_blank" 

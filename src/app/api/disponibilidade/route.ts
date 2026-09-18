@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { ConsultaStatus, CONSULTA_STATUS_OCUPA_HORARIO } from '@/types';
 
 interface HorarioDisponivel {
   id: string;
@@ -15,7 +16,7 @@ interface ConsultaAgendada {
   pacienteId: string;
   data: string;
   hora: string;
-  status: 'agendada' | 'confirmada' | 'cancelada' | 'realizada';
+  status: ConsultaStatus;
   pagamento?: string;
   criadaEm: string;
   atualizadaEm: string;
@@ -69,9 +70,9 @@ function verificarDisponibilidadeData(
   
   // Verificar quais horários já estão ocupados nesta data específica
   const horariosOcupados = consultasAgendadas
-    .filter(consulta => 
-      consulta.data === dataStr && 
-      consulta.status !== 'cancelada'
+    .filter(consulta =>
+      consulta.data === dataStr &&
+      CONSULTA_STATUS_OCUPA_HORARIO.includes(consulta.status)
     )
     .map(consulta => consulta.hora);
   

@@ -1,32 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
-
-interface Consulta {
-  id: string;
-  pacienteId: string;
-  data: string;
-  hora: string;
-  status: 'agendada' | 'realizada' | 'cancelada' | 'nao_compareceu';
-  pagamento: string;
-  criadaEm: string;
-  atualizadaEm: string;
-  pagamentoId?: number;
-  pagamentoData?: string;
-}
+import { Consulta, CONSULTA_STATUS } from '@/types';
 
 // PUT - Atualizar status da consulta
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
-    const { status, observacao } = body;
+    const { status } = body;
+    const observacoes = body.observacoes ?? body.observacao;
 
     // Validar status
-    const statusValidos = ['agendada', 'realizada', 'cancelada', 'nao_compareceu'];
+    const statusValidos = CONSULTA_STATUS;
     if (!statusValidos.includes(status)) {
       return NextResponse.json(
         { error: 'Status inválido' },
@@ -58,7 +47,7 @@ export async function PUT(
       ...consultas[consultaIndex],
       status: status,
       atualizadaEm: new Date().toISOString(),
-      ...(observacao && { observacao })
+      ...(observacoes && { observacoes })
     };
 
     // Salvar arquivo
@@ -82,10 +71,10 @@ export async function PUT(
 // DELETE - Cancelar/Deletar consulta
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const dataPath = path.join(process.cwd(), 'src', 'data');
     const consultasPath = path.join(dataPath, 'consultas.json');
