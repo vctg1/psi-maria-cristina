@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { HorarioDisponivel } from '@/types';
+import { requireAuth } from '@/lib/auth/guard';
 
 const horariosPath = join(process.cwd(), 'src/data/horarios-disponiveis.json');
 const consultasPath = join(process.cwd(), 'src/data/consultas.json');
@@ -79,6 +80,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const r = await requireAuth(request, 'psicologa');
+    if ('erro' in r) return r.erro;
+
     const body = await request.json();
     const { data, hora, tipo, diaSemana } = body;
 
@@ -117,6 +121,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const r = await requireAuth(request, 'psicologa');
+    if ('erro' in r) return r.erro;
+
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { requireAuth } from '@/lib/auth/guard';
 
 function getClient(): MercadoPagoConfig | null {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -29,11 +30,14 @@ function saveConsultas(consultas: any[]) {
 // Processar pagamento com cartão de crédito
 export async function POST(request: NextRequest) {
   try {
+    const r = await requireAuth(request);
+    if ('erro' in r) return r.erro;
+
     const body = await request.json();
-    const { 
-      consultaId, 
-      metodoPagamento, 
-      dadosCartao, 
+    const {
+      consultaId,
+      metodoPagamento,
+      dadosCartao,
       dadosPagador,
       valor = 150.00
     } = body;
@@ -134,6 +138,9 @@ export async function POST(request: NextRequest) {
 // Gerar PIX QR Code
 export async function GET(request: NextRequest) {
   try {
+    const r = await requireAuth(request);
+    if ('erro' in r) return r.erro;
+
     const { searchParams } = new URL(request.url);
     const consultaId = searchParams.get('consultaId');
     const email = searchParams.get('email');
@@ -189,6 +196,9 @@ export async function GET(request: NextRequest) {
 // Verificar status do pagamento
 export async function PUT(request: NextRequest) {
   try {
+    const r = await requireAuth(request);
+    if ('erro' in r) return r.erro;
+
     const body = await request.json();
     const { paymentId, consultaId } = body;
 

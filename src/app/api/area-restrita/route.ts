@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { requireAuth } from '@/lib/auth/guard';
 
 const pacientesPath = join(process.cwd(), 'src/data/pacientes.json');
 const consultasPath = join(process.cwd(), 'src/data/consultas.json');
@@ -41,48 +42,12 @@ function saveNotificacoes(notificacoes: any[]) {
   writeFileSync(notificacoesPath, JSON.stringify(notificacoes, null, 2));
 }
 
-// Login para área restrita
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { email, senha, tipo } = body;
-
-    if (tipo === 'psicologa') {
-      // Login da psicóloga (credenciais fixas para este exemplo)
-      if (email === 'psicologa@mariacristina.com' && senha === 'admin123') {
-        return NextResponse.json({
-          success: true,
-          tipo: 'psicologa',
-          nome: 'Maria Cristina'
-        });
-      }
-    } else {
-      // Login do paciente
-      const pacientes = getPacientes();
-      const paciente = pacientes.find((p: any) => p.email === email);
-      
-      if (paciente && senha === paciente.id.slice(-8)) {
-        const consultas = getConsultas();
-        const consultasPaciente = consultas.filter((c: any) => c.pacienteId === paciente.id);
-        
-        return NextResponse.json({
-          success: true,
-          tipo: 'paciente',
-          paciente,
-          consultas: consultasPaciente
-        });
-      }
-    }
-
-    return NextResponse.json({ error: 'Credenciais inválidas' }, { status: 401 });
-  } catch (error) {
-    return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
-  }
-}
-
 // Endpoints para área restrita da psicóloga
 export async function GET(request: NextRequest) {
   try {
+    const r = await requireAuth(request, 'psicologa');
+    if ('erro' in r) return r.erro;
+
     const { searchParams } = new URL(request.url);
     const action = searchParams.get('action');
     const id = searchParams.get('id');
@@ -154,6 +119,9 @@ export async function GET(request: NextRequest) {
 // Atualizar consulta (adicionar link do Meet, alterar status, etc.)
 export async function PUT(request: NextRequest) {
   try {
+    const r = await requireAuth(request, 'psicologa');
+    if ('erro' in r) return r.erro;
+
     const body = await request.json();
     const { consultaId, updates } = body;
 
@@ -181,6 +149,9 @@ export async function PUT(request: NextRequest) {
 // Marcar notificação como lida ou todas como lidas
 export async function PATCH(request: NextRequest) {
   try {
+    const r = await requireAuth(request, 'psicologa');
+    if ('erro' in r) return r.erro;
+
     const body = await request.json();
     const { notificacaoId, marcarTodas } = body;
 

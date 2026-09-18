@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
+import { requireAuth } from '@/lib/auth/guard';
 
 function getClient(): MercadoPagoConfig | null {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -11,6 +12,9 @@ function getClient(): MercadoPagoConfig | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const r = await requireAuth(request);
+    if ('erro' in r) return r.erro;
+
     const body = await request.json();
     const { consultaId, pacienteNome, pacienteEmail, valor, metodoPagamento } = body;
 

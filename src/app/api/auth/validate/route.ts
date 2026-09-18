@@ -1,6 +1,21 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { autenticar } from '@/lib/auth/guard';
+import { respostaErroAuth } from '@/lib/auth/erros';
 
-// Placeholder: login real (bcrypt + sessão) será implementado na Fase 2 (ver PLANO-reconstrucao.md).
-export async function GET() {
-  return NextResponse.json({ error: 'Não implementado' }, { status: 501 });
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await autenticar(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+    }
+    return NextResponse.json({
+      usuario: {
+        id: auth.usuarioId,
+        papel: auth.papel,
+        ...(auth.pacienteId ? { pacienteId: auth.pacienteId } : {}),
+      },
+    });
+  } catch (error) {
+    return respostaErroAuth(error);
+  }
 }

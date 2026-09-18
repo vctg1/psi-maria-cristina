@@ -152,10 +152,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       consulta: novaConsulta,
       paciente: pacienteExistente,
-      acessoAreaRestrita: {
-        email: pacienteExistente.email,
-        senha: pacienteExistente.id.slice(-8) // Últimos 8 caracteres do ID como senha temporária
-      },
       pagamento: dadosPagamento
     });
 

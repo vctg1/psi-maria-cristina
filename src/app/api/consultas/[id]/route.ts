@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { Consulta, CONSULTA_STATUS } from '@/types';
+import { requireAuth } from '@/lib/auth/guard';
 
 // PUT - Atualizar status da consulta
 export async function PUT(
@@ -9,6 +10,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const r = await requireAuth(request, 'psicologa');
+    if ('erro' in r) return r.erro;
+
     const { id } = await params;
     const body = await request.json();
     const { status } = body;
@@ -74,6 +78,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const r = await requireAuth(request, 'psicologa');
+    if ('erro' in r) return r.erro;
+
     const { id } = await params;
 
     const dataPath = path.join(process.cwd(), 'src', 'data');

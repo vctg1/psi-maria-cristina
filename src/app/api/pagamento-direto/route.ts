@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { requireAuth } from '@/lib/auth/guard';
 
 function getClient(): MercadoPagoConfig | null {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -29,10 +30,13 @@ function saveConsultas(consultas: any[]) {
 // Processar pagamento direto (sem token)
 export async function POST(request: NextRequest) {
   try {
+    const r = await requireAuth(request);
+    if ('erro' in r) return r.erro;
+
     const body = await request.json();
-    const { 
-      consultaId, 
-      dadosCartao, 
+    const {
+      consultaId,
+      dadosCartao,
       dadosPagador,
       valor = 150.00
     } = body;
