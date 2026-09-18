@@ -1,8 +1,8 @@
-# PROPOSTA de schema — PostgreSQL + Prisma 7 (revisão 2)
+# PROPOSTA de schema — PostgreSQL + Prisma 7 (revisão 3 — FINAL, aplicada)
 
-Status: **proposta revisada para aprovação final**. Nada foi aplicado: sem migration, sem `prisma`, sem alteração em `src/`.
+Status: **aprovada e aplicada** (rev. 3). O `schema.prisma` real vive em `prisma/schema.prisma`; a migration inicial está em `prisma/migrations/`. Este documento é a justificativa e o registro de decisões.
 
-Revisão 2 incorpora as decisões sobre D1–D8 e Q1–Q13 (§9 lista o que mudou). Fontes: `src/types/index.ts` (pós-T0.4), `src/data/*.json`, rotas de `src/app/api`, e o bloco legado comentado de `src/app/area-restrita/page.tsx`. **Modela-se a intenção original** (agendamento real com cadastro, área restrita, cobrança), não o estado degradado ativo (só-WhatsApp, login escondido, escrita em JSON) — esse estado foi um contorno para o Vercel e não é referência.
+Revisão 2 incorporou D1–D8 e Q1–Q13; revisão 3 fecha Q14, Q15 e Q5 e congela as pendências restantes (§8) para a Fase 1. Fontes: `src/types/index.ts` (pós-T0.4), `src/data/*.json`, rotas de `src/app/api`, e o bloco legado comentado de `src/app/area-restrita/page.tsx`. **Modela-se a intenção original** (agendamento real com cadastro, área restrita, cobrança), não o estado degradado ativo (só-WhatsApp, login escondido, escrita em JSON) — esse estado foi um contorno para o Vercel e não é referência.
 
 Legenda: **[regra]** regra de negócio decidida · **[legado]** existe no código/JSON · **[proposta]** decisão minha, sujeita a aprovação · **[?]** pergunta ainda aberta (§8).
 
@@ -166,7 +166,7 @@ Dois visitantes no mesmo horário: sob `Serializable` o Postgres detecta a depen
 | `observacao` | `String?` | "Desconto pacote 4 sessões". |
 | `criadoEm` / `atualizadoEm` | `DateTime` | |
 
-**Nota de implementação (rota, não schema)** — ao criar a preference: `external_reference = consulta.id` (é o que liga o webhook à cobrança), `notification_url = ${NEXT_PUBLIC_URL}/api/pagamento/webhook`, `back_urls` → `/pagamento/{sucesso,pendente,falha}?cobranca=<pagamento.id>`, `auto_return: 'approved'`, e, **replicando o gestor-imoveis**, `payment_methods.excluded_payment_types = [{ id: 'bank_transfer' }, { id: 'ticket' }, { id: 'account_money' }]`. ⚠ Ver **Q14**: na taxonomia do MP, `bank_transfer` = PIX e `ticket` = boleto — com essa exclusão sobra **só cartão**, o que contradiz "PIX, boleto e cartão". Registrei como mandado; a lista final precisa da sua confirmação.
+**Nota de implementação (rota, não schema)** — ao criar a preference: `external_reference = consulta.id` (é o que liga o webhook à cobrança), `notification_url = ${NEXT_PUBLIC_URL}/api/pagamento/webhook`, `back_urls` → `/pagamento/{sucesso,pendente,falha}?cobranca=<pagamento.id>`, `auto_return: 'approved'`, e `payment_methods.excluded_payment_types = [{ id: 'account_money' }]` **[decidido Q14]** — exclui **só** saldo em conta MP; `bank_transfer` (PIX), `ticket` (boleto) e cartão ficam ativos.
 
 ### 1.8 `EventoPagamento` — trilha de webhooks/reconciliações
 
@@ -355,9 +355,9 @@ model Usuario {
   senhaHash     String?   @map("senha_hash")      // null = primeiro acesso pendente
   papel         Papel
   ativo         Boolean   @default(true)
-  ultimoLoginEm DateTime? @map("ultimo_login_em")
-  criadoEm      DateTime  @default(now()) @map("criado_em")
-  atualizadoEm  DateTime  @updatedAt @map("atualizado_em")
+  ultimoLoginEm DateTime? @map("ultimo_login_em") @db.Timestamptz(3)
+  criadoEm      DateTime  @default(now()) @map("criado_em") @db.Timestamptz(3)
+  atualizadoEm  DateTime  @updatedAt @map("atualizado_em") @db.Timestamptz(3)
 
   paciente          Paciente?
   tokensAcesso      TokenAcesso[]
@@ -372,9 +372,9 @@ model TokenAcesso {
   usuarioId  String          @map("usuario_id")
   tokenHash  String          @unique @map("token_hash")
   finalidade FinalidadeToken
-  expiraEm   DateTime        @map("expira_em")
-  usadoEm    DateTime?       @map("usado_em")
-  criadoEm   DateTime        @default(now()) @map("criado_em")
+  expiraEm   DateTime        @map("expira_em") @db.Timestamptz(3)
+  usadoEm    DateTime?       @map("usado_em") @db.Timestamptz(3)
+  criadoEm   DateTime        @default(now()) @map("criado_em") @db.Timestamptz(3)
 
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 
@@ -397,8 +397,8 @@ model Paciente {
   origemCadastro      OrigemCadastro @map("origem_cadastro")
   observacoesCadastro String?        @map("observacoes_cadastro")
   avatarUrl           String?        @map("avatar_url")   // URL no object storage; NUNCA binário/base64
-  criadoEm            DateTime       @default(now()) @map("criado_em")
-  atualizadoEm        DateTime       @updatedAt @map("atualizado_em")
+  criadoEm            DateTime       @default(now()) @map("criado_em") @db.Timestamptz(3)
+  atualizadoEm        DateTime       @updatedAt @map("atualizado_em") @db.Timestamptz(3)
 
   usuario   Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
   consultas Consulta[]
@@ -415,8 +415,8 @@ model HorarioAtendimento {
   diaSemana    DiaSemana @map("dia_semana")
   hora         String    @db.VarChar(5)            // "HH:MM"
   ativo        Boolean   @default(true)
-  criadoEm     DateTime  @default(now()) @map("criado_em")
-  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+  criadoEm     DateTime  @default(now()) @map("criado_em") @db.Timestamptz(3)
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em") @db.Timestamptz(3)
 
   @@unique([diaSemana, hora])
   @@index([diaSemana, ativo])
@@ -429,7 +429,7 @@ model ExcecaoDisponibilidade {
   data     DateTime @db.Date
   hora     String?  @db.VarChar(5)                 // null = dia inteiro
   motivo   String?
-  criadoEm DateTime @default(now()) @map("criado_em")
+  criadoEm DateTime @default(now()) @map("criado_em") @db.Timestamptz(3)
 
   @@unique([data, hora])                           // (null,null) não colide no Postgres → app checa
   @@index([data])
@@ -442,7 +442,7 @@ model ExcecaoDisponibilidade {
 model Consulta {
   id                 String         @id @default(uuid())
   pacienteId         String         @map("paciente_id")
-  inicio             DateTime                                   // data + hora escolhida, timestamptz
+  inicio             DateTime       @db.Timestamptz(3)          // data + hora escolhida, timestamptz
   status             ConsultaStatus @default(agendada)
 
   modalidade         Modalidade?
@@ -451,14 +451,14 @@ model Consulta {
   relatorio          String?                                     // SENSÍVEL: só rota de psicóloga
   criadaPor          AtorConsulta   @map("criada_por")
 
-  confirmadaEm       DateTime?      @map("confirmada_em")
-  encerradaEm        DateTime?      @map("encerrada_em")        // realizada OU nao_compareceu — [?] Q7
-  canceladaEm        DateTime?      @map("cancelada_em")
+  confirmadaEm       DateTime?      @map("confirmada_em") @db.Timestamptz(3)
+  encerradaEm        DateTime?      @map("encerrada_em") @db.Timestamptz(3) // realizada OU nao_compareceu — [?] Q7
+  canceladaEm        DateTime?      @map("cancelada_em") @db.Timestamptz(3)
   canceladaPor       AtorConsulta?  @map("cancelada_por")
   motivoCancelamento String?        @map("motivo_cancelamento")
 
-  criadaEm           DateTime       @default(now()) @map("criada_em")
-  atualizadaEm       DateTime       @updatedAt @map("atualizada_em")
+  criadaEm           DateTime       @default(now()) @map("criada_em") @db.Timestamptz(3)
+  atualizadaEm       DateTime       @updatedAt @map("atualizada_em") @db.Timestamptz(3)
 
   paciente     Paciente      @relation(fields: [pacienteId], references: [id], onDelete: Restrict)
   pagamento    Pagamento?
@@ -485,14 +485,14 @@ model Pagamento {
   mpPaymentId           String?          @unique @map("mp_payment_id")      // âncora de idempotência
   mpStatus              String?          @map("mp_status")                  // cru: approved, rejected…
   mpStatusDetail        String?          @map("mp_status_detail")
-  expiraEm              DateTime?        @map("expira_em")
-  pagoEm                DateTime?        @map("pago_em")                    // date_approved do MP
-  ultimaReconciliacaoEm DateTime?        @map("ultima_reconciliacao_em")
+  expiraEm              DateTime?        @map("expira_em") @db.Timestamptz(3)
+  pagoEm                DateTime?        @map("pago_em") @db.Timestamptz(3) // date_approved do MP
+  ultimaReconciliacaoEm DateTime?        @map("ultima_reconciliacao_em") @db.Timestamptz(3)
 
   geradoPorId           String?          @map("gerado_por_id")
   observacao            String?
-  criadoEm              DateTime         @default(now()) @map("criado_em")
-  atualizadoEm          DateTime         @updatedAt @map("atualizado_em")
+  criadoEm              DateTime         @default(now()) @map("criado_em") @db.Timestamptz(3)
+  atualizadoEm          DateTime         @updatedAt @map("atualizado_em") @db.Timestamptz(3)
 
   consulta  Consulta          @relation(fields: [consultaId], references: [id], onDelete: Restrict)
   geradoPor Usuario?          @relation("PagamentoGeradoPor", fields: [geradoPorId], references: [id], onDelete: SetNull)
@@ -511,7 +511,7 @@ model EventoPagamento {
   statusAnterior   PagamentoStatus? @map("status_anterior")
   statusNovo       PagamentoStatus? @map("status_novo")
   payload          Json?                                      // sanitizado: sem card / payer.identification
-  recebidoEm       DateTime         @default(now()) @map("recebido_em")
+  recebidoEm       DateTime         @default(now()) @map("recebido_em") @db.Timestamptz(3)
 
   pagamento Pagamento? @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
 
@@ -527,7 +527,7 @@ model Configuracao {
   valorPadraoSessao             Decimal  @default(200) @map("valor_padrao_sessao") @db.Decimal(10, 2)
   duracaoSessaoMin              Int      @default(50) @map("duracao_sessao_min")   // INFORMATIVO (exibido), não cálculo
   antecedenciaCancelamentoHoras Int      @default(24) @map("antecedencia_cancelamento_horas")
-  atualizadoEm                  DateTime @updatedAt @map("atualizado_em")
+  atualizadoEm                  DateTime @updatedAt @map("atualizado_em") @db.Timestamptz(3)
 
   @@map("configuracao")
 }
@@ -540,7 +540,7 @@ model Notificacao {
   mensagem   String
   consultaId String?         @map("consulta_id")
   lida       Boolean         @default(false)
-  criadaEm   DateTime        @default(now()) @map("criada_em")
+  criadaEm   DateTime        @default(now()) @map("criada_em") @db.Timestamptz(3)
 
   consulta Consulta? @relation(fields: [consultaId], references: [id], onDelete: SetNull)
 
@@ -598,7 +598,7 @@ Preference sem nenhum payment até `expiraEm` → a reconciliação marca `expir
 
 ## 5. Fluxos de cadastro, primeiro acesso e agendamento
 
-Há **dois** caminhos para um paciente existir [regra D1 + regra "psicóloga cadastra"]:
+Há **dois** caminhos para um paciente existir [regra D1 + regra "psicóloga cadastra"], **unificados no mecanismo `TokenAcesso`** [decidido Q15 + Q5]: token só quando a psicóloga inicia (primeiro acesso, redefinição); o autocadastro define senha na hora e não usa token.
 
 **A. Psicóloga cadastra** (`origemCadastro = psicologa`) → `Usuario{senhaHash:null}` + `Paciente` → token `primeiro_acesso` (7 d) → botão `wa.me` com `https://<site>/primeiro-acesso?token=…` → paciente define senha (`POST /api/auth/primeiro-acesso`, transação: `updateMany token where usadoEm null and expiraEm > now` → 0 linhas = 400; `update usuario senhaHash`) → JWT emitido.
 
@@ -609,7 +609,7 @@ Há **dois** caminhos para um paciente existir [regra D1 + regra "psicóloga cad
 2. escolhe data+hora  → guardado só no estado da página (nada no banco, nada "segurado")
 3. "Continuar" → se tem conta: login (email+senha → JWT)
                   se não: formulário de cadastro (nome, email, telefone, nascimento, [cpf], responsável se menor,
-                          modalidade, motivo, observações) + SENHA definida aqui       [?] Q15
+                          modalidade, motivo, observações) + SENHA definida aqui       [decidido Q15: sem token]
 4. submit → POST /api/agendamento { inicio, dadosCadastro? }  →  transação Serializable da §1.6.1
               cria Usuario+Paciente (se cadastro) e a Consulta{agendada, criadaPor: paciente}
               409 "horário indisponível" se outro completou antes — a página volta ao passo 1 com o calendário atualizado
@@ -618,7 +618,7 @@ Há **dois** caminhos para um paciente existir [regra D1 + regra "psicóloga cad
 
 Sem reserva temporária: entre 2 e 4 o horário continua livre para todos. Quem fecha a transação primeiro leva.
 
-**Login**: `POST /api/auth/login { email, senha }` → `senhaHash null` → `403 "defina sua senha pelo link de primeiro acesso"` (mensagem genérica se o email não existe) → `bcrypt.compare` → JWT `{ sub, papel, pacienteId? }` em cookie `httpOnly; secure; sameSite=lax`, expiração 8 h, sem refresh (Q10 aberto). **Esqueci a senha**: token `redefinicao_senha` (1 h) gerado pela psicóloga e enviado por `wa.me` (Q5 aberto).
+**Login**: `POST /api/auth/login { email, senha }` → `senhaHash null` → `403 "defina sua senha pelo link de primeiro acesso"` (mensagem genérica se o email não existe) → `bcrypt.compare` → JWT `{ sub, papel, pacienteId? }` em cookie `httpOnly; secure; sameSite=lax`, expiração 8 h, sem refresh (Q10 aberto — Fase 1). **Esqueci a senha** [decidido Q5]: a psicóloga gera `TokenAcesso{finalidade: redefinicao_senha, expiraEm: +1 h}` e envia o link `/redefinir-senha?token=…` por `wa.me` manual. Mesmo mecanismo do primeiro acesso, finalidade diferente. **Não há auto-serviço por email/SMS.**
 
 ---
 
@@ -639,7 +639,7 @@ Migração dos seeds: `diaSemana 1..6` → `segunda..sabado` (o legado não tem 
 
 | # | Legado | Modelo | Estado |
 |---|---|---|---|
-| D1 | Visitante escolhe horário, preenche dados, `POST /api/agendamento` cria paciente por email e consulta; senha = `id.slice(-8)` exibida. | Mesmo fluxo de **intenção** (visitante → horário → cadastro/login → consulta), mas com senha definida pelo paciente (ou login) e sem `id.slice(-8)`. | **Decidido** (rev. 2). Resta Q15 (senha no autocadastro). |
+| D1 | Visitante escolhe horário, preenche dados, `POST /api/agendamento` cria paciente por email e consulta; senha = `id.slice(-8)` exibida. | Mesmo fluxo de **intenção** (visitante → horário → cadastro/login → consulta), mas com senha definida pelo paciente (ou login) e sem `id.slice(-8)`. | **Decidido** (rev. 3, com Q15). |
 | D2 | `admin123` literal. | Seed via env. | Decidido. |
 | D3 | `HorarioDisponivel` slot a slot (`hora "09:00"`), 44 seeds recorrentes. | `HorarioAtendimento` slot a slot — **idêntico**. Seeds migram 1:1. | **Decidido** (rev. 2). |
 | D4 | `tipo: 'unico'` = disponibilidade **extra** numa data avulsa (nenhum seed usa; o formulário legado permitia). | Só exceções de indisponibilidade [regra]. | **Aberto** — precisa "abrir um sábado excepcional"? Se sim, `ExcecaoDisponibilidade.tipo { bloqueio, liberacao }`. |
@@ -659,23 +659,42 @@ Migração dos seeds: `diaSemana 1..6` → `segunda..sabado` (o legado não tem 
 
 ---
 
-## 8. Perguntas ainda abertas
+## 8. Pendências — estado final
 
-- **Q4 · CPF.** Manter `Paciente.cpf`? Com Checkout Pro o MP coleta na página dele. Se ficar, é só para cadastro/recibo.
-- **Q5 · Esqueci a senha.** Aceita o fluxo "psicóloga gera link e manda por `wa.me`" (sem email/SMS)?
-- **Q6 · `observacoes` × `relatorio`.** `observacoes` visível ao paciente e `relatorio` privado — confirma?
-- **Q7 · `encerradaEm`** (um campo para `realizada`/`nao_compareceu`) ou `realizadaEm` + `naoCompareceuEm`?
-- **Q8 · `Notificacao`.** Manter o sino in-app do dashboard legado ou remover?
-- **Q10 · Revogação de sessão.** JWT puro (logout = apagar cookie) ou tabela `Sessao`?
-- **Q12 · LGPD.** Anonimização de paciente (`anonimizadoEm`, apaga nome/telefone/cpf/avatar, mantém consultas)?
-- **Q14 · Exclusões do Checkout Pro.** Você pediu excluir `bank_transfer`, `ticket` e `account_money` "deixando PIX, boleto e cartão". Na taxonomia do MP: `bank_transfer` = **PIX**, `ticket` = **boleto**, `account_money` = saldo em conta MP. Excluir os três deixa **só cartão** (crédito/débito). Qual é a intenção: (a) só cartão — mantém a lista; (b) PIX + boleto + cartão — excluir **só** `account_money`; (c) PIX + cartão — excluir `ticket` e `account_money`. Vou copiar do gestor-imoveis o que você confirmar.
-- **Q15 · Senha no autocadastro.** No fluxo B (visitante), o paciente define a senha **no formulário de cadastro** (proposta: sim, evita token e ele já sai logado) ou também recebe token de primeiro acesso por `wa.me`?
-- **Q3 · Hospedagem do Postgres** (Neon / Vercel Postgres / Supabase) — não muda o schema; muda `DATABASE_URL`, pooling e `prisma.config.ts`.
-- **D4, D7 (registro de teste), D10, D12, D15** — ver §7.
+**Decididas na rev. 3:**
+- **Q14** — `excluded_payment_types = [{ id: 'account_money' }]`. PIX, boleto e cartão ativos.
+- **Q15** — autocadastro define senha no formulário e sai logado; sem token.
+- **Q5** — "esqueci a senha" = `TokenAcesso{redefinicao_senha, 1 h}` gerado pela psicóloga e enviado por `wa.me`; sem email/SMS.
+
+**Abertas — congeladas para a Fase 1, a resolver rota a rota** (também registradas como comentário no topo de `prisma/schema.prisma`). Nenhuma bloqueia a migration inicial; todas são aditivas (migration incremental) ou de comportamento de API:
+- **Q4** · manter `Paciente.cpf`? (hoje `String? @unique`; remover é migration incremental)
+- **Q6** · `observacoes` visível ao paciente × `relatorio` privado — semântica a fixar nas rotas
+- **Q7** · `encerradaEm` único (atual) × `realizadaEm` + `naoCompareceuEm`
+- **Q8** · manter `Notificacao` in-app? (tabela criada; se cair, migration incremental a remove)
+- **Q10** · revogação de sessão: JWT puro (atual) × tabela `Sessao`
+- **Q12 · LGPD — OBRIGATÓRIO antes de produção com paciente real**, mesmo adiado: anonimização (`anonimizadoEm`, apagar nome/telefone/cpf/avatar mantendo consultas), via migration incremental
+- **D4** · liberar data avulsa (`ExcecaoDisponibilidade.tipo { bloqueio, liberacao }`)?
+- **D12** · manter `modalidade`/`motivo`/`observacoes` em `Consulta`?
+- **D15** · "desfazer" administrativo de status (`realizada → confirmada`)?
+- **D17** · pagamento por fora do MP (`MetodoPagamento.outro` + `origem: manual`)?
+- **D7** · registro de teste de `consultas.json` (`pagamentoId 1341382779`) — **não migrado** no seed; decidir se descarta.
+- **Q3** · hospedagem do Postgres em produção (VPS) — deploy é fase posterior; local usa `localhost:5432/psi_maria_cristina`.
 
 ---
 
-## 9. O que mudou da revisão 1 para a 2
+## 9. Histórico de revisões
+
+### Rev. 2 → 3 (final)
+
+| Item | Rev. 2 | Rev. 3 |
+|---|---|---|
+| Q14 exclusões Checkout Pro | `bank_transfer, ticket, account_money` (contradição) | **só `account_money`** |
+| Q15 senha no autocadastro | aberta | **no formulário, sem token** |
+| Q5 esqueci a senha | aberta | **token `redefinicao_senha` pela psicóloga via wa.me** |
+| Pendências restantes | espalhadas | congeladas em §8 e no topo do `schema.prisma` |
+| Aplicação | nada aplicado | `prisma/schema.prisma`, migration inicial, seeds |
+
+### Rev. 1 → 2
 
 | Item | Rev. 1 | Rev. 2 |
 |---|---|---|
@@ -692,6 +711,8 @@ Migração dos seeds: `diaSemana 1..6` → `segunda..sabado` (o legado não tem 
 ---
 
 ## 10. Pendências de implementação (Fase 1) — não é schema
+
+> O schema aplicado está em `prisma/schema.prisma`; se ele e a §3 divergirem, **o arquivo em `prisma/` vence** e esta seção deve ser atualizada.
 
 - **UI · botões de login/área restrita no cabeçalho**: escondidos quando o sistema foi degradado para só-WhatsApp (`src/app/page.tsx` ~linha 95 tem o `<Link href="/area-restrita">` comentado). Recolocar no header da home e das páginas internas.
 - **UI · agendamento real substitui o fluxo degradado**: `src/app/agendamento/page.tsx` hoje abre `wa.me` no submit e tem a chamada à API comentada; passa a seguir o fluxo B da §5 (horário → cadastro/login → `POST /api/agendamento`). O botão de WhatsApp pode permanecer como canal de contato, não como agendamento.
