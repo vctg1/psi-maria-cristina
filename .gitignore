@@ -45,3 +45,6 @@ next-env.d.ts
 
 # dados de paciente (nunca commitar dados reais; arquivo removido do indice com git rm --cached)
 src/data/pacientes.json
+
+# prisma client gerado (não versionado; gerar com `npx prisma generate`)
+src/generated/

@@ -1,0 +1,340 @@
+// ============================================================================
+// PENDÊNCIAS CONGELADAS PARA A FASE 1 (PROPOSTA-schema.md §8) — não bloqueiam
+// esta migration inicial; todas são aditivas (migration incremental) ou de
+// comportamento de API, a resolver rota a rota:
+//
+// Q4  · manter Paciente.cpf? (hoje String? @unique; remover é migration incremental)
+// Q6  · observacoes visível ao paciente × relatorio privado — semântica a fixar nas rotas
+// Q7  · encerradaEm único (atual) × realizadaEm + naoCompareceuEm
+// Q8  · manter Notificacao in-app? (tabela criada; se cair, migration incremental a remove)
+// Q10 · revogação de sessão: JWT puro (atual) × tabela Sessao
+// Q12 · LGPD — OBRIGATÓRIO antes de produção com paciente real, mesmo adiada: anonimização
+//       (anonimizadoEm, apagar nome/telefone/cpf/avatar mantendo consultas), via migration incremental
+// D4  · liberar data avulsa (ExcecaoDisponibilidade.tipo { bloqueio, liberacao })?
+// D12 · manter modalidade/motivo/observacoes em Consulta?
+// D15 · "desfazer" administrativo de status (realizada → confirmada)?
+// D17 · pagamento por fora do MP (MetodoPagamento.outro + origem: manual)?
+// D7  · registro de teste de consultas.json (pagamentoId 1341382779) — não migrado no seed; decidir se descarta.
+// Q3  · hospedagem do Postgres em produção (VPS) — deploy é fase posterior; local usa localhost:5432/psi_maria_cristina.
+//
+// Q12 (LGPD/anonimizacao) e OBRIGATORIA antes de producao com paciente real, mesmo adiada -
+// via migration incremental.
+// ============================================================================
+
+// ============================================================================
+// PROPOSTA (rev. 2) — psi-maria-cristina — Prisma 7 / PostgreSQL
+// Não aplicar sem aprovação. Não gerar migration a partir deste arquivo ainda.
+// Convenções: nomes em português; camelCase no client, snake_case no banco (@map).
+// Fuso da aplicação: America/Sao_Paulo. Todo DateTime é timestamptz (UTC no banco).
+// Regra: o que o Prisma não faz nativamente é resolvido na API (transações), nunca em SQL cru.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client"          // Prisma 7
+  output   = "../src/generated/prisma" // [proposta] fora de node_modules, ignorado no git
+}
+
+datasource db {
+  provider = "postgresql"
+  // url: definida em prisma.config.ts → env("DATABASE_URL") (Prisma 7). Servidor apenas; nunca NEXT_PUBLIC_.
+}
+
+// ---------------------------------------------------------------- enums
+
+enum Papel {
+  psicologa
+  paciente
+
+  @@map("papel")
+}
+
+enum FinalidadeToken {
+  primeiro_acesso
+  redefinicao_senha
+
+  @@map("finalidade_token")
+}
+
+enum OrigemCadastro {
+  psicologa      // cadastrado pela psicóloga → primeiro acesso por token
+  autocadastro   // visitante se cadastrou ao agendar → define senha na hora
+
+  @@map("origem_cadastro")
+}
+
+/// Convenção canônica de dia da semana (PROPOSTA-schema.md §6). Sem números.
+/// JS: ['domingo','segunda','terca','quarta','quinta','sexta','sabado'][date.getDay()]
+enum DiaSemana {
+  segunda
+  terca
+  quarta
+  quinta
+  sexta
+  sabado
+  domingo
+
+  @@map("dia_semana")
+}
+
+/// Espelha EXATAMENTE src/types/index.ts CONSULTA_STATUS (T0.4).
+/// O que ocupa horário é CONSULTA_STATUS_OCUPA_HORARIO, na aplicação — não duplicar aqui.
+enum ConsultaStatus {
+  agendada
+  confirmada
+  realizada
+  cancelada
+  nao_compareceu
+
+  @@map("consulta_status")
+}
+
+enum AtorConsulta {
+  paciente
+  psicologa
+
+  @@map("ator_consulta")
+}
+
+enum Modalidade {
+  presencial
+  online
+
+  @@map("modalidade")
+}
+
+/// 4 estados. Mapeamento do MercadoPago na §4 do documento.
+enum PagamentoStatus {
+  pendente   // cobrança gerada (preference criada), aguardando
+  pago       // MP payment approved — fonte de verdade: webhook ou reconciliação
+  falhou     // MP payment rejected
+  expirado   // preference/payment cancelled por expiração
+
+  @@map("pagamento_status")
+}
+
+enum MetodoPagamento {
+  pix
+  boleto
+  cartao
+  outro
+
+  @@map("metodo_pagamento")
+}
+
+enum OrigemEvento {
+  webhook
+  reconciliacao
+  manual
+
+  @@map("origem_evento")
+}
+
+enum TipoNotificacao {
+  novo_agendamento
+  cancelamento
+  pagamento_recebido
+
+  @@map("tipo_notificacao")
+}
+
+// ---------------------------------------------------------------- auth
+
+/// Credencial. Uma linha para a psicóloga (seed via env) e uma por paciente.
+model Usuario {
+  id            String    @id @default(uuid())
+  email         String    @unique                 // lowercase; único entre TODOS os papéis
+  senhaHash     String?   @map("senha_hash")      // null = primeiro acesso pendente
+  papel         Papel
+  ativo         Boolean   @default(true)
+  ultimoLoginEm DateTime? @map("ultimo_login_em") @db.Timestamptz(3)
+  criadoEm      DateTime  @default(now()) @map("criado_em") @db.Timestamptz(3)
+  atualizadoEm  DateTime  @updatedAt @map("atualizado_em") @db.Timestamptz(3)
+
+  paciente          Paciente?
+  tokensAcesso      TokenAcesso[]
+  pagamentosGerados Pagamento[]   @relation("PagamentoGeradoPor")
+
+  @@map("usuario")
+}
+
+/// Token de uso único (primeiro acesso / redefinição). Guarda SHA-256; o bruto só vive no link.
+model TokenAcesso {
+  id         String          @id @default(uuid())
+  usuarioId  String          @map("usuario_id")
+  tokenHash  String          @unique @map("token_hash")
+  finalidade FinalidadeToken
+  expiraEm   DateTime        @map("expira_em") @db.Timestamptz(3)
+  usadoEm    DateTime?       @map("usado_em") @db.Timestamptz(3)
+  criadoEm   DateTime        @default(now()) @map("criado_em") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, finalidade])
+  @@map("token_acesso")
+}
+
+// ---------------------------------------------------------------- paciente
+
+/// Perfil cadastral. Dados pessoais só saem em rota de psicóloga ou para o próprio paciente.
+model Paciente {
+  id                  String         @id @default(uuid())
+  usuarioId           String         @unique @map("usuario_id")
+  nome                String
+  telefone            String                              // dígitos com DDI; usado em wa.me
+  dataNascimento      DateTime       @map("data_nascimento") @db.Date
+  cpf                 String?        @unique               // [?] Q4
+  responsavel         String?                              // obrigatório na app se menor de 18
+  telefoneResponsavel String?        @map("telefone_responsavel")
+  origemCadastro      OrigemCadastro @map("origem_cadastro")
+  observacoesCadastro String?        @map("observacoes_cadastro")
+  avatarUrl           String?        @map("avatar_url")   // URL no object storage; NUNCA binário/base64
+  criadoEm            DateTime       @default(now()) @map("criado_em") @db.Timestamptz(3)
+  atualizadoEm        DateTime       @updatedAt @map("atualizado_em") @db.Timestamptz(3)
+
+  usuario   Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  consultas Consulta[]
+
+  @@map("paciente")
+}
+
+// ---------------------------------------------------------------- disponibilidade
+
+/// Horário de atendimento recorrente, cadastrado UM A UM pela psicóloga.
+/// Um registro = um horário agendável. Sem faixa, sem subdivisão automática.
+model HorarioAtendimento {
+  id           String    @id @default(uuid())
+  diaSemana    DiaSemana @map("dia_semana")
+  hora         String    @db.VarChar(5)            // "HH:MM"
+  ativo        Boolean   @default(true)
+  criadoEm     DateTime  @default(now()) @map("criado_em") @db.Timestamptz(3)
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em") @db.Timestamptz(3)
+
+  @@unique([diaSemana, hora])
+  @@index([diaSemana, ativo])
+  @@map("horario_atendimento")
+}
+
+/// Data indisponível: dia inteiro (hora null) ou um horário específico.
+model ExcecaoDisponibilidade {
+  id       String   @id @default(uuid())
+  data     DateTime @db.Date
+  hora     String?  @db.VarChar(5)                 // null = dia inteiro
+  motivo   String?
+  criadoEm DateTime @default(now()) @map("criado_em") @db.Timestamptz(3)
+
+  @@unique([data, hora])                           // (null,null) não colide no Postgres → app checa
+  @@index([data])
+  @@map("excecao_disponibilidade")
+}
+
+// ---------------------------------------------------------------- consulta
+
+/// Sessão. Máquina de estados e trava de horário na aplicação (§1.6 / §1.6.1).
+model Consulta {
+  id                 String         @id @default(uuid())
+  pacienteId         String         @map("paciente_id")
+  inicio             DateTime       @db.Timestamptz(3)          // data + hora escolhida, timestamptz
+  status             ConsultaStatus @default(agendada)
+
+  modalidade         Modalidade?
+  motivo             String?
+  observacoes        String?                                     // nome canônico (T0.4) — [?] Q6
+  relatorio          String?                                     // SENSÍVEL: só rota de psicóloga
+  criadaPor          AtorConsulta   @map("criada_por")
+
+  confirmadaEm       DateTime?      @map("confirmada_em") @db.Timestamptz(3)
+  encerradaEm        DateTime?      @map("encerrada_em") @db.Timestamptz(3) // realizada OU nao_compareceu — [?] Q7
+  canceladaEm        DateTime?      @map("cancelada_em") @db.Timestamptz(3)
+  canceladaPor       AtorConsulta?  @map("cancelada_por")
+  motivoCancelamento String?        @map("motivo_cancelamento")
+
+  criadaEm           DateTime       @default(now()) @map("criada_em") @db.Timestamptz(3)
+  atualizadaEm       DateTime       @updatedAt @map("atualizada_em") @db.Timestamptz(3)
+
+  paciente     Paciente      @relation(fields: [pacienteId], references: [id], onDelete: Restrict)
+  pagamento    Pagamento?
+  notificacoes Notificacao[]
+
+  @@index([pacienteId, inicio])
+  @@index([inicio, status])
+  @@map("consulta")
+}
+
+// ---------------------------------------------------------------- pagamento
+
+/// Cobrança pós-consulta via Checkout Pro (link), 1:1 com Consulta, gerada manualmente pela psicóloga.
+/// Fonte de verdade do status: MercadoPago (webhook; fallback reconciliação). Ver §4.
+model Pagamento {
+  id                    String           @id @default(uuid())
+  consultaId            String           @unique @map("consulta_id")   // 1:1 — impede cobrança duplicada
+  valor                 Decimal          @db.Decimal(10, 2)            // editável; default Configuracao
+  status                PagamentoStatus  @default(pendente)
+  metodo                MetodoPagamento?
+
+  mpPreferenceId        String?          @unique @map("mp_preference_id")   // Checkout Pro
+  linkCobranca          String?          @map("link_cobranca")              // init_point → wa.me
+  mpPaymentId           String?          @unique @map("mp_payment_id")      // âncora de idempotência
+  mpStatus              String?          @map("mp_status")                  // cru: approved, rejected…
+  mpStatusDetail        String?          @map("mp_status_detail")
+  expiraEm              DateTime?        @map("expira_em") @db.Timestamptz(3)
+  pagoEm                DateTime?        @map("pago_em") @db.Timestamptz(3) // date_approved do MP
+  ultimaReconciliacaoEm DateTime?        @map("ultima_reconciliacao_em") @db.Timestamptz(3)
+
+  geradoPorId           String?          @map("gerado_por_id")
+  observacao            String?
+  criadoEm              DateTime         @default(now()) @map("criado_em") @db.Timestamptz(3)
+  atualizadoEm          DateTime         @updatedAt @map("atualizado_em") @db.Timestamptz(3)
+
+  consulta  Consulta          @relation(fields: [consultaId], references: [id], onDelete: Restrict)
+  geradoPor Usuario?          @relation("PagamentoGeradoPor", fields: [geradoPorId], references: [id], onDelete: SetNull)
+  eventos   EventoPagamento[]
+
+  @@map("pagamento")
+}
+
+/// Trilha imutável de webhooks e reconciliações. Dedupe de retentativas por mpNotificationId.
+model EventoPagamento {
+  id               String           @id @default(uuid())
+  pagamentoId      String?          @map("pagamento_id")
+  origem           OrigemEvento
+  mpNotificationId String?          @unique @map("mp_notification_id")
+  mpPaymentId      String?          @map("mp_payment_id")
+  statusAnterior   PagamentoStatus? @map("status_anterior")
+  statusNovo       PagamentoStatus? @map("status_novo")
+  payload          Json?                                      // sanitizado: sem card / payer.identification
+  recebidoEm       DateTime         @default(now()) @map("recebido_em") @db.Timestamptz(3)
+
+  pagamento Pagamento? @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+
+  @@index([mpPaymentId])
+  @@map("evento_pagamento")
+}
+
+// ---------------------------------------------------------------- configuração / notificação
+
+/// Linha única (id = 1).
+model Configuracao {
+  id                            Int      @id @default(1)
+  valorPadraoSessao             Decimal  @default(200) @map("valor_padrao_sessao") @db.Decimal(10, 2)
+  duracaoSessaoMin              Int      @default(50) @map("duracao_sessao_min")   // INFORMATIVO (exibido), não cálculo
+  antecedenciaCancelamentoHoras Int      @default(24) @map("antecedencia_cancelamento_horas")
+  atualizadoEm                  DateTime @updatedAt @map("atualizado_em") @db.Timestamptz(3)
+
+  @@map("configuracao")
+}
+
+/// In-app para a psicóloga (legado). Opcional — [?] Q8.
+model Notificacao {
+  id         String          @id @default(uuid())
+  tipo       TipoNotificacao
+  titulo     String
+  mensagem   String
+  consultaId String?         @map("consulta_id")
+  lida       Boolean         @default(false)
+  criadaEm   DateTime        @default(now()) @map("criada_em") @db.Timestamptz(3)
+
+  consulta Consulta? @relation(fields: [consultaId], references: [id], onDelete: SetNull)
+
+  @@index([lida, criadaEm])
+  @@map("notificacao")
+}
