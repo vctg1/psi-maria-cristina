@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import React from "react";
 import Button from 'react-bootstrap/Button'
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function Home() {
+  const { usuario, logout } = useAuth();
   const [screenSize, setScreenSize] = useState('desktop');
 
   useEffect(() => {
@@ -92,18 +94,26 @@ export default function Home() {
               Agendar Consulta
             </Button>
             </Link>
-            {/* <Link href="/area-restrita" style={{ 
-              padding: isMobile ? '0.6rem 1rem' : '0.75rem 1.5rem',
-              backgroundColor: '#27ae60',
-              color: 'white',
-              textDecoration: 'none',
-              borderRadius: '5px',
-              fontWeight: '500',
-              textAlign: 'center',
-              fontSize: isMobile ? '0.9rem' : '1rem'
-            }}>
-              Área Restrita
-            </Link> */}
+            <Link href="/area-restrita">
+              <Button
+                variant="success"
+                size="lg"
+                style={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}
+              >
+                <i className="bi bi-person-lock me-2" />
+                {usuario ? 'Minha área' : 'Área restrita'}
+              </Button>
+            </Link>
+            {usuario && (
+              <Button
+                variant="outline-secondary"
+                size="lg"
+                style={{ fontSize: isMobile ? '0.9rem' : '1rem', fontWeight: '600' }}
+                onClick={() => logout()}
+              >
+                Sair
+              </Button>
+            )}
           </div>
         </nav>
       </header>

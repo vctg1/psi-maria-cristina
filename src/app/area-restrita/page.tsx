@@ -1,14 +1,48 @@
-// Placeholder temporário: a área restrita está em reconstrução (ver PLANO-reconstrucao.md).
+// Shell ativo da área restrita: só faz o roteamento por papel (ver PLANO-reconstrucao.md).
 // O código legado comentado abaixo é a fonte da intenção original e NÃO deve ser removido.
+'use client';
+
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Container from 'react-bootstrap/Container';
+import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
+import Button from 'react-bootstrap/Button';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function AreaRestritaPage() {
+  const { usuario, carregando, logout } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (carregando) return;
+    if (!usuario) {
+      router.replace('/login?next=/area-restrita');
+      return;
+    }
+    if (usuario.papel === 'psicologa') {
+      router.replace('/area-restrita/pacientes');
+    }
+  }, [carregando, usuario, router]);
+
+  if (carregando || !usuario || usuario.papel === 'psicologa') {
+    return (
+      <Container className="py-5 text-center">
+        <Spinner animation="border" role="status" />
+      </Container>
+    );
+  }
+
   return (
     <Container className="py-5">
-      <Alert variant="info" className="text-center mb-0">
-        Área restrita em reconstrução.
+      <Alert variant="info" className="text-center">
+        Área do paciente em construção.
       </Alert>
+      <div className="text-center">
+        <Button variant="outline-secondary" onClick={() => logout()}>
+          Sair
+        </Button>
+      </div>
     </Container>
   );
 }

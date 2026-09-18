@@ -87,21 +87,8 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(consultasComPaciente);
       }
 
-      case 'pacientes': {
-        const pacientes = getPacientes();
-        const consultas = getConsultas();
-
-        if (id) {
-          const paciente = pacientes.find((p: any) => p.id === id);
-          if (paciente) {
-            const consultasPaciente = consultas.filter((c: any) => c.pacienteId === id);
-            return NextResponse.json({ ...paciente, consultas: consultasPaciente });
-          }
-          return NextResponse.json({ error: 'Paciente não encontrado' }, { status: 404 });
-        }
-
-        return NextResponse.json(pacientes);
-      }
+      case 'pacientes':
+        return NextResponse.json({ error: 'Use /api/pacientes' }, { status: 410 });
 
       case 'notificacoes': {
         const notificacoes = getNotificacoes();

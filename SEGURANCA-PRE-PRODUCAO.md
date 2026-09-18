@@ -12,9 +12,9 @@ Este arquivo é a **fonte única de verdade** sobre dívida de segurança pré-p
 
 Gravidade: **CRÍTICO** = exposição ou manipulação direta de dado de paciente/dinheiro, ou exigência legal · **ALTO** = facilita ataque ou compromete segredo/infra · **MÉDIO** = defesa em profundidade, higiene, superfície reduzida.
 
-Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth).
+Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), pendente (Fase 2 · pacientes, a commitar pelo dono).
 
-Última atualização: 2026-09-18 (após Fase 1 · autenticação).
+Última atualização: 2026-09-18 (após Fase 2 · gerenciamento de pacientes + UI de login).
 
 ---
 
@@ -24,7 +24,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 |---|---|---|---|
 | CRÍTICO | 5 | 0 | 2 |
 | ALTO | 6 | 0 | 4 |
-| MÉDIO | 10 | 5 | 3 |
+| MÉDIO | 10 | 6 | 4 |
 
 ---
 
@@ -64,6 +64,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 ### R-C2 · Rotas de gerenciamento sem autenticação — RESOLVIDO (Fase 1)
 - **Era:** `GET /api/area-restrita?action=pacientes` devolvia a lista completa de pacientes (com CPF) a qualquer cliente HTTP; PUT/PATCH, `horarios` POST/DELETE, `consultas/[id]` PUT/DELETE sem verificação.
 - **Resolução:** `requireAuth(request, 'psicologa')` em todos; `requireAuth(request)` nas rotas de pagamento. Commit `ea5292e`. Confirmado pelo revisor (eixo e).
+- **Fase 2:** `GET /api/area-restrita?action=pacientes` passou a responder `410 { error: 'Use /api/pacientes' }`; listagem/detalhe/cadastro/edição de paciente agora em `src/app/api/pacientes/route.ts` e `src/app/api/pacientes/[id]/route.ts`, todos com `requireAuth(request, 'psicologa')`. Lista devolve `PacienteResumo` (sem CPF/dataNascimento); detalhe (`PacienteDetalhe`, com CPF) só psicóloga. Confirmado pelo revisor (auditoria Fase 2, eixos a/b). Commit pendente (Fase 2).
 
 ---
 
@@ -131,17 +132,19 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 ### M3 · Token de acesso na URL — ACEITO com mitigações
 - **Risco:** o link `/primeiro-acesso?token=…` passa pelo WhatsApp e pode ficar em histórico do navegador/logs de proxy. Mitigações já existentes: uso único, expiração (7 d / 1 h), só SHA-256 no banco, invalidação dos anteriores ao gerar novo.
 - **Onde:** `src/app/api/auth/token-acesso/route.ts`.
-- **Melhoria opcional (Fase 4):** a página de primeiro acesso troca o token da URL por `POST` imediato e limpa a query (`history.replaceState`).
+- **Mitigação implementada (Fase 2):** `src/app/primeiro-acesso/page.tsx` e `src/app/redefinir-senha/page.tsx` leem o token de `window.location.search` e chamam `history.replaceState` no mesmo efeito, antes de qualquer `fetch`; token só em `useState`, nunca em storage/log. O link ainda trafega pelo WhatsApp e pelo access log do primeiro GET — por isso permanece ACEITO. Confirmado pelo revisor (eixo e). Commit pendente (Fase 2).
 
 ### M4 · Mass assignment no PUT de consulta da psicóloga — ABERTO
 - **Risco:** `PUT /api/area-restrita` faz `{ ...consulta, ...updates }` com o body inteiro — a psicóloga (única autorizada) pode sobrescrever qualquer campo, inclusive `pacienteId`/`id`. Exposição baixa (só psicóloga), mas é padrão a eliminar.
 - **Onde:** `src/app/api/area-restrita/route.ts` linhas ~126–137.
 - **Fase:** 4 (rotas de gerenciamento reescritas com whitelist de campos e enum de status).
+- **Nota Fase 2:** as rotas novas de paciente (`POST /api/pacientes`, `PATCH /api/pacientes/[id]`) já seguem o padrão-alvo: validador com whitelist explícita (`src/lib/validacao/paciente.ts`) e `data` do Prisma montado campo a campo; `id`/`usuarioId`/`origemCadastro`/`senhaHash`/`papel` não são alteráveis. O `PUT /api/area-restrita` legado não foi tocado.
 
 ### M5 · `observacoes` sem validação de tipo/tamanho — ABERTO
 - **Risco:** `PUT /api/consultas/[id]` grava qualquer valor truthy em `observacoes` (objeto, string enorme) no JSON. Só psicóloga.
 - **Onde:** `src/app/api/consultas/[id]/route.ts` linhas ~19 e ~54.
 - **Fase:** 4 (validação `typeof === 'string'` + limite).
+- **Nota Fase 2:** `observacoesCadastro` do paciente já é validado (string, `≤ 2000`) em `src/lib/validacao/paciente.ts`. O `PUT /api/consultas/[id]` legado não foi tocado.
 
 ### M6 · PII em query string — ABERTO
 - **Risco:** `GET /api/pagamento-checkout?consultaId=&email=&nome=` coloca email e nome do paciente na URL (logs de servidor/proxy).
@@ -166,7 +169,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 ### M10 · Persistência em JSON no servidor de produção — ABERTO
 - **Risco:** rotas legadas ainda leem/escrevem `src/data/*.json` com `fs` — sem transação, sem controle de acesso além da rota, e em serverless (Vercel) não persiste; no VPS, escrita concorrente corrompe. Dados de paciente em arquivo ao lado do código.
 - **Onde:** `src/app/api/{agendamento,area-restrita,horarios,disponibilidade,consultas/[id],pagamento-checkout,pagamento-direto}/route.ts`.
-- **Fase:** 1.3 do plano (troca pelo Prisma Client, rota a rota) — concluída para auth; pendente para as demais.
+- **Fase:** 1.3 do plano (troca pelo Prisma Client, rota a rota) — concluída para auth (Fase 1) e para pacientes (Fase 2: `/api/pacientes`, `/api/pacientes/[id]` em Prisma; `area-restrita?action=pacientes` → 410). Pendente: `area-restrita` (dashboard/consultas/notificacoes/PUT/PATCH), `agendamento`, `horarios`, `disponibilidade`, `consultas/[id]`, `pagamento-checkout`, `pagamento-direto`.
 
 ### M11 · CSRF — ACEITO com mitigação estrutural
 - **Risco:** API baseada em cookie de sessão. Mitigação: `sameSite=lax` (bloqueia envio do cookie em POST cross-site), rotas mutáveis aceitam só `application/json` (formulário HTML cross-site não envia JSON). Sem token CSRF dedicado.
@@ -194,11 +197,21 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `src/lib/auth/jwt.ts` linhas ~19–30.
 - **Melhoria (Fase 4):** `setIssuer('psi-maria-cristina').setAudience('web')` + `jwtVerify(..., { issuer, audience })`.
 
+### M17 · Regra "menor de idade exige responsável" não é aplicada em edição parcial — ACEITO (limitação declarada)
+- **Risco:** `validarPacienteEdicao` é pura e só aplica a regra quando `dataNascimento` vem no body; `PATCH {"dataNascimento":"2015-01-01"}` em paciente sem responsável, ou `PATCH {"responsavel":null}` em menor, passam. Integridade cadastral, não exposição; só a psicóloga chama.
+- **Onde:** `src/lib/validacao/paciente.ts` linhas ~290–297; `src/app/api/pacientes/[id]/route.ts` linhas ~66–69 (o `select` de `existente` não traz `dataNascimento`/`responsavel`).
+- **Melhoria (Fase 4):** no PATCH, carregar `dataNascimento, responsavel, telefoneResponsavel` do registro e aplicar a regra sobre o estado resultante (existente ⊕ body) antes do `update`.
+
 ### R-M1 · Fallback literal de segredo (`|| 'TEST-…'`) — RESOLVIDO (Fase 0)
 - Ver R-A2.
 
 ### R-M2 · Conta desativada podia consumir token / receber novo link — RESOLVIDO (Fase 1)
 - **Resolução:** `usuario: { ativo: true }` no `updateMany` de consumo; `token-acesso` responde 404 igual para inexistente e inativo. Commit `ea5292e`. Confirmado pelo revisor.
+
+### R-M4 · Open redirect em `/login?next=` via barra invertida — RESOLVIDO (Fase 2, antes do commit)
+- **Era:** `destinoSeguro()` só rejeitava valores que não começassem com `/` ou começassem com `//`; `?next=%2F%5Cevil.com` (`/\evil.com`) passava e o App Router resolvia `new URL('/\evil.com', location.href)` como `https://evil.com/` — redirect externo pós-login (phishing). Encontrado pelo revisor na auditoria da Fase 2.
+- **Onde:** `src/app/login/page.tsx` (`destinoSeguro`). O `next` gerado pelo `middleware.ts` é sempre `pathname` (seguro); o vetor era link malicioso.
+- **Resolução:** `destinoSeguro` rejeita `\`, resolve com `new URL(next, window.location.origin)`, exige `origin` igual e devolve só `pathname + search`. Commit pendente (Fase 2).
 
 ### R-M3 · Seed logava email da psicóloga e erro bruto — RESOLVIDO (Fase 1 · Prisma)
 - **Resolução:** `prisma/seed.ts` sem email no log; `catch` só com a primeira linha da mensagem. Commit `00ad07b`.
