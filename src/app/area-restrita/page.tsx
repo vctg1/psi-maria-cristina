@@ -1,3 +1,18 @@
+// Placeholder temporário: a área restrita está em reconstrução (ver PLANO-reconstrucao.md).
+// O código legado comentado abaixo é a fonte da intenção original e NÃO deve ser removido.
+import Container from 'react-bootstrap/Container';
+import Alert from 'react-bootstrap/Alert';
+
+export default function AreaRestritaPage() {
+  return (
+    <Container className="py-5">
+      <Alert variant="info" className="text-center mb-0">
+        Área restrita em reconstrução.
+      </Alert>
+    </Container>
+  );
+}
+
 // 'use client';
 
 // import { useState, useEffect } from 'react';
