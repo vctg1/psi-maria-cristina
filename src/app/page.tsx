@@ -408,7 +408,7 @@ export default function Home() {
           <ul className="list-unstyled">
             <li>Telefone: <a href="tel:+5561995391540" style={{ color: 'white', textDecoration: 'underline' }}>(61) 99539-1540</a></li>
             <li>Email: <a href="mailto:mariacriscassia02@gmail.com" style={{ color: 'white', textDecoration: 'underline' }}>mariacriscassia02@gmail.com</a></li>
-            <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d61528.48265927053!2d-47.644439255551625!3d-15.455889216215418!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x935a6ff8c53ef657%3A0x6bacb765fe50147d!2sPlanaltina%2C%20GO!5e0!3m2!1spt-BR!2sbr!4v1767480094006!5m2!1spt-BR!2sbr"
+            <iframe src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d246113.82756486596!2d-47.603239!3d-15.455976!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x935a133ab4a4a4dd%3A0x5f4b18fb11591ca3!2sPlanaltina%2C%20Bras%C3%ADlia%20-%20DF!5e0!3m2!1spt-BR!2sbr!4v1789690332483!5m2!1spt-BR!2sbr"
               width={isMobile ? "250" : "400"}
               height={isMobile ? "150" : "200"}
               style={{ border: 0, marginTop: '1rem' }}
