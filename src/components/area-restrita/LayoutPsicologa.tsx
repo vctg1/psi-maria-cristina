@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import Navbar from 'react-bootstrap/Navbar';
@@ -20,6 +20,7 @@ type LayoutPsicologaProps = {
 export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
   const { usuario, carregando, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (carregando) return;
@@ -41,7 +42,7 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
     <>
       <Navbar expand="md" className="pmc-header mb-4" as="header">
         <Container className="pmc-container">
-          <Navbar.Brand as={Link} href="/area-restrita/pacientes">
+          <Navbar.Brand as={Link} href="/area-restrita/agenda">
             <Image
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
@@ -53,8 +54,18 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
           <Navbar.Toggle aria-controls="navbar-psicologa" />
           <Navbar.Collapse id="navbar-psicologa">
             <Nav className="me-auto">
-              <Nav.Link as={Link} href="/area-restrita/pacientes">
+              <Nav.Link as={Link} href="/area-restrita/agenda" active={pathname?.startsWith('/area-restrita/agenda')}>
+                Agenda
+              </Nav.Link>
+              <Nav.Link as={Link} href="/area-restrita/pacientes" active={pathname?.startsWith('/area-restrita/pacientes')}>
                 Pacientes
+              </Nav.Link>
+              <Nav.Link
+                as={Link}
+                href="/area-restrita/disponibilidade"
+                active={pathname?.startsWith('/area-restrita/disponibilidade')}
+              >
+                Disponibilidade
               </Nav.Link>
             </Nav>
             <Nav className="align-items-md-center gap-2">

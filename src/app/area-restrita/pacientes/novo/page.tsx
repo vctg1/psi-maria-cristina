@@ -117,19 +117,25 @@ export default function NovoPacientePage() {
         </Modal.Header>
         <Modal.Body>
           <p>{pacienteCriado?.nome} foi cadastrado(a) com sucesso.</p>
+          {pacienteCriado && !pacienteCriado.temLogin && (
+            <p className="pmc-texto-2 mb-0">
+              Este paciente foi cadastrado sem e-mail, portanto sem acesso ao site. Você pode criar o acesso
+              depois, na página do paciente.
+            </p>
+          )}
           {linkGerado && <p className="text-break">{linkGerado}</p>}
         </Modal.Body>
         <Modal.Footer>
-          {!linkGerado ? (
+          {!linkGerado && pacienteCriado?.temLogin ? (
             <Button variant="primary" disabled={gerandoLink} onClick={gerarLink}>
               {gerandoLink ? 'Gerando...' : 'Gerar link de primeiro acesso'}
             </Button>
-          ) : (
+          ) : linkGerado ? (
             <Button variant="primary" onClick={enviarWhatsapp}>
               <i className="bi bi-whatsapp me-2" />
               Enviar por WhatsApp
             </Button>
-          )}
+          ) : null}
           <Button variant="outline-secondary" onClick={() => router.push('/area-restrita/pacientes')}>
             Ir para a lista
           </Button>

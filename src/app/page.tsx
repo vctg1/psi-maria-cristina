@@ -176,12 +176,12 @@ export default function Home() {
             </Col>
             <Col md={4}>
               <div className="pmc-icone mx-auto mb-3">
-                <i className="bi bi-whatsapp" />
+                <i className="bi bi-check2-circle" />
               </div>
               <span className="pmc-rotulo">Passo 2</span>
               <h3>Confirmação</h3>
               <p className="mx-auto">
-                Receba a confirmação do agendamento no whatsapp.
+                Você recebe a confirmação e pode acompanhar tudo na sua área.
               </p>
             </Col>
             <Col md={4}>

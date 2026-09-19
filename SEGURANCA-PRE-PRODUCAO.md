@@ -12,9 +12,9 @@ Este arquivo é a **fonte única de verdade** sobre dívida de segurança pré-p
 
 Gravidade: **CRÍTICO** = exposição ou manipulação direta de dado de paciente/dinheiro, ou exigência legal · **ALTO** = facilita ataque ou compromete segredo/infra · **MÉDIO** = defesa em profundidade, higiene, superfície reduzida.
 
-Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), pendente (Fase 2 · pacientes, a commitar pelo dono).
+Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), `2af0aed` (Fase 2 · pacientes), pendente (Fase 3 · agenda, a commitar).
 
-Última atualização: 2026-09-18 (após Fase 2 · gerenciamento de pacientes + UI de login).
+Última atualização: 2026-09-18 (após Fase 3 · disponibilidade, agendamento e consultas).
 
 ---
 
@@ -22,9 +22,9 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 
 | Gravidade | Abertos | Aceitos | Resolvidos |
 |---|---|---|---|
-| CRÍTICO | 5 | 0 | 2 |
+| CRÍTICO | 4 | 0 | 3 |
 | ALTO | 6 | 0 | 4 |
-| MÉDIO | 10 | 6 | 4 |
+| MÉDIO | 8 | 6 | 7 |
 
 ---
 
@@ -46,16 +46,15 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `src/app/api/pagamento-checkout/route.ts` POST linha ~42 (`transaction_amount: valor` em ~56); `src/app/api/pagamento-direto/route.ts` linha ~41 (~67); `src/components/CheckoutTransparente.tsx` linha ~265 envia `valor: 150.00`. O GET PIX usa `150.00` fixo (linha ~162) — afetados: POST cartão e `pagamento-direto`.
 - **Fase:** 5 (valor vem de `Pagamento.valor`, definido pela psicóloga a partir de `Configuracao.valorPadraoSessao`; nunca do body).
 
-### C4 · Vazamento de dado pessoal no agendamento público — ABERTO
-- **Risco:** `POST /api/agendamento` (público, visitante anônimo) acha o paciente **por email** e devolve `paciente: pacienteExistente` inteiro — nome, telefone, CPF, data de nascimento, responsável. Basta informar um email para coletar o CPF de quem já é paciente (enumeração + coleta).
-- **Onde:** `src/app/api/agendamento/route.ts` linhas ~153–154.
-- **Nota:** a Fase 1 removeu o campo `acessoAreaRestrita.senha` da mesma resposta (RESOLVIDO em R-C1); o objeto `paciente` continua.
-- **Fase:** 3 (reescrita do agendamento: visitante → horário → cadastro/login → consulta na transação; resposta só com `consulta.id`, `inicio`, `status`).
+### R-C3 · Vazamento de dado pessoal no agendamento público (era C4) — RESOLVIDO (Fase 3)
+- **Era:** `POST /api/agendamento` (público) achava o paciente por email e devolvia `paciente: pacienteExistente` inteiro (nome, telefone, CPF, data de nascimento, responsável) — enumeração + coleta de CPF a partir de um e-mail.
+- **Resolução:** rota reescrita (Prisma). Resposta 201 contém apenas `{ consulta: { id, inicio, status }, novoCadastro }` + cookie de sessão `httpOnly`; 400 devolve só `error`/`campos` (mensagens fixas de validação do próprio input); 409 devolve `{ error, codigo: 'EMAIL_EXISTENTE' }` sem nenhum dado do registro (pré-cheque com `select: { id: true }`). Validação de formato/cadastro/senha ocorre **antes** do pré-cheque de e-mail, então payload inválido nunca revela existência de conta. A distinção 409/201 para e-mail válido é enumeração **aceita** pelo dono (mesmo perfil de M1). Cadastro (Usuario + Paciente) e consulta são criados na mesma transação Serializable. Confirmado pelo revisor (auditoria Fase 3, eixo a). Commit pendente (Fase 3).
 
 ### C5 · LGPD — anonimização/exclusão de dados de paciente (Q12) — ABERTO
 - **Risco:** não há mecanismo para anonimizar ou excluir dados de paciente a pedido do titular (LGPD art. 18). Dados de saúde (`Consulta.relatorio`) são dado sensível. Sem isso, não se pode guardar dado real.
 - **Onde:** modelo — `Paciente` sem `anonimizadoEm`; nenhuma rota de anonimização; `onDelete: Restrict` impede exclusão física com histórico (correto, mas exige a anonimização lógica).
 - **Fase:** a definir — **antes de produção**, via migration incremental (`Paciente.anonimizadoEm`, limpeza de nome/telefone/cpf/avatar + exclusão do objeto no storage, `Usuario.ativo = false`) + rota protegida da psicóloga + registro em `PROPOSTA-schema.md` §8.
+- **Nota Fase 3 (CPF):** `Paciente.cpf` permanece **opcional no banco** (paciente pode existir sem login e sem CPF, cadastrado pela psicóloga só para agenda); `dataNascimento` e `usuarioId` passaram a nullable (migration `20260918231528_paciente_sem_login`). O CPF será **obrigatório no momento da cobrança** (Fase 5 / gateway), validado na aplicação (`validarCpfCampo` já existe), não por constraint. Para LGPD: minimização de dado — só coleta CPF de quem será cobrado. INFORMATIVO, não altera a contagem.
 
 ### R-C1 · Senha do paciente exposta em texto puro — RESOLVIDO (Fase 1)
 - **Era:** `POST /api/agendamento` devolvia `acessoAreaRestrita: { email, senha: id.slice(-8) }`; o passo 3 da página exibia a senha.
@@ -64,7 +63,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 ### R-C2 · Rotas de gerenciamento sem autenticação — RESOLVIDO (Fase 1)
 - **Era:** `GET /api/area-restrita?action=pacientes` devolvia a lista completa de pacientes (com CPF) a qualquer cliente HTTP; PUT/PATCH, `horarios` POST/DELETE, `consultas/[id]` PUT/DELETE sem verificação.
 - **Resolução:** `requireAuth(request, 'psicologa')` em todos; `requireAuth(request)` nas rotas de pagamento. Commit `ea5292e`. Confirmado pelo revisor (eixo e).
-- **Fase 2:** `GET /api/area-restrita?action=pacientes` passou a responder `410 { error: 'Use /api/pacientes' }`; listagem/detalhe/cadastro/edição de paciente agora em `src/app/api/pacientes/route.ts` e `src/app/api/pacientes/[id]/route.ts`, todos com `requireAuth(request, 'psicologa')`. Lista devolve `PacienteResumo` (sem CPF/dataNascimento); detalhe (`PacienteDetalhe`, com CPF) só psicóloga. Confirmado pelo revisor (auditoria Fase 2, eixos a/b). Commit pendente (Fase 2).
+- **Fase 2:** `GET /api/area-restrita?action=pacientes` passou a responder `410 { error: 'Use /api/pacientes' }`; listagem/detalhe/cadastro/edição de paciente agora em `src/app/api/pacientes/route.ts` e `src/app/api/pacientes/[id]/route.ts`, todos com `requireAuth(request, 'psicologa')`. Lista devolve `PacienteResumo` (sem CPF/dataNascimento); detalhe (`PacienteDetalhe`, com CPF) só psicóloga. Confirmado pelo revisor (auditoria Fase 2, eixos a/b). Commit `2af0aed`.
 
 ---
 
@@ -132,19 +131,15 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 ### M3 · Token de acesso na URL — ACEITO com mitigações
 - **Risco:** o link `/primeiro-acesso?token=…` passa pelo WhatsApp e pode ficar em histórico do navegador/logs de proxy. Mitigações já existentes: uso único, expiração (7 d / 1 h), só SHA-256 no banco, invalidação dos anteriores ao gerar novo.
 - **Onde:** `src/app/api/auth/token-acesso/route.ts`.
-- **Mitigação implementada (Fase 2):** `src/app/primeiro-acesso/page.tsx` e `src/app/redefinir-senha/page.tsx` leem o token de `window.location.search` e chamam `history.replaceState` no mesmo efeito, antes de qualquer `fetch`; token só em `useState`, nunca em storage/log. O link ainda trafega pelo WhatsApp e pelo access log do primeiro GET — por isso permanece ACEITO. Confirmado pelo revisor (eixo e). Commit pendente (Fase 2).
+- **Mitigação implementada (Fase 2):** `src/app/primeiro-acesso/page.tsx` e `src/app/redefinir-senha/page.tsx` leem o token de `window.location.search` e chamam `history.replaceState` no mesmo efeito, antes de qualquer `fetch`; token só em `useState`, nunca em storage/log. O link ainda trafega pelo WhatsApp e pelo access log do primeiro GET — por isso permanece ACEITO. Confirmado pelo revisor (eixo e). Commit `2af0aed`.
 
-### M4 · Mass assignment no PUT de consulta da psicóloga — ABERTO
-- **Risco:** `PUT /api/area-restrita` faz `{ ...consulta, ...updates }` com o body inteiro — a psicóloga (única autorizada) pode sobrescrever qualquer campo, inclusive `pacienteId`/`id`. Exposição baixa (só psicóloga), mas é padrão a eliminar.
-- **Onde:** `src/app/api/area-restrita/route.ts` linhas ~126–137.
-- **Fase:** 4 (rotas de gerenciamento reescritas com whitelist de campos e enum de status).
-- **Nota Fase 2:** as rotas novas de paciente (`POST /api/pacientes`, `PATCH /api/pacientes/[id]`) já seguem o padrão-alvo: validador com whitelist explícita (`src/lib/validacao/paciente.ts`) e `data` do Prisma montado campo a campo; `id`/`usuarioId`/`origemCadastro`/`senhaHash`/`papel` não são alteráveis. O `PUT /api/area-restrita` legado não foi tocado.
+### R-M5 · Mass assignment no PUT de consulta da psicóloga (era M4) — RESOLVIDO (Fase 3)
+- **Era:** `PUT /api/area-restrita` fazia `{ ...consulta, ...updates }` com o body inteiro.
+- **Resolução:** `src/app/api/area-restrita/route.ts` **removido**. Substituto `PATCH /api/consultas/[id]` monta `Prisma.ConsultaUpdateInput` campo a campo (modalidade enum, motivo ≤ 200, observacoes ≤ 1000, relatorio ≤ 5000, `inicio` só via `data`+`hora` validados e revalidados em transação Serializable); `status`, `pacienteId`, `criadaPor`, `id` do body são ignorados. Status muda só em `POST /confirmar|/encerrar|/cancelar`, cada uma passando por `podeTransitar` (`src/lib/agenda/transicoes.ts`). Confirmado pelo revisor (eixo d). Commit pendente (Fase 3).
 
-### M5 · `observacoes` sem validação de tipo/tamanho — ABERTO
-- **Risco:** `PUT /api/consultas/[id]` grava qualquer valor truthy em `observacoes` (objeto, string enorme) no JSON. Só psicóloga.
-- **Onde:** `src/app/api/consultas/[id]/route.ts` linhas ~19 e ~54.
-- **Fase:** 4 (validação `typeof === 'string'` + limite).
-- **Nota Fase 2:** `observacoesCadastro` do paciente já é validado (string, `≤ 2000`) em `src/lib/validacao/paciente.ts`. O `PUT /api/consultas/[id]` legado não foi tocado.
+### R-M6 · `observacoes` sem validação de tipo/tamanho (era M5) — RESOLVIDO (Fase 3)
+- **Era:** `PUT /api/consultas/[id]` gravava qualquer valor truthy em `observacoes` no JSON.
+- **Resolução:** rota reescrita como `PATCH`; `observacoes` exige `typeof === 'string'` e `≤ 1000`, `motivo ≤ 200`, `relatorio ≤ 5000`, `motivoCancelamento ≤ 300`; `null` explícito limpa o campo. Mesmos limites em `POST /api/consultas` e `POST /api/agendamento`. Confirmado pelo revisor. Commit pendente (Fase 3).
 
 ### M6 · PII em query string — ABERTO
 - **Risco:** `GET /api/pagamento-checkout?consultaId=&email=&nome=` coloca email e nome do paciente na URL (logs de servidor/proxy).
@@ -166,10 +161,11 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `next.config.ts` linhas 7 e 12.
 - **Fase:** 6 — remover as duas flags antes do primeiro deploy do sistema novo.
 
-### M10 · Persistência em JSON no servidor de produção — ABERTO
-- **Risco:** rotas legadas ainda leem/escrevem `src/data/*.json` com `fs` — sem transação, sem controle de acesso além da rota, e em serverless (Vercel) não persiste; no VPS, escrita concorrente corrompe. Dados de paciente em arquivo ao lado do código.
-- **Onde:** `src/app/api/{agendamento,area-restrita,horarios,disponibilidade,consultas/[id],pagamento-checkout,pagamento-direto}/route.ts`.
-- **Fase:** 1.3 do plano (troca pelo Prisma Client, rota a rota) — concluída para auth (Fase 1) e para pacientes (Fase 2: `/api/pacientes`, `/api/pacientes/[id]` em Prisma; `area-restrita?action=pacientes` → 410). Pendente: `area-restrita` (dashboard/consultas/notificacoes/PUT/PATCH), `agendamento`, `horarios`, `disponibilidade`, `consultas/[id]`, `pagamento-checkout`, `pagamento-direto`.
+### M10 · Persistência em JSON no servidor de produção — ABERTO (restrito a pagamento)
+- **Risco:** rotas legadas de pagamento ainda leem/escrevem `src/data/consultas.json` com `fs` — sem transação, em serverless não persiste, escrita concorrente corrompe. Além disso, o `consultas.json` legado **não tem mais relação com a tabela `consulta` do Prisma**: qualquer "marcar como pago" ali não reflete no banco real.
+- **Onde:** `src/app/api/pagamento-checkout/route.ts`, `src/app/api/pagamento-direto/route.ts`.
+- **Fase 3:** migrados para Prisma: `agendamento`, `consultas` (+ `[id]`, `/confirmar`, `/encerrar`, `/cancelar`), `disponibilidade`, `horarios` (+ `[id]`), `excecoes` (+ `[id]`). `area-restrita/route.ts` removido. Já em Prisma desde Fases 1–2: auth, pacientes. Nenhum arquivo fora de `pagamento-checkout`/`pagamento-direto` importa `fs` ou `src/data`.
+- **Fase:** 5 (modelo `Pagamento` no Prisma; remoção de `src/data/*.json`). Segue **ABERTO** até lá — é bloqueante para produção porque as rotas de pagamento estão ativas (com `requireAuth`) e gravam em arquivo.
 
 ### M11 · CSRF — ACEITO com mitigação estrutural
 - **Risco:** API baseada em cookie de sessão. Mitigação: `sameSite=lax` (bloqueia envio do cookie em POST cross-site), rotas mutáveis aceitam só `application/json` (formulário HTML cross-site não envia JSON). Sem token CSRF dedicado.
@@ -178,13 +174,12 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 
 ### M12 · Fallback `http://localhost:3000` para `NEXT_PUBLIC_URL` — ABERTO
 - **Risco:** se a env faltar em produção, `back_urls`/`notification_url` do MP e o `link` de primeiro acesso apontam para localhost (falha funcional, e o webhook nunca chega — reforça C2/A4).
-- **Onde:** `src/app/api/agendamento/route.ts` linha ~131; `src/app/api/pagamento/route.ts` linhas ~44–50. (`token-acesso` já falha com 500 se ausente — padrão correto.)
+- **Onde:** `src/app/api/pagamento/route.ts` linhas ~44–50. (`agendamento/route.ts` não usa mais `NEXT_PUBLIC_URL` desde a Fase 3; `token-acesso` já falha com 500 se ausente — padrão correto.)
 - **Fase:** 5 — falhar explicitamente como em `token-acesso`.
 
-### M13 · Chamada interna agendamento → pagamento quebrada pela guarda — ABERTO
-- **Risco:** `POST /api/agendamento` faz `fetch` server-to-server para `/api/pagamento` sem sessão; desde a Fase 1 recebe 401, que é engolido pelo `catch` → `pagamento: null` silencioso. Não é exposição, é dependência interna quebrada e sem observabilidade.
-- **Onde:** `src/app/api/agendamento/route.ts` linha ~131.
-- **Fase:** 3 (agendamento reescrito não cria pagamento — cobrança é pós-consulta; se precisar reutilizar lógica, chamada direta de função, nunca HTTP interno).
+### R-M7 · Chamada interna agendamento → pagamento quebrada pela guarda (era M13) — RESOLVIDO (Fase 3)
+- **Era:** `POST /api/agendamento` fazia `fetch` server-to-server para `/api/pagamento` sem sessão; recebia 401 engolido pelo `catch`.
+- **Resolução:** rota reescrita sem nenhum `fetch` interno e sem uso de `NEXT_PUBLIC_URL`; cobrança fica para a Fase 5 (pós-consulta). Confirmado pelo revisor (auditoria Fase 3). Commit pendente (Fase 3).
 
 ### M14 · Sem invalidação de sessão em logout / troca de senha — ABERTO
 - **Risco:** JWT stateless: logout só apaga o cookie e redefinir a senha não invalida sessões já emitidas — um cookie roubado continua válido até expirar (8 h), salvo `Usuario.ativo = false`.
@@ -202,6 +197,16 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `src/lib/validacao/paciente.ts` linhas ~290–297; `src/app/api/pacientes/[id]/route.ts` linhas ~66–69 (o `select` de `existente` não traz `dataNascimento`/`responsavel`).
 - **Melhoria (Fase 4):** no PATCH, carregar `dataNascimento, responsavel, telefoneResponsavel` do registro e aplicar a regra sobre o estado resultante (existente ⊕ body) antes do `update`.
 
+### M18 · Sem teto de agendamentos por paciente e sem rate limit no autocadastro público — ABERTO *(novo na Fase 3)*
+- **Risco:** `POST /api/agendamento` é público e cria `Usuario` + `Paciente` + `Consulta`; um paciente logado pode reservar **todos** os horários livres (nenhum limite de consultas futuras por `pacienteId`), e um visitante pode repetir com N e-mails — negação de serviço da agenda e poluição da base com cadastros fictícios. Não é vazamento; é disponibilidade/abuso.
+- **Onde:** `src/app/api/agendamento/route.ts` (ambos os ramos); `src/lib/agenda/consultas.ts` (`criarConsultaComTrava`).
+- **Fase:** 4 — dentro da mesma transação Serializável, contar consultas do paciente com status em `CONSULTA_STATUS_OCUPA_HORARIO` e `inicio > now` e rejeitar 409 acima de um teto configurável (`Configuracao`, ex.: 2); rate limit por IP no autocadastro junto com A1.
+
+### INFORMATIVOS (LOW, não contam no Resumo) — Fase 3
+- **I1 · `P2002` genérico no autocadastro:** `POST /api/agendamento` responde `EMAIL_EXISTENTE` para qualquer violação de unique na transação, inclusive `cpf` — mensagem incorreta e permite distinguir CPF já cadastrado (409) de não cadastrado (201, criando conta). Fix (Fase 4): inspecionar `error.meta.target` e responder 409 genérico sem `codigo` para CPF, ou pré-checar como em `POST /api/pacientes`.
+- **I2 · Reagendamento/criação pela psicóloga aceitam `inicio` no passado:** `PATCH /api/consultas/[id]` e `POST /api/consultas` não checam `inicio > now` (só psicóloga). Decidir: rejeitar 400 ou documentar como registro retroativo intencional.
+- **I3 · `pacientes/novo` oferecia "Gerar link de primeiro acesso" para paciente sem e-mail** (servidor respondia 400, seguro) — **corrigido na própria Fase 3**: botão só aparece com `temLogin`; aviso explica que o acesso pode ser criado depois.
+
 ### R-M1 · Fallback literal de segredo (`|| 'TEST-…'`) — RESOLVIDO (Fase 0)
 - Ver R-A2.
 
@@ -211,7 +216,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 ### R-M4 · Open redirect em `/login?next=` via barra invertida — RESOLVIDO (Fase 2, antes do commit)
 - **Era:** `destinoSeguro()` só rejeitava valores que não começassem com `/` ou começassem com `//`; `?next=%2F%5Cevil.com` (`/\evil.com`) passava e o App Router resolvia `new URL('/\evil.com', location.href)` como `https://evil.com/` — redirect externo pós-login (phishing). Encontrado pelo revisor na auditoria da Fase 2.
 - **Onde:** `src/app/login/page.tsx` (`destinoSeguro`). O `next` gerado pelo `middleware.ts` é sempre `pathname` (seguro); o vetor era link malicioso.
-- **Resolução:** `destinoSeguro` rejeita `\`, resolve com `new URL(next, window.location.origin)`, exige `origin` igual e devolve só `pathname + search`. Commit pendente (Fase 2).
+- **Resolução:** `destinoSeguro` rejeita `\`, resolve com `new URL(next, window.location.origin)`, exige `origin` igual e devolve só `pathname + search`. Commit `2af0aed`.
 
 ### R-M3 · Seed logava email da psicóloga e erro bruto — RESOLVIDO (Fase 1 · Prisma)
 - **Resolução:** `prisma/seed.ts` sem email no log; `catch` só com a primeira linha da mensagem. Commit `00ad07b`.

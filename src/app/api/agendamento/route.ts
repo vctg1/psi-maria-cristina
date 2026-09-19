@@ -1,162 +1,210 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { readFileSync, writeFileSync } from 'fs';
-import { join } from 'path';
-import { v4 as uuidv4 } from 'uuid';
-import { Paciente, Consulta } from '@/types';
+import { prisma } from '@/lib/prisma';
+import { Prisma } from '@/generated/prisma/client';
+import { autenticar } from '@/lib/auth/guard';
+import { assinarSessao } from '@/lib/auth/jwt';
+import { cookieSessao } from '@/lib/auth/cookie';
+import { hashSenha, validarForcaSenha } from '@/lib/auth/senha';
+import { validarPacienteEntrada } from '@/lib/validacao/paciente';
+import { formatoDataValido, formatoHoraValido, montarInicio } from '@/lib/agenda/tempo';
+import { criarConsultaComTrava, HorarioIndisponivel } from '@/lib/agenda/consultas';
+import { verificarLivreNaTransacao } from '@/lib/agenda/disponibilidade';
+import type { AgendamentoEntrada, AgendamentoResposta, Modalidade } from '@/types/agenda';
 
-const pacientesPath = join(process.cwd(), 'src/data/pacientes.json');
-const consultasPath = join(process.cwd(), 'src/data/consultas.json');
-const notificacoesPath = join(process.cwd(), 'src/data/notificacoes.json');
+const MODALIDADES: Modalidade[] = ['presencial', 'online'];
 
-function getPacientes(): Paciente[] {
-  try {
-    const data = readFileSync(pacientesPath, 'utf8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
+function comoObjeto(body: unknown): Record<string, unknown> {
+  return body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
 }
 
-function savePacientes(pacientes: Paciente[]) {
-  writeFileSync(pacientesPath, JSON.stringify(pacientes, null, 2));
-}
-
-function getConsultas(): Consulta[] {
-  try {
-    const data = readFileSync(consultasPath, 'utf8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
-
-function saveConsultas(consultas: Consulta[]) {
-  writeFileSync(consultasPath, JSON.stringify(consultas, null, 2));
-}
-
-function getNotificacoes() {
-  try {
-    const data = readFileSync(notificacoesPath, 'utf8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
-}
-
-function saveNotificacoes(notificacoes: any[]) {
-  writeFileSync(notificacoesPath, JSON.stringify(notificacoes, null, 2));
-}
-
+// POST /api/agendamento — rota pública. Visitante se autocadastra e agenda, ou paciente já
+// logado agenda direto. Nunca devolve dados de paciente/CPF/e-mail na resposta.
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { paciente, data, hora, metodoPagamento } = body;
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
+    }
+    const obj = comoObjeto(body) as Record<string, unknown> & Partial<AgendamentoEntrada>;
 
-    // Validação básica
-    if (!paciente || !data || !hora) {
-      return NextResponse.json({ error: 'Dados obrigatórios não fornecidos' }, { status: 400 });
+    if (!formatoDataValido(obj.data)) {
+      return NextResponse.json({ error: 'Data inválida (use YYYY-MM-DD)' }, { status: 400 });
+    }
+    if (!formatoHoraValido(obj.hora)) {
+      return NextResponse.json({ error: 'Hora inválida (use HH:MM)' }, { status: 400 });
     }
 
-    const { nome, email, telefone, dataNascimento, cpf, responsavel, telefoneResponsavel } = paciente;
-
-    if (!nome || !email || !telefone || !dataNascimento || !cpf) {
-      return NextResponse.json({ error: 'Dados do paciente incompletos' }, { status: 400 });
+    let modalidade: Modalidade = 'presencial';
+    if (obj.modalidade !== undefined) {
+      if (typeof obj.modalidade !== 'string' || !MODALIDADES.includes(obj.modalidade as Modalidade)) {
+        return NextResponse.json({ error: 'Modalidade inválida' }, { status: 400 });
+      }
+      modalidade = obj.modalidade as Modalidade;
     }
 
-    // Verificar se já existe consulta neste horário
-    const consultas = getConsultas();
-    const consultaExistente = consultas.find(c => 
-      c.data === data && 
-      c.hora === hora && 
-      ['agendada', 'confirmada'].includes(c.status)
-    );
-
-    if (consultaExistente) {
-      return NextResponse.json({ error: 'Horário já está ocupado' }, { status: 409 });
+    let motivo: string | null = null;
+    if (obj.motivo !== undefined && obj.motivo !== null) {
+      if (typeof obj.motivo !== 'string' || obj.motivo.trim().length > 200) {
+        return NextResponse.json({ error: 'Motivo inválido (máximo 200 caracteres)' }, { status: 400 });
+      }
+      motivo = obj.motivo.trim() || null;
     }
 
-    // Buscar ou criar paciente
-    const pacientes = getPacientes();
-    let pacienteExistente = pacientes.find(p => p.email === email);
-
-    if (!pacienteExistente) {
-      pacienteExistente = {
-        id: uuidv4(),
-        nome,
-        email,
-        telefone,
-        dataNascimento,
-        cpf,
-        responsavel,
-        telefoneResponsavel,
-        criadoEm: new Date().toISOString()
-      };
-      pacientes.push(pacienteExistente);
-      savePacientes(pacientes);
+    let observacoes: string | null = null;
+    if (obj.observacoes !== undefined && obj.observacoes !== null) {
+      if (typeof obj.observacoes !== 'string' || obj.observacoes.trim().length > 1000) {
+        return NextResponse.json({ error: 'Observações inválidas (máximo 1000 caracteres)' }, { status: 400 });
+      }
+      observacoes = obj.observacoes.trim() || null;
     }
 
-    // Criar consulta
-    const novaConsulta: Consulta = {
-      id: uuidv4(),
-      pacienteId: pacienteExistente.id,
-      data,
-      hora,
-      status: 'agendada',
-      pagamento: 'pendente',
-      criadaEm: new Date().toISOString(),
-      atualizadaEm: new Date().toISOString()
-    };
+    const inicio = montarInicio(obj.data, obj.hora);
+    if (inicio.getTime() <= Date.now()) {
+      return NextResponse.json({ error: 'Não é possível agendar em uma data/horário passado' }, { status: 400 });
+    }
 
-    consultas.push(novaConsulta);
-    saveConsultas(consultas);
+    const auth = await autenticar(request);
 
-    // Criar notificação
-    const notificacoes = getNotificacoes();
-    const novaNotificacao = {
-      id: uuidv4(),
-      tipo: 'novo_agendamento',
-      titulo: 'Novo Agendamento',
-      mensagem: `${nome} agendou uma consulta para ${new Date(data).toLocaleDateString('pt-BR')} às ${hora}`,
-      lida: false,
-      criadaEm: new Date().toISOString()
-    };
-
-    notificacoes.unshift(novaNotificacao);
-    saveNotificacoes(notificacoes);
-
-    // Criar preferência de pagamento se especificado
-    let dadosPagamento = null;
-    if (metodoPagamento) {
+    // Paciente já logado: agenda direto, ignora qualquer bloco de cadastro enviado.
+    if (auth?.papel === 'paciente' && auth.pacienteId) {
       try {
-        const responsePagamento = await fetch(`${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/api/pagamento`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            consultaId: novaConsulta.id,
-            pacienteNome: pacienteExistente.nome,
-            pacienteEmail: pacienteExistente.email,
-            valor: 150, // Valor da consulta
-            metodoPagamento
-          })
+        const consulta = await criarConsultaComTrava({
+          pacienteId: auth.pacienteId,
+          inicio,
+          modalidade,
+          motivo,
+          observacoes,
+          criadaPor: 'paciente',
         });
-
-        if (responsePagamento.ok) {
-          dadosPagamento = await responsePagamento.json();
-        }
+        const resposta: AgendamentoResposta = {
+          consulta: { id: consulta.id, inicio: consulta.inicio.toISOString(), status: consulta.status },
+          novoCadastro: false,
+        };
+        return NextResponse.json(resposta, { status: 201 });
       } catch (error) {
-        console.error('Erro ao criar pagamento:', error);
+        if (error instanceof HorarioIndisponivel) {
+          return NextResponse.json({ error: 'Horário indisponível' }, { status: 409 });
+        }
+        throw error;
       }
     }
 
-    // Retornar dados para confirmação
-    return NextResponse.json({
-      consulta: novaConsulta,
-      paciente: pacienteExistente,
-      pagamento: dadosPagamento
-    });
+    if (auth?.papel === 'psicologa') {
+      return NextResponse.json({ error: 'Use a agenda da área da psicóloga' }, { status: 400 });
+    }
 
-  } catch (error) {
-    console.error('Erro ao criar agendamento:', error);
+    // Visitante sem sessão: exige cadastro completo (com senha).
+    const cadastro = obj.cadastro;
+    if (!cadastro || typeof cadastro !== 'object') {
+      return NextResponse.json({ error: 'Dados de cadastro são obrigatórios' }, { status: 400 });
+    }
+
+    const resultado = validarPacienteEntrada(cadastro, { exigirEmail: true });
+    if (!resultado.ok) {
+      return NextResponse.json({ error: 'Dados inválidos', campos: resultado.campos }, { status: 400 });
+    }
+    const dados = resultado.dados;
+    const email = dados.email as string;
+
+    const cadastroObj = cadastro as Record<string, unknown>;
+    const senha = cadastroObj.senha;
+    if (typeof senha !== 'string') {
+      return NextResponse.json({ error: 'Senha é obrigatória' }, { status: 400 });
+    }
+    const erroSenha = validarForcaSenha(senha);
+    if (erroSenha) {
+      return NextResponse.json({ error: erroSenha }, { status: 400 });
+    }
+
+    // Pré-cheque: nunca revela dados do registro existente, só que o e-mail já está em uso.
+    const emailExistente = await prisma.usuario.findUnique({ where: { email }, select: { id: true } });
+    if (emailExistente) {
+      return NextResponse.json(
+        { error: 'E-mail já cadastrado. Faça login para agendar.', codigo: 'EMAIL_EXISTENTE' },
+        { status: 409 }
+      );
+    }
+
+    const senhaHash = await hashSenha(senha);
+
+    try {
+      const resultadoTx = await prisma.$transaction(
+        async (tx) => {
+          const disponivel = await verificarLivreNaTransacao(tx, inicio);
+          if (disponivel !== 'livre') throw new HorarioIndisponivel(disponivel);
+
+          const usuario = await tx.usuario.create({
+            data: { email, senhaHash, papel: 'paciente' },
+          });
+
+          const paciente = await tx.paciente.create({
+            data: {
+              usuarioId: usuario.id,
+              nome: dados.nome,
+              telefone: dados.telefone,
+              dataNascimento: dados.dataNascimento ? new Date(dados.dataNascimento + 'T12:00:00') : null,
+              cpf: dados.cpf,
+              responsavel: dados.responsavel,
+              telefoneResponsavel: dados.telefoneResponsavel,
+              observacoesCadastro: dados.observacoesCadastro,
+              origemCadastro: 'autocadastro',
+            },
+          });
+
+          const consulta = await tx.consulta.create({
+            data: {
+              pacienteId: paciente.id,
+              inicio,
+              modalidade,
+              motivo,
+              observacoes,
+              criadaPor: 'paciente',
+              status: 'agendada',
+            },
+          });
+
+          return { usuario, paciente, consulta };
+        },
+        { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 5000, timeout: 10000 }
+      );
+
+      const token = await assinarSessao({
+        sub: resultadoTx.usuario.id,
+        papel: 'paciente',
+        pacienteId: resultadoTx.paciente.id,
+      });
+
+      const resposta: AgendamentoResposta = {
+        consulta: {
+          id: resultadoTx.consulta.id,
+          inicio: resultadoTx.consulta.inicio.toISOString(),
+          status: resultadoTx.consulta.status,
+        },
+        novoCadastro: true,
+      };
+      const response = NextResponse.json(resposta, { status: 201 });
+      response.cookies.set(cookieSessao(token));
+      return response;
+    } catch (error) {
+      if (error instanceof HorarioIndisponivel) {
+        return NextResponse.json({ error: 'Horário indisponível' }, { status: 409 });
+      }
+      if (error instanceof Prisma.PrismaClientKnownRequestError) {
+        if (error.code === 'P2002') {
+          return NextResponse.json(
+            { error: 'E-mail já cadastrado. Faça login para agendar.', codigo: 'EMAIL_EXISTENTE' },
+            { status: 409 }
+          );
+        }
+        if (error.code === 'P2034') {
+          return NextResponse.json({ error: 'Horário indisponível' }, { status: 409 });
+        }
+      }
+      throw error;
+    }
+  } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

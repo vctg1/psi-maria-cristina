@@ -168,17 +168,20 @@ export default function ListaPacientesPage() {
                     >
                       <td className="pmc-col-nome">{paciente.nome}</td>
                       <td>{paciente.telefone}</td>
-                      <td>{paciente.email}</td>
+                      <td>{paciente.email ?? '—'}</td>
                       <td>
-                        {paciente.primeiroAcessoPendente && (
+                        {!paciente.temLogin && (
+                          <span className="pmc-badge-neutro">Sem acesso</span>
+                        )}
+                        {paciente.temLogin && paciente.primeiroAcessoPendente && (
                           <span className="pmc-badge-aviso">Primeiro acesso pendente</span>
                         )}
-                        {!paciente.ativo && (
+                        {paciente.temLogin && !paciente.ativo && (
                           <span className="pmc-badge-neutro ms-1">Inativo</span>
                         )}
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        {paciente.primeiroAcessoPendente && (
+                        {paciente.temLogin && paciente.primeiroAcessoPendente && (
                           <Button
                             size="sm"
                             variant="outline-primary"

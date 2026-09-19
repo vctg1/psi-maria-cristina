@@ -71,6 +71,10 @@ export async function PATCH(request: NextRequest, { params }: Contexto) {
       return NextResponse.json({ error: 'Paciente não encontrado' }, { status: 404 });
     }
 
+    if (dados.ativo !== undefined && existente.usuarioId === null) {
+      return NextResponse.json({ error: 'Paciente sem acesso' }, { status: 400 });
+    }
+
     if (dados.email !== undefined) {
       const emailEmUso = await prisma.usuario.findUnique({
         where: { email: dados.email },
@@ -92,9 +96,19 @@ export async function PATCH(request: NextRequest, { params }: Contexto) {
     }
 
     const atualizado = await prisma.$transaction(async (tx) => {
-      if (dados.email !== undefined || dados.ativo !== undefined) {
+      let usuarioId = existente.usuarioId;
+
+      if (usuarioId === null && dados.email !== undefined) {
+        // Paciente sem login recebendo e-mail: cria o acesso (Usuario sem senha —
+        // primeiro acesso pendente, igual ao cadastro direto pela psicóloga).
+        const usuario = await tx.usuario.create({
+          data: { email: dados.email, papel: 'paciente', senhaHash: null },
+        });
+        usuarioId = usuario.id;
+        await tx.paciente.update({ where: { id }, data: { usuarioId } });
+      } else if (usuarioId !== null && (dados.email !== undefined || dados.ativo !== undefined)) {
         await tx.usuario.update({
-          where: { id: existente.usuarioId },
+          where: { id: usuarioId },
           data: {
             ...(dados.email !== undefined ? { email: dados.email } : {}),
             ...(dados.ativo !== undefined ? { ativo: dados.ativo } : {}),

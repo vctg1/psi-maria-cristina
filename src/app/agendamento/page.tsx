@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import Container from 'react-bootstrap/Container';
@@ -10,20 +10,16 @@ import Card from 'react-bootstrap/Card';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Navbar from 'react-bootstrap/Navbar';
+import Alert from 'react-bootstrap/Alert';
+import Tabs from 'react-bootstrap/Tabs';
+import Tab from 'react-bootstrap/Tab';
+import Spinner from 'react-bootstrap/Spinner';
 import CalendarioAgendamento from '@/components/CalendarioAgendamento';
-
-interface HorarioDisponivel {
-  id: string;
-  data: string;
-  hora: string;
-  tipo: string;
-}
-
-interface AgendamentoRealizado {
-  consulta: { id: string; data: string; hora: string };
-  paciente: { nome: string };
-  acessoAreaRestrita: { email: string; senha: string };
-}
+import PacienteForm from '@/components/area-restrita/PacienteForm';
+import type { PacienteFormValores } from '@/components/area-restrita/PacienteForm';
+import LoginForm from '@/components/LoginForm';
+import { useAuth } from '@/contexts/AuthContext';
+import type { AgendamentoEntrada, AgendamentoResposta, Modalidade, ErroApi } from '@/types/agenda';
 
 const passos = [
   { numero: 1, rotulo: 'Horário', icone: 'bi-calendar-check' },
@@ -31,48 +27,38 @@ const passos = [
   { numero: 3, rotulo: 'Confirmação', icone: 'bi-check-circle' },
 ];
 
+const opcoesMotivo = [
+  'Dificuldade de Aprendizagem',
+  'Terapia Infantil',
+  'Orientação para pais',
+  'Ansiedade',
+  'Depressão',
+  'Outro',
+];
+
+type ConfirmacaoAgendamento = {
+  data: string;
+  hora: string;
+  modalidade: Modalidade;
+};
+
 export default function AgendamentoPage() {
+  const { usuario, carregando: carregandoAuth, recarregar } = useAuth();
+
   const [step, setStep] = useState(1);
+  const [calendarioKey, setCalendarioKey] = useState(0);
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
-  const [, setAvailableTimes] = useState<HorarioDisponivel[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [agendamentoRealizado, setAgendamentoRealizado] = useState<AgendamentoRealizado | null>(null);
+  const [modalidade, setModalidade] = useState<Modalidade>('presencial');
+  const [motivo, setMotivo] = useState('');
+  const [observacoes, setObservacoes] = useState('');
 
-  const [formData, setFormData] = useState({
-    nome: '',
-    email: '',
-    telefone: '',
-    dataNascimento: '',
-    cpf: '',
-    responsavel: '',
-    telefoneResponsavel: '',
-    tipo: '',
-    motivo: '',
-    observacoes: ''
-  });
+  const [abaAtiva, setAbaAtiva] = useState<'cadastro' | 'login'>('cadastro');
+  const [enviando, setEnviando] = useState(false);
+  const [errosServidor, setErrosServidor] = useState<Record<string, string> | undefined>(undefined);
+  const [erroGeral, setErroGeral] = useState<string | null>(null);
 
-  const [errors, setErrors] = useState<{[key: string]: string}>({});
-
-  // Buscar horários disponíveis para a data selecionada
-  useEffect(() => {
-    if (selectedDate) {
-      fetchAvailableTimes(selectedDate);
-    }
-  }, [selectedDate]);
-
-  const fetchAvailableTimes = async (date: string) => {
-    try {
-      setLoading(true);
-      const response = await fetch(`/api/horarios?data=${date}&disponiveis=true`);
-      const times = await response.json();
-      setAvailableTimes(times);
-    } catch (error) {
-      console.error('Erro ao buscar horários:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [confirmacao, setConfirmacao] = useState<ConfirmacaoAgendamento | null>(null);
 
   const handleDateSelect = (date: string) => {
     setSelectedDate(date);
@@ -81,98 +67,110 @@ export default function AgendamentoPage() {
 
   const handleTimeSelect = (time: string) => {
     setSelectedTime(time);
-    setStep(2); // Pula direto para os dados do paciente
   };
 
-  const validateForm = () => {
-    const newErrors: {[key: string]: string} = {};
-
-    if (!formData.nome) newErrors.nome = 'Nome é obrigatório';
-    if (!formData.email) newErrors.email = 'Email é obrigatório';
-    if (!formData.telefone) newErrors.telefone = 'Telefone é obrigatório';
-    if (!formData.dataNascimento) newErrors.dataNascimento = 'Data de nascimento é obrigatória';
-    if (!formData.cpf) newErrors.cpf = 'CPF é obrigatório';
-    if (!formData.motivo) newErrors.motivo = 'Motivo é obrigatório';
-    if (!formData.tipo) newErrors.tipo = 'Tipo é obrigatório';
-
-    // Validar se é menor de idade
-    const birthDate = new Date(formData.dataNascimento);
-    const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
-
-    if (age < 18) {
-      if (!formData.responsavel) newErrors.responsavel = 'Nome do responsável é obrigatório para menores de idade';
-      if (!formData.telefoneResponsavel) newErrors.telefoneResponsavel = 'Telefone do responsável é obrigatório para menores de idade';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const reiniciarParaEscolhaDeHorario = () => {
+    setSelectedDate('');
+    setSelectedTime('');
+    setCalendarioKey((chave) => chave + 1);
+    setStep(1);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const enviarAgendamento = async (cadastro?: AgendamentoEntrada['cadastro']) => {
+    setEnviando(true);
+    setErroGeral(null);
+    setErrosServidor(undefined);
 
-    if (!validateForm()) return;
+    try {
+      const body: AgendamentoEntrada = {
+        data: selectedDate,
+        hora: selectedTime,
+        modalidade,
+        motivo: motivo || undefined,
+        observacoes: observacoes || undefined,
+        ...(cadastro ? { cadastro } : {}),
+      };
 
-    // try {
-    //   setLoading(true);
-    //   const response = await fetch('/api/agendamento', {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //     },
-    //     body: JSON.stringify({
-    //       paciente: formData,
-    //       data: selectedDate,
-    //       hora: selectedTime
-    //     })
-    //   });
+      const response = await fetch('/api/agendamento', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-    //   const result = await response.json();
+      if (response.ok) {
+        const resultado: AgendamentoResposta = await response.json();
+        if (resultado.novoCadastro) {
+          await recarregar();
+        }
+        setConfirmacao({ data: selectedDate, hora: selectedTime, modalidade });
+        setStep(3);
+        return;
+      }
 
-    //   if (response.ok) {
-    //     setAgendamentoRealizado(result);
-    //     setStep(3);
-    //   } else {
-    //     alert(result.error || 'Erro ao realizar agendamento');
-    //   }
-    // } catch (error) {
-    //   console.error('Erro:', error);
-    //   alert('Erro ao realizar agendamento');
-    // } finally {
-    //   setLoading(false);
-    // }
-    // Enviar a pessoa para o whatsapp com os dados do agendamento
-    const whatsappNumber = '5561995391540';
-    const message = `Olá, gostaria de agendar uma consulta.\n\nDados do Paciente:
-      Nome: ${formData.nome}
-      Email: ${formData.email}
-      Telefone: ${formData.telefone}
-      Data de Nascimento: ${new Date(formData.dataNascimento + 'T12:00:00').toLocaleDateString('pt-BR')}
-      CPF: ${formData.cpf}\n\nConsulta:
-      Data: ${new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')}
-      Horário: ${selectedTime}
-      Tipo: ${formData.tipo}
-      Motivo: ${formData.motivo}
-      ${formData.observacoes?`Observações: ${formData.observacoes}` : ''}`;
-    const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappURL, '_blank');
-  };
+      const erro: ErroApi = await response.json().catch(() => ({ error: 'Não foi possível concluir o agendamento.' }));
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+      if (response.status === 400 && erro.campos) {
+        setErrosServidor(erro.campos);
+        return;
+      }
 
-    // Limpar erro do campo quando usuário começar a digitar
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      if (response.status === 409 && erro.codigo === 'EMAIL_EXISTENTE') {
+        setErroGeral("Esse e-mail já tem conta. Entre na aba \"Já tenho conta\" para agendar.");
+        setAbaAtiva('login');
+        return;
+      }
+
+      if (response.status === 409) {
+        setErroGeral(erro.error || 'Esse horário acabou de ficar indisponível. Escolha outro horário.');
+        reiniciarParaEscolhaDeHorario();
+        return;
+      }
+
+      setErroGeral(erro.error || 'Não foi possível concluir o agendamento. Tente novamente.');
+    } catch {
+      setErroGeral('Não foi possível concluir o agendamento. Tente novamente.');
+    } finally {
+      setEnviando(false);
     }
   };
 
-  const menorDeIdade = Boolean(
-    formData.dataNascimento &&
-    new Date().getFullYear() - new Date(formData.dataNascimento).getFullYear() < 18
-  );
+  const handleCadastroSubmit = async (dados: PacienteFormValores) => {
+    await enviarAgendamento({
+      nome: dados.nome,
+      email: dados.email ?? '',
+      telefone: dados.telefone,
+      dataNascimento: dados.dataNascimento ?? '',
+      cpf: dados.cpf ?? null,
+      responsavel: dados.responsavel ?? null,
+      telefoneResponsavel: dados.telefoneResponsavel ?? null,
+      senha: dados.senha ?? '',
+    });
+  };
+
+  const handleLoginSucesso = async () => {
+    await enviarAgendamento();
+  };
+
+  const resumoDataHora = selectedDate
+    ? new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR', {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+      })
+    : '';
+
+  const confirmacaoDataHoraTexto = confirmacao
+    ? new Date(confirmacao.data + 'T' + confirmacao.hora + ':00').toLocaleString('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        dateStyle: 'full',
+        timeStyle: 'short',
+      })
+    : '';
+
+  const whatsappMensagem = confirmacao
+    ? `Olá, acabei de agendar uma consulta para ${new Date(confirmacao.data + 'T12:00:00').toLocaleDateString('pt-BR')} às ${confirmacao.hora}.`
+    : '';
+  const whatsappURL = `https://wa.me/5561995391540?text=${encodeURIComponent(whatsappMensagem)}`;
 
   return (
     <div>
@@ -223,259 +221,188 @@ export default function AgendamentoPage() {
               <Card.Body>
                 <h2 className="mb-4">Escolha a data e horário</h2>
                 <CalendarioAgendamento
+                  key={calendarioKey}
                   selectedDate={selectedDate}
                   onDateSelect={handleDateSelect}
                   onTimeSelect={handleTimeSelect}
+                  selectedTime={selectedTime}
                 />
+
+                {selectedDate && selectedTime && (
+                  <Card className="card--areia mt-4">
+                    <Card.Body>
+                      <p className="fw-semibold mb-3">
+                        {resumoDataHora} às {selectedTime}
+                      </p>
+
+                      <Form.Group className="mb-3">
+                        <Form.Label className="pmc-rotulo d-block">Modalidade</Form.Label>
+                        <div className="d-flex gap-4">
+                          <Form.Check
+                            type="radio"
+                            id="modalidade-presencial"
+                            name="modalidade"
+                            label="Presencial"
+                            checked={modalidade === 'presencial'}
+                            onChange={() => setModalidade('presencial')}
+                          />
+                          <Form.Check
+                            type="radio"
+                            id="modalidade-online"
+                            name="modalidade"
+                            label="Online"
+                            checked={modalidade === 'online'}
+                            onChange={() => setModalidade('online')}
+                          />
+                        </div>
+                      </Form.Group>
+
+                      <Row className="g-3">
+                        <Col md={6}>
+                          <Form.Group controlId="motivo">
+                            <Form.Label>Motivo</Form.Label>
+                            <Form.Select value={motivo} onChange={(e) => setMotivo(e.target.value)}>
+                              <option value="">...</option>
+                              {opcoesMotivo.map((opcao) => (
+                                <option key={opcao} value={opcao}>{opcao}</option>
+                              ))}
+                            </Form.Select>
+                          </Form.Group>
+                        </Col>
+                        <Col md={12}>
+                          <Form.Group controlId="observacoes">
+                            <Form.Label>Observações (opcional)</Form.Label>
+                            <Form.Control
+                              as="textarea"
+                              rows={3}
+                              value={observacoes}
+                              onChange={(e) => setObservacoes(e.target.value)}
+                              maxLength={500}
+                            />
+                          </Form.Group>
+                        </Col>
+                      </Row>
+
+                      <p className="text-secondary small mt-3 mb-0">
+                        O horário só é reservado ao concluir o cadastro ou login.
+                      </p>
+
+                      <div className="d-flex justify-content-end mt-3">
+                        <Button variant="primary" onClick={() => setStep(2)}>
+                          Continuar
+                          <i className="bi bi-arrow-right ms-2" />
+                        </Button>
+                      </div>
+                    </Card.Body>
+                  </Card>
+                )}
               </Card.Body>
             </Card>
           )}
 
-          {/* Passo 2: Dados do paciente */}
+          {/* Passo 2: Seus dados */}
           {step === 2 && (
             <Card>
               <Card.Body>
-                <h2 className="mb-3">Dados do Paciente</h2>
-                <p className="text-secondary mb-1">
-                  Consulta agendada para: {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')} às {selectedTime}
+                <h2 className="mb-3">Seus dados</h2>
+                <p className="text-secondary mb-4">
+                  Consulta para {resumoDataHora} às {selectedTime}
                 </p>
-                <p className="fw-semibold mb-4">Valor da consulta: R$ 150,00</p>
 
-                <Form onSubmit={handleSubmit} noValidate>
-                  <Row className="g-3">
-                    <Col md={12}>
-                      <Form.Group controlId="nome">
-                        <Form.Label>Nome Completo</Form.Label>
-                        <Form.Control
-                          type="text"
-                          name="nome"
-                          value={formData.nome}
-                          onChange={handleInputChange}
-                          isInvalid={!!errors.nome}
+                {erroGeral && <Alert variant="warning">{erroGeral}</Alert>}
+
+                {carregandoAuth ? (
+                  <div className="d-flex align-items-center gap-2">
+                    <Spinner animation="border" size="sm" />
+                    <span>Carregando...</span>
+                  </div>
+                ) : usuario?.papel === 'paciente' ? (
+                  <div>
+                    <Alert variant="info">Agendando como paciente logado.</Alert>
+                    <div className="d-flex gap-3">
+                      <Button variant="outline-secondary" onClick={() => setStep(1)} disabled={enviando}>
+                        <i className="bi bi-arrow-left me-2" />
+                        Voltar
+                      </Button>
+                      <Button
+                        variant="primary"
+                        className="ms-auto"
+                        disabled={enviando}
+                        onClick={() => enviarAgendamento()}
+                      >
+                        {enviando ? 'Agendando...' : 'Confirmar agendamento'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : usuario?.papel === 'psicologa' ? (
+                  <Alert variant="info">
+                    Você está logada como psicóloga. Use a agenda da sua área para marcar consultas.{' '}
+                    <Link href="/area-restrita">Ir para a área restrita</Link>
+                  </Alert>
+                ) : (
+                  <Tabs
+                    activeKey={abaAtiva}
+                    onSelect={(k) => setAbaAtiva((k as 'cadastro' | 'login') ?? 'cadastro')}
+                    className="mb-4"
+                  >
+                    <Tab eventKey="cadastro" title="Criar minha conta">
+                      <div className="pt-3">
+                        <PacienteForm
+                          modo="cadastro"
+                          mostrarSenha
+                          camposObrigatorios={{ email: true, dataNascimento: true }}
+                          onSubmit={handleCadastroSubmit}
+                          errosServidor={errosServidor}
+                          enviando={enviando}
                         />
-                        <Form.Control.Feedback type="invalid">{errors.nome}</Form.Control.Feedback>
-                      </Form.Group>
-                    </Col>
+                      </div>
+                    </Tab>
+                    <Tab eventKey="login" title="Já tenho conta">
+                      <div className="pt-3">
+                        <LoginForm onSucesso={handleLoginSucesso} />
+                      </div>
+                    </Tab>
+                  </Tabs>
+                )}
 
-                    <Col md={6}>
-                      <Form.Group controlId="email">
-                        <Form.Label>Email</Form.Label>
-                        <Form.Control
-                          type="email"
-                          name="email"
-                          value={formData.email}
-                          onChange={handleInputChange}
-                          isInvalid={!!errors.email}
-                        />
-                        <Form.Control.Feedback type="invalid">{errors.email}</Form.Control.Feedback>
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group controlId="telefone">
-                        <Form.Label>Telefone</Form.Label>
-                        <Form.Control
-                          type="tel"
-                          name="telefone"
-                          value={formData.telefone.replace(/\D/g, '').replace(/(\d{2})(\d)/, '($1) $2').replace(/(\d{5})(\d)/, '$1-$2')}
-                          onChange={handleInputChange}
-                          maxLength={15}
-                          isInvalid={!!errors.telefone}
-                        />
-                        <Form.Control.Feedback type="invalid">{errors.telefone}</Form.Control.Feedback>
-                      </Form.Group>
-                    </Col>
-
-                    <Col md={6}>
-                      <Form.Group controlId="dataNascimento">
-                        <Form.Label>Data de Nascimento</Form.Label>
-                        <Form.Control
-                          type="date"
-                          name="dataNascimento"
-                          value={formData.dataNascimento || '2000-01-01'}
-                          onChange={handleInputChange}
-                          isInvalid={!!errors.dataNascimento}
-                        />
-                        <Form.Control.Feedback type="invalid">{errors.dataNascimento}</Form.Control.Feedback>
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group controlId="cpf">
-                        <Form.Label>CPF</Form.Label>
-                        <Form.Control
-                          type="text"
-                          name="cpf"
-                          value={formData.cpf.replace(/\D/g, '').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2')}
-                          onChange={handleInputChange}
-                          maxLength={14}
-                          isInvalid={!!errors.cpf}
-                        />
-                        <Form.Control.Feedback type="invalid">{errors.cpf}</Form.Control.Feedback>
-                      </Form.Group>
-                    </Col>
-
-                    {/* Campos do responsável (aparecem se menor de idade) */}
-                    {menorDeIdade && (
-                      <Col md={12}>
-                        <Card className="card--areia">
-                          <Card.Body>
-                            <h3 className="h5 mb-3">Dados do Responsável</h3>
-                            <Row className="g-3">
-                              <Col md={6}>
-                                <Form.Group controlId="responsavel">
-                                  <Form.Label>Nome do Responsável</Form.Label>
-                                  <Form.Control
-                                    type="text"
-                                    name="responsavel"
-                                    value={formData.responsavel}
-                                    onChange={handleInputChange}
-                                    isInvalid={!!errors.responsavel}
-                                  />
-                                  <Form.Control.Feedback type="invalid">{errors.responsavel}</Form.Control.Feedback>
-                                </Form.Group>
-                              </Col>
-                              <Col md={6}>
-                                <Form.Group controlId="telefoneResponsavel">
-                                  <Form.Label>Telefone do Responsável</Form.Label>
-                                  <Form.Control
-                                    type="tel"
-                                    name="telefoneResponsavel"
-                                    value={formData.telefoneResponsavel}
-                                    onChange={handleInputChange}
-                                    isInvalid={!!errors.telefoneResponsavel}
-                                  />
-                                  <Form.Control.Feedback type="invalid">{errors.telefoneResponsavel}</Form.Control.Feedback>
-                                </Form.Group>
-                              </Col>
-                            </Row>
-                          </Card.Body>
-                        </Card>
-                      </Col>
-                    )}
-
-                    <Col md={6}>
-                      <Form.Group controlId="tipo">
-                        <Form.Label>Tipo</Form.Label>
-                        <Form.Select
-                          name="tipo"
-                          value={formData.tipo}
-                          onChange={handleInputChange}
-                          isInvalid={!!errors.tipo}
-                        >
-                          <option value="">...</option>
-                          <option value="Presencial">Presencial</option>
-                          <option value="Online">Online</option>
-                        </Form.Select>
-                        <Form.Control.Feedback type="invalid">{errors.tipo}</Form.Control.Feedback>
-                      </Form.Group>
-                    </Col>
-                    <Col md={6}>
-                      <Form.Group controlId="motivo">
-                        <Form.Label>Motivo</Form.Label>
-                        <Form.Select
-                          name="motivo"
-                          value={formData.motivo}
-                          onChange={handleInputChange}
-                          isInvalid={!!errors.motivo}
-                        >
-                          <option value="">...</option>
-                          <option value="Dificuldade de Aprendizagem">Dificuldades de Aprendizagem</option>
-                          <option value="Terapia Infantil">Terapia Infantil</option>
-                          <option value="Orientação para pais">Orientação para Pais</option>
-                          <option value="Ansiedade">Ansiedade</option>
-                          <option value="Depressão">Depressão</option>
-                          <option value="Outro">Outro</option>
-                        </Form.Select>
-                        <Form.Control.Feedback type="invalid">{errors.motivo}</Form.Control.Feedback>
-                      </Form.Group>
-                    </Col>
-
-                    <Col md={12}>
-                      <Form.Group controlId="observacoes">
-                        <Form.Label>Observações</Form.Label>
-                        <Form.Control
-                          as="textarea"
-                          name="observacoes"
-                          value={formData.observacoes}
-                          onChange={handleInputChange}
-                          maxLength={500}
-                          rows={5}
-                        />
-                        <Form.Text className="d-block text-end">{formData.observacoes.length}/500</Form.Text>
-                      </Form.Group>
-                    </Col>
-                  </Row>
-
-                  <div className="d-flex gap-3 mt-4">
-                    <Button type="button" variant="outline-secondary" onClick={() => setStep(1)}>
+                {usuario?.papel !== 'paciente' && usuario?.papel !== 'psicologa' && (
+                  <div className="d-flex mt-2">
+                    <Button variant="outline-secondary" onClick={() => setStep(1)} disabled={enviando}>
                       <i className="bi bi-arrow-left me-2" />
                       Voltar
                     </Button>
-                    <Button type="submit" variant="primary" disabled={loading} className="ms-auto">
-                      <i className="bi bi-whatsapp me-2" />
-                      {loading ? 'Agendando...' : 'Continuar no WhatsApp'}
-                    </Button>
                   </div>
-                </Form>
+                )}
               </Card.Body>
             </Card>
           )}
 
-          {/* Passo 3: Confirmação (fluxo antigo, hoje inalcançável — ver comentário no submit) */}
-          {step === 3 && agendamentoRealizado && (
+          {/* Passo 3: Confirmação */}
+          {step === 3 && confirmacao && (
             <Card>
-              <Card.Body>
-                <div className="text-center mb-4">
-                  <div className="pmc-icone pmc-icone--salvia mx-auto mb-3 fs-1">
-                    <i className="bi bi-check-lg" />
-                  </div>
-                  <h2>Agendamento Realizado com Sucesso!</h2>
+              <Card.Body className="text-center">
+                <div className="pmc-icone pmc-icone--salvia mx-auto mb-3 fs-1">
+                  <i className="bi bi-check2-circle" />
                 </div>
-
-                <Card className="card--areia mb-4">
-                  <Card.Body>
-                    <h3 className="h5 mb-3">Dados do Agendamento:</h3>
-                    <p><strong>Data:</strong> {new Date(agendamentoRealizado.consulta.data + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
-                    <p><strong>Horário:</strong> {agendamentoRealizado.consulta.hora}</p>
-                    <p><strong>Paciente:</strong> {agendamentoRealizado.paciente.nome}</p>
-                    <p className="mb-0"><strong>ID da Consulta:</strong> {agendamentoRealizado.consulta.id}</p>
-                  </Card.Body>
-                </Card>
-
-                <Card bg="info" className="mb-4">
-                  <Card.Body>
-                    <h3 className="h5 mb-3">Pagamento:</h3>
-                    <p><strong>Valor:</strong> R$ 150,00</p>
-                    <p className="mb-3"><strong>Status:</strong> Pendente</p>
-                    <p className="mb-0">
-                      <i className="bi bi-credit-card me-2" />
-                      O pagamento deve ser realizado na área do paciente após o agendamento.
-                    </p>
-                  </Card.Body>
-                </Card>
-
-                <Card bg="warning" className="mb-4">
-                  <Card.Body>
-                    <h3 className="h5 mb-3">Acesso à Área Restrita:</h3>
-                    <p><strong>Email:</strong> {agendamentoRealizado.acessoAreaRestrita.email}</p>
-                    <p><strong>Senha:</strong> {agendamentoRealizado.acessoAreaRestrita.senha}</p>
-                    <p className="small mb-0">
-                      Use estes dados para acessar sua área restrita e receber o link da consulta.
-                    </p>
-                  </Card.Body>
-                </Card>
+                <h2>Consulta agendada</h2>
+                <p className="mb-1">{confirmacaoDataHoraTexto}</p>
+                <p className="text-secondary mb-4">
+                  {confirmacao.modalidade === 'presencial' ? 'Presencial' : 'Online'}
+                </p>
+                <p className="mb-4">
+                  A psicóloga vai confirmar e você pode acompanhar tudo na sua área.
+                </p>
 
                 <div className="d-flex flex-wrap justify-content-center gap-3">
                   <Link href="/area-restrita">
-                    <Button variant="primary">Acessar Área Restrita</Button>
+                    <Button variant="primary">Ir para minha área</Button>
                   </Link>
-                  <Link href="/">
-                    <Button variant="outline-secondary">Voltar ao Início</Button>
-                  </Link>
-                </div>
-
-                <div className="alert alert-success mt-4 mb-0">
-                  <i className="bi bi-envelope me-2" />
-                  <strong>Importante:</strong> Você receberá um email com todas essas informações e o link para a consulta será enviado na sua área restrita próximo ao horário agendado.
+                  <a href={whatsappURL} target="_blank" rel="noopener noreferrer">
+                    <Button variant="outline-primary">
+                      <i className="bi bi-whatsapp me-2" />
+                      Falar no WhatsApp
+                    </Button>
+                  </a>
                 </div>
               </Card.Body>
             </Card>

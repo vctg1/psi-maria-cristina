@@ -4,17 +4,18 @@
 
 export type PacienteResumo = {
   id: string;
-  usuarioId: string;
+  usuarioId: string | null;
   nome: string;
   telefone: string;
-  email: string;
+  email: string | null;
+  temLogin: boolean;
   primeiroAcessoPendente: boolean;
   ativo: boolean;
   criadoEm: string;
 };
 
 export type PacienteDetalhe = PacienteResumo & {
-  dataNascimento: string; // YYYY-MM-DD
+  dataNascimento: string | null; // YYYY-MM-DD
   cpf: string | null;
   responsavel: string | null;
   telefoneResponsavel: string | null;
@@ -26,9 +27,9 @@ export type PacienteDetalhe = PacienteResumo & {
 
 export type PacienteEntrada = {
   nome: string;
-  email: string;
+  email?: string | null;
   telefone: string;
-  dataNascimento: string;
+  dataNascimento?: string | null;
   cpf?: string | null;
   responsavel?: string | null;
   telefoneResponsavel?: string | null;

@@ -176,13 +176,18 @@ model TokenAcesso {
 // ---------------------------------------------------------------- paciente
 
 /// Perfil cadastral. Dados pessoais só saem em rota de psicóloga ou para o próprio paciente.
+/// Fase 3: usuarioId NULLABLE — paciente pode existir SEM login (presencial, gerido só pela
+/// psicóloga para manter a agenda). Link de primeiro acesso/redefinição só se aplica a quem tem Usuario.
+/// Mínimo para paciente sem login: nome + telefone (dataNascimento opcional).
+/// NOTA CPF: permanece opcional no banco; será OBRIGATÓRIO NO MOMENTO DA COBRANÇA (Fase 5 / gateway),
+/// validado na aplicação, não por constraint.
 model Paciente {
   id                  String         @id @default(uuid())
-  usuarioId           String         @unique @map("usuario_id")
+  usuarioId           String?        @unique @map("usuario_id")   // null = sem login
   nome                String
   telefone            String                              // dígitos com DDI; usado em wa.me
-  dataNascimento      DateTime       @map("data_nascimento") @db.Date
-  cpf                 String?        @unique               // [?] Q4
+  dataNascimento      DateTime?      @map("data_nascimento") @db.Date   // opcional (paciente sem login)
+  cpf                 String?        @unique               // opcional aqui; obrigatório na cobrança (app)
   responsavel         String?                              // obrigatório na app se menor de 18
   telefoneResponsavel String?        @map("telefone_responsavel")
   origemCadastro      OrigemCadastro @map("origem_cadastro")
@@ -191,7 +196,7 @@ model Paciente {
   criadoEm            DateTime       @default(now()) @map("criado_em") @db.Timestamptz(3)
   atualizadoEm        DateTime       @updatedAt @map("atualizado_em") @db.Timestamptz(3)
 
-  usuario   Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  usuario   Usuario?   @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
   consultas Consulta[]
 
   @@map("paciente")

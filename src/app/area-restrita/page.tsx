@@ -23,7 +23,7 @@ export default function AreaRestritaPage() {
       return;
     }
     if (usuario.papel === 'psicologa') {
-      router.replace('/area-restrita/pacientes');
+      router.replace('/area-restrita/agenda');
     }
   }, [carregando, usuario, router]);
 

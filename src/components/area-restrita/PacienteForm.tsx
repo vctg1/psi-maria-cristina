@@ -11,11 +11,18 @@ import type { PacienteEntrada } from '@/types/paciente';
 
 export type PacienteFormValores = PacienteEntrada & { senha?: string };
 
+type CamposObrigatorios = { email?: boolean; dataNascimento?: boolean };
+
 type PacienteFormProps = {
   valorInicial?: Partial<PacienteEntrada>;
   modo: 'cadastro' | 'edicao';
   mostrarSenha?: boolean;
   mostrarObservacoes?: boolean;
+  /** Quais campos são obrigatórios. Por padrão (modo psicóloga), e-mail e nascimento são opcionais
+   * — o agendamento do visitante deve passar `{ email: true, dataNascimento: true }`. */
+  camposObrigatorios?: CamposObrigatorios;
+  /** Só nome/telefone/nascimento/observações — usado no modal de nova consulta. */
+  compacto?: boolean;
   onSubmit: (dados: PacienteFormValores) => Promise<void>;
   errosServidor?: Record<string, string>;
   enviando?: boolean;
@@ -59,10 +66,14 @@ export default function PacienteForm({
   modo,
   mostrarSenha = false,
   mostrarObservacoes = false,
+  camposObrigatorios,
+  compacto = false,
   onSubmit,
   errosServidor,
   enviando = false,
 }: PacienteFormProps) {
+  const emailObrigatorio = camposObrigatorios?.email ?? false;
+  const dataNascimentoObrigatoria = camposObrigatorios?.dataNascimento ?? false;
   const [nome, setNome] = useState(valorInicial?.nome ?? '');
   const [email, setEmail] = useState(valorInicial?.email ?? '');
   const [telefone, setTelefone] = useState(formatarTelefone(valorInicial?.telefone ?? ''));
@@ -89,16 +100,16 @@ export default function PacienteForm({
   }, [valorInicial]);
 
   const idade = useMemo(() => calcularIdade(dataNascimento), [dataNascimento]);
-  const menorDeIdade = idade !== null && idade < 18;
+  const menorDeIdade = !compacto && idade !== null && idade < 18;
 
   const erros = { ...errosLocais, ...errosServidor };
 
   const validar = (): Record<string, string> => {
     const novosErros: Record<string, string> = {};
     if (!nome.trim()) novosErros.nome = 'Informe o nome completo.';
-    if (!email.trim()) novosErros.email = 'Informe o e-mail.';
+    if (!compacto && emailObrigatorio && !email.trim()) novosErros.email = 'Informe o e-mail.';
     if (apenasDigitos(telefone).length < 10) novosErros.telefone = 'Informe um telefone válido.';
-    if (!dataNascimento) novosErros.dataNascimento = 'Informe a data de nascimento.';
+    if (dataNascimentoObrigatoria && !dataNascimento) novosErros.dataNascimento = 'Informe a data de nascimento.';
     if (menorDeIdade) {
       if (!responsavel.trim()) novosErros.responsavel = 'Informe o responsável.';
       if (apenasDigitos(telefoneResponsavel).length < 10) {
@@ -120,12 +131,12 @@ export default function PacienteForm({
 
     const dados: PacienteFormValores = {
       nome: nome.trim(),
-      email: email.trim(),
+      email: compacto ? null : email.trim() ? email.trim() : null,
       telefone: apenasDigitos(telefone),
-      dataNascimento,
-      cpf: cpf ? apenasDigitos(cpf) : null,
-      responsavel: responsavel.trim() ? responsavel.trim() : null,
-      telefoneResponsavel: telefoneResponsavel ? apenasDigitos(telefoneResponsavel) : null,
+      dataNascimento: dataNascimento || null,
+      cpf: compacto || !cpf ? null : apenasDigitos(cpf),
+      responsavel: compacto || !responsavel.trim() ? null : responsavel.trim(),
+      telefoneResponsavel: compacto || !telefoneResponsavel ? null : apenasDigitos(telefoneResponsavel),
       observacoesCadastro: observacoesCadastro.trim() ? observacoesCadastro.trim() : null,
     };
     if (mostrarSenha) {
@@ -138,29 +149,36 @@ export default function PacienteForm({
     <Form onSubmit={handleSubmit} noValidate>
       <span className="pmc-rotulo d-block mb-3">Dados pessoais</span>
       <Row>
-        <Col md={6}>
+        <Col md={compacto ? 12 : 6}>
           <Form.Group className="mb-3" controlId="pacienteNome">
             <Form.Label>Nome completo</Form.Label>
             <Form.Control value={nome} onChange={(e) => setNome(e.target.value)} isInvalid={!!erros.nome} />
             <Form.Control.Feedback type="invalid">{erros.nome}</Form.Control.Feedback>
           </Form.Group>
         </Col>
-        <Col md={6}>
-          <Form.Group className="mb-3" controlId="pacienteEmail">
-            <Form.Label>E-mail</Form.Label>
-            <Form.Control
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              isInvalid={!!erros.email}
-            />
-            <Form.Control.Feedback type="invalid">{erros.email}</Form.Control.Feedback>
-          </Form.Group>
-        </Col>
+        {!compacto && (
+          <Col md={6}>
+            <Form.Group className="mb-3" controlId="pacienteEmail">
+              <Form.Label>E-mail{!emailObrigatorio && ' (opcional)'}</Form.Label>
+              <Form.Control
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                isInvalid={!!erros.email}
+              />
+              <Form.Control.Feedback type="invalid">{erros.email}</Form.Control.Feedback>
+              {!emailObrigatorio && (
+                <Form.Text className="pmc-texto-2">
+                  Sem e-mail, o paciente não terá acesso ao site — a agenda continua sendo gerida por você.
+                </Form.Text>
+              )}
+            </Form.Group>
+          </Col>
+        )}
       </Row>
 
       <Row>
-        <Col md={6}>
+        <Col md={compacto ? 6 : 6}>
           <Form.Group className="mb-3" controlId="pacienteTelefone">
             <Form.Label>Telefone</Form.Label>
             <Form.Control
@@ -172,9 +190,9 @@ export default function PacienteForm({
             <Form.Control.Feedback type="invalid">{erros.telefone}</Form.Control.Feedback>
           </Form.Group>
         </Col>
-        <Col md={3}>
+        <Col md={compacto ? 6 : 3}>
           <Form.Group className="mb-3" controlId="pacienteDataNascimento">
-            <Form.Label>Data de nascimento</Form.Label>
+            <Form.Label>Data de nascimento{!dataNascimentoObrigatoria && ' (opcional)'}</Form.Label>
             <Form.Control
               type="date"
               value={dataNascimento}
@@ -184,18 +202,20 @@ export default function PacienteForm({
             <Form.Control.Feedback type="invalid">{erros.dataNascimento}</Form.Control.Feedback>
           </Form.Group>
         </Col>
-        <Col md={3}>
-          <Form.Group className="mb-3" controlId="pacienteCpf">
-            <Form.Label>CPF (opcional)</Form.Label>
-            <Form.Control
-              value={cpf}
-              onChange={(e) => setCpf(formatarCpf(e.target.value))}
-              isInvalid={!!erros.cpf}
-              placeholder="000.000.000-00"
-            />
-            <Form.Control.Feedback type="invalid">{erros.cpf}</Form.Control.Feedback>
-          </Form.Group>
-        </Col>
+        {!compacto && (
+          <Col md={3}>
+            <Form.Group className="mb-3" controlId="pacienteCpf">
+              <Form.Label>CPF (opcional)</Form.Label>
+              <Form.Control
+                value={cpf}
+                onChange={(e) => setCpf(formatarCpf(e.target.value))}
+                isInvalid={!!erros.cpf}
+                placeholder="000.000.000-00"
+              />
+              <Form.Control.Feedback type="invalid">{erros.cpf}</Form.Control.Feedback>
+            </Form.Group>
+          </Col>
+        )}
       </Row>
 
       {menorDeIdade && (

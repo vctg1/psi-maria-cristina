@@ -4,20 +4,13 @@ import { useState, useEffect, useCallback } from 'react';
 import Button from 'react-bootstrap/Button';
 import Table from 'react-bootstrap/Table';
 import Spinner from 'react-bootstrap/Spinner';
+import type { LivresDia, LivresMes } from '@/types/agenda';
 
 interface CalendarioAgendamentoProps {
   onDateSelect: (date: string) => void;
   selectedDate: string;
   onTimeSelect?: (time: string) => void;
-}
-
-interface HorarioDisponivel {
-  id: string;
-  hora: string;
-  data?: string;
-  tipo: 'unico' | 'recorrente';
-  diaSemana?: number;
-  ativo: boolean;
+  selectedTime?: string;
 }
 
 interface DiaCalendario {
@@ -32,30 +25,28 @@ interface DiaCalendario {
 export default function CalendarioAgendamento({
   onDateSelect,
   selectedDate,
-  onTimeSelect
+  onTimeSelect,
+  selectedTime,
 }: CalendarioAgendamentoProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [datasComHorarios, setDatasComHorarios] = useState<string[]>([]);
-  const [horariosDisponiveis, setHorariosDisponiveis] = useState<HorarioDisponivel[]>([]);
+  const [horariosDisponiveis, setHorariosDisponiveis] = useState<string[]>([]);
   const [horariosPorData, setHorariosPorData] = useState<{ [data: string]: string[] }>({});
   const [loading, setLoading] = useState(false);
+  const [loadingHorarios, setLoadingHorarios] = useState(false);
 
   const carregarDisponibilidadeMes = useCallback(async () => {
     try {
       setLoading(true);
       const ano = currentMonth.getFullYear();
-      const mes = currentMonth.getMonth(); // 0-11
+      const mes = currentMonth.getMonth() + 1; // API espera 1-12
 
-      // Usar o novo endpoint otimizado que retorna todas as disponibilidades do mês
       const response = await fetch(`/api/disponibilidade?ano=${ano}&mes=${mes}`);
 
       if (response.ok) {
-        const data = await response.json();
-        // Extrair apenas as datas que têm horários disponíveis
+        const data: LivresMes = await response.json();
         const datasDisponiveis = Object.keys(data.disponibilidades || {});
         setDatasComHorarios(datasDisponiveis);
-
-        // Salvar os horários para cada data para uso posterior
         setHorariosPorData(data.disponibilidades || {});
       } else {
         console.error('Erro na resposta da API:', response.status);
@@ -82,28 +73,26 @@ export default function CalendarioAgendamento({
   }, [currentMonth, carregarDisponibilidadeMes]);
 
   const carregarHorariosData = async (data: string) => {
-    try {
-      // Primeiro, tentar usar os horários já carregados em cache
-      if (horariosPorData[data]) {
-        const horariosFormatados = horariosPorData[data].map((horario, index) => ({
-          id: `${data}-${index}`,
-          hora: horario,
-          data: data,
-          tipo: 'recorrente' as const,
-          ativo: true
-        }));
-        setHorariosDisponiveis(horariosFormatados);
-        return;
-      }
+    // Primeiro, tentar usar os horários já carregados em cache
+    if (horariosPorData[data]) {
+      setHorariosDisponiveis(horariosPorData[data]);
+      return;
+    }
 
-      // Se não estiver em cache, fazer requisição individual (fallback)
-      const response = await fetch(`/api/horarios?data=${data}&disponiveis=true`);
+    try {
+      setLoadingHorarios(true);
+      const response = await fetch(`/api/disponibilidade?data=${data}`);
       if (response.ok) {
-        const horarios = await response.json();
-        setHorariosDisponiveis(horarios);
+        const resultado: LivresDia = await response.json();
+        setHorariosDisponiveis(resultado.horarios || []);
+      } else {
+        setHorariosDisponiveis([]);
       }
     } catch (error) {
       console.error('Erro ao carregar horários:', error);
+      setHorariosDisponiveis([]);
+    } finally {
+      setLoadingHorarios(false);
     }
   };
 
@@ -276,25 +265,34 @@ export default function CalendarioAgendamento({
       </div>
 
       {/* Horários disponíveis para a data selecionada */}
-      {selectedDate && horariosDisponiveis.length > 0 && (
+      {selectedDate && (
         <div className="mt-4 p-3 rounded-3 bg-light">
           <h4 className="mb-3">
             Horários para {new Date(selectedDate + 'T12:00:00').toLocaleDateString('pt-BR')}:
           </h4>
 
-          <div className="d-flex flex-wrap gap-2">
-            {horariosDisponiveis.map(horario => (
-              <Button
-                key={horario.id}
-                onClick={() => onTimeSelect && onTimeSelect(horario.hora)}
-                variant="outline-primary"
-                size="sm"
-                className="rounded-pill"
-              >
-                {horario.hora}
-              </Button>
-            ))}
-          </div>
+          {loadingHorarios ? (
+            <div className="d-flex align-items-center gap-2">
+              <Spinner animation="border" variant="primary" size="sm" />
+              <span className="text-secondary">Carregando horários...</span>
+            </div>
+          ) : horariosDisponiveis.length > 0 ? (
+            <div className="d-flex flex-wrap gap-2">
+              {horariosDisponiveis.map((hora) => (
+                <Button
+                  key={hora}
+                  onClick={() => onTimeSelect && onTimeSelect(hora)}
+                  variant={hora === selectedTime ? 'primary' : 'outline-primary'}
+                  size="sm"
+                  className="rounded-pill"
+                >
+                  {hora}
+                </Button>
+              ))}
+            </div>
+          ) : (
+            <span className="text-secondary">Nenhum horário livre nesta data.</span>
+          )}
         </div>
       )}
 

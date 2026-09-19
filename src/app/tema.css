@@ -398,6 +398,12 @@ a { text-underline-offset: 0.15em; }
 .pmc-badge-ok     { background: var(--pmc-sucesso-fundo); color: var(--pmc-sucesso); }
 .pmc-badge-neutro { background: var(--pmc-bege);          color: var(--pmc-texto-2); }
 
+/* ============================================================================
+   AGENDA E DISPONIBILIDADE · utilitários de texto (Etapa 3)
+   ========================================================================== */
+.pmc-peso-medio { font-weight: var(--pmc-peso-medio); }
+.pmc-t-sm { font-size: var(--pmc-t-sm); }
+
 /* foco visível em tudo que é interativo */
 :focus-visible { outline: 3px solid var(--pmc-terracota); outline-offset: 2px; border-radius: var(--pmc-raio-sm); }
 

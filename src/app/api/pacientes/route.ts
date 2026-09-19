@@ -37,12 +37,16 @@ export async function GET(request: NextRequest) {
 
     const pacientes = await prisma.paciente.findMany({
       where: {
-        usuario: incluirInativos ? undefined : { ativo: true },
+        ...(incluirInativos ? {} : { OR: [{ usuarioId: null }, { usuario: { ativo: true } }] }),
         ...(q
           ? {
-              OR: [
-                { nome: { contains: q, mode: 'insensitive' as const } },
-                { usuario: { email: { contains: q, mode: 'insensitive' as const } } },
+              AND: [
+                {
+                  OR: [
+                    { nome: { contains: q, mode: 'insensitive' as const } },
+                    { usuario: { email: { contains: q, mode: 'insensitive' as const } } },
+                  ],
+                },
               ],
             }
           : {}),
@@ -76,12 +80,14 @@ export async function POST(request: NextRequest) {
     }
     const dados = resultado.dados;
 
-    const emailExistente = await prisma.usuario.findUnique({
-      where: { email: dados.email },
-      select: { id: true },
-    });
-    if (emailExistente) {
-      return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 });
+    if (dados.email) {
+      const emailExistente = await prisma.usuario.findUnique({
+        where: { email: dados.email },
+        select: { id: true },
+      });
+      if (emailExistente) {
+        return NextResponse.json({ error: 'E-mail já cadastrado' }, { status: 409 });
+      }
     }
 
     if (dados.cpf) {
@@ -95,16 +101,20 @@ export async function POST(request: NextRequest) {
     }
 
     const criado = await prisma.$transaction(async (tx) => {
-      const usuario = await tx.usuario.create({
-        data: { email: dados.email, papel: 'paciente', senhaHash: null },
-      });
+      let usuarioId: string | null = null;
+      if (dados.email) {
+        const usuario = await tx.usuario.create({
+          data: { email: dados.email, papel: 'paciente', senhaHash: null },
+        });
+        usuarioId = usuario.id;
+      }
 
       return tx.paciente.create({
         data: {
-          usuarioId: usuario.id,
+          usuarioId,
           nome: dados.nome,
           telefone: dados.telefone,
-          dataNascimento: new Date(dados.dataNascimento + 'T12:00:00'),
+          dataNascimento: dados.dataNascimento ? new Date(dados.dataNascimento + 'T12:00:00') : null,
           cpf: dados.cpf,
           responsavel: dados.responsavel,
           telefoneResponsavel: dados.telefoneResponsavel,

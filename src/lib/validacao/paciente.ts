@@ -5,9 +5,9 @@ export type ResultadoValidacao<T> = { ok: true; dados: T } | { ok: false; campos
 
 export type PacienteEntradaValidada = {
   nome: string;
-  email: string;
+  email: string | null;
   telefone: string;
-  dataNascimento: string;
+  dataNascimento: string | null;
   cpf: string | null;
   responsavel: string | null;
   telefoneResponsavel: string | null;
@@ -26,26 +26,27 @@ export type PacienteEdicaoValidada = {
   ativo?: boolean;
 };
 
-/** Formato mínimo retornado pelo Prisma (via `select`) necessário para montar PacienteResumo. */
+/** Formato mínimo retornado pelo Prisma (via `select`) necessário para montar PacienteResumo.
+ *  `usuarioId`/`usuario` são `null` para paciente sem login (gerido só pela psicóloga). */
 export type PacienteParaResumo = {
   id: string;
-  usuarioId: string;
+  usuarioId: string | null;
   nome: string;
   telefone: string;
   criadoEm: Date;
-  usuario: { email: string; ativo: boolean; senhaHash: string | null };
+  usuario: { email: string; ativo: boolean; senhaHash: string | null } | null;
 };
 
 /** Formato mínimo retornado pelo Prisma (via `select`) necessário para montar PacienteDetalhe. */
 export type PacienteParaDetalhe = PacienteParaResumo & {
-  dataNascimento: Date;
+  dataNascimento: Date | null;
   cpf: string | null;
   responsavel: string | null;
   telefoneResponsavel: string | null;
   observacoesCadastro: string | null;
   origemCadastro: 'psicologa' | 'autocadastro';
   atualizadoEm: Date;
-  usuario: PacienteParaResumo['usuario'] & { ultimoLoginEm: Date | null };
+  usuario: (PacienteParaResumo['usuario'] & { ultimoLoginEm: Date | null }) | null;
 };
 
 const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -100,8 +101,12 @@ function validarNomeCampo(v: unknown): CampoResultado<string> {
   return { valor: nome };
 }
 
-function validarEmailCampo(v: unknown): CampoResultado<string> {
-  if (!isString(v)) return { erro: 'E-mail é obrigatório' };
+function validarEmailCampo(v: unknown, obrigatorio: boolean): CampoResultado<string | null> {
+  if (v === undefined || v === null || v === '') {
+    if (obrigatorio) return { erro: 'E-mail é obrigatório' };
+    return { valor: null };
+  }
+  if (!isString(v)) return { erro: 'E-mail inválido' };
   const email = v.trim().toLowerCase();
   if (!email || email.length > 254 || !REGEX_EMAIL.test(email)) {
     return { erro: 'E-mail inválido' };
@@ -122,7 +127,11 @@ function validarTelefoneCampo(v: unknown, obrigatorio: boolean): CampoResultado<
   return { valor: digitos };
 }
 
-function validarDataNascimentoCampo(v: unknown): CampoResultado<string> {
+function validarDataNascimentoCampo(v: unknown, obrigatorio: boolean): CampoResultado<string | null> {
+  if (v === undefined || v === null || v === '') {
+    if (obrigatorio) return { erro: 'Data de nascimento é obrigatória' };
+    return { valor: null };
+  }
   if (!isString(v) || !REGEX_DATA.test(v)) return { erro: 'Data de nascimento inválida' };
 
   const [anoStr, mesStr, diaStr] = v.split('-');
@@ -166,22 +175,28 @@ function comoObjeto(body: unknown): Record<string, unknown> {
   return body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
 }
 
-/** Cadastro de paciente (nome, email, telefone, dataNascimento obrigatórios). Whitelist explícita:
- *  qualquer chave fora das tratadas abaixo é ignorada (nunca copiada para o resultado). */
-export function validarPacienteEntrada(body: unknown): ResultadoValidacao<PacienteEntradaValidada> {
+/** Cadastro de paciente (nome e telefone obrigatórios; email e dataNascimento opcionais —
+ *  paciente pode existir sem login, cadastrado só pela psicóloga). Passe `{ exigirEmail: true }`
+ *  no fluxo de autocadastro (agendamento), onde o e-mail vira a credencial de login.
+ *  Whitelist explícita: qualquer chave fora das tratadas abaixo é ignorada (nunca copiada
+ *  para o resultado). */
+export function validarPacienteEntrada(
+  body: unknown,
+  opts: { exigirEmail?: boolean } = {}
+): ResultadoValidacao<PacienteEntradaValidada> {
   const obj = comoObjeto(body);
   const campos: Record<string, string> = {};
 
   const nome = validarNomeCampo(obj.nome);
   if (nome.erro) campos.nome = nome.erro;
 
-  const email = validarEmailCampo(obj.email);
+  const email = validarEmailCampo(obj.email, opts.exigirEmail === true);
   if (email.erro) campos.email = email.erro;
 
   const telefone = validarTelefoneCampo(obj.telefone, true);
   if (telefone.erro) campos.telefone = telefone.erro;
 
-  const dataNascimento = validarDataNascimentoCampo(obj.dataNascimento);
+  const dataNascimento = validarDataNascimentoCampo(obj.dataNascimento, false);
   if (dataNascimento.erro) campos.dataNascimento = dataNascimento.erro;
 
   const cpf = validarCpfCampo(obj.cpf);
@@ -209,9 +224,9 @@ export function validarPacienteEntrada(body: unknown): ResultadoValidacao<Pacien
     ok: true,
     dados: {
       nome: nome.valor as string,
-      email: email.valor as string,
+      email: email.valor ?? null,
       telefone: telefone.valor as string,
-      dataNascimento: dataNascimento.valor as string,
+      dataNascimento: dataNascimento.valor ?? null,
       cpf: cpf.valor ?? null,
       responsavel: responsavel.valor ?? null,
       telefoneResponsavel: telefoneResponsavel.valor ?? null,
@@ -241,9 +256,9 @@ export function validarPacienteEdicao(body: unknown): ResultadoValidacao<Pacient
   }
 
   if (obj.email !== undefined) {
-    const email = validarEmailCampo(obj.email);
+    const email = validarEmailCampo(obj.email, true);
     if (email.erro) campos.email = email.erro;
-    else dados.email = email.valor;
+    else dados.email = email.valor as string;
   }
 
   if (obj.telefone !== undefined) {
@@ -253,11 +268,11 @@ export function validarPacienteEdicao(body: unknown): ResultadoValidacao<Pacient
   }
 
   if (obj.dataNascimento !== undefined) {
-    const dataNascimento = validarDataNascimentoCampo(obj.dataNascimento);
+    const dataNascimento = validarDataNascimentoCampo(obj.dataNascimento, true);
     if (dataNascimento.erro) campos.dataNascimento = dataNascimento.erro;
     else {
-      dados.dataNascimento = dataNascimento.valor;
-      dataNascimentoValor = dataNascimento.valor;
+      dados.dataNascimento = dataNascimento.valor as string;
+      dataNascimentoValor = dataNascimento.valor as string;
     }
   }
 
@@ -311,15 +326,54 @@ export function validarPacienteEdicao(body: unknown): ResultadoValidacao<Pacient
   return { ok: true, dados };
 }
 
+export type PacienteNovoConsultaValidado = {
+  nome: string;
+  telefone: string;
+  dataNascimento: Date | null;
+  observacoesCadastro: string | null;
+};
+
+/** Cadastro mínimo de paciente feito pela psicóloga direto na tela de consultas (sem login).
+ *  Nome (2-120), telefone (10-13 dígitos), dataNascimento opcional, observações (<=2000). */
+export function validarPacienteNovoParaConsulta(body: unknown): ResultadoValidacao<PacienteNovoConsultaValidado> {
+  const obj = comoObjeto(body);
+  const campos: Record<string, string> = {};
+
+  const nome = validarNomeCampo(obj.nome);
+  if (nome.erro) campos.nome = nome.erro;
+
+  const telefone = validarTelefoneCampo(obj.telefone, true);
+  if (telefone.erro) campos.telefone = telefone.erro;
+
+  const dataNascimento = validarDataNascimentoCampo(obj.dataNascimento, false);
+  if (dataNascimento.erro) campos.dataNascimento = dataNascimento.erro;
+
+  const observacoesCadastro = validarTextoOpcional(obj.observacoesCadastro, 2000, 'Observações');
+  if (observacoesCadastro.erro) campos.observacoesCadastro = observacoesCadastro.erro;
+
+  if (Object.keys(campos).length > 0) return { ok: false, campos };
+
+  return {
+    ok: true,
+    dados: {
+      nome: nome.valor as string,
+      telefone: telefone.valor as string,
+      dataNascimento: dataNascimento.valor ? new Date(dataNascimento.valor + 'T12:00:00') : null,
+      observacoesCadastro: observacoesCadastro.valor ?? null,
+    },
+  };
+}
+
 export function paraResumo(p: PacienteParaResumo): PacienteResumo {
   return {
     id: p.id,
     usuarioId: p.usuarioId,
     nome: p.nome,
     telefone: p.telefone,
-    email: p.usuario.email,
-    primeiroAcessoPendente: p.usuario.senhaHash === null,
-    ativo: p.usuario.ativo,
+    email: p.usuario ? p.usuario.email : null,
+    temLogin: p.usuario !== null,
+    primeiroAcessoPendente: p.usuario ? p.usuario.senhaHash === null : false,
+    ativo: p.usuario ? p.usuario.ativo : true,
     criadoEm: p.criadoEm.toISOString(),
   };
 }
@@ -327,13 +381,13 @@ export function paraResumo(p: PacienteParaResumo): PacienteResumo {
 export function paraDetalhe(p: PacienteParaDetalhe): PacienteDetalhe {
   return {
     ...paraResumo(p),
-    dataNascimento: p.dataNascimento.toISOString().slice(0, 10),
+    dataNascimento: p.dataNascimento ? p.dataNascimento.toISOString().slice(0, 10) : null,
     cpf: p.cpf,
     responsavel: p.responsavel,
     telefoneResponsavel: p.telefoneResponsavel,
     observacoesCadastro: p.observacoesCadastro,
     origemCadastro: p.origemCadastro,
-    ultimoLoginEm: p.usuario.ultimoLoginEm ? p.usuario.ultimoLoginEm.toISOString() : null,
+    ultimoLoginEm: p.usuario?.ultimoLoginEm ? p.usuario.ultimoLoginEm.toISOString() : null,
     atualizadoEm: p.atualizadoEm.toISOString(),
   };
 }

@@ -41,6 +41,9 @@ export default function DetalhePacientePage() {
   const [modalLink, setModalLink] = useState<ModalLink | null>(null);
   const [gerandoLink, setGerandoLink] = useState(false);
   const [alterandoAtivo, setAlterandoAtivo] = useState(false);
+  const [emailAcesso, setEmailAcesso] = useState('');
+  const [criandoAcesso, setCriandoAcesso] = useState(false);
+  const [erroAcesso, setErroAcesso] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     if (!id) return;
@@ -137,6 +140,31 @@ export default function DetalhePacientePage() {
     }
   };
 
+  const criarAcesso = async () => {
+    if (!paciente) return;
+    setCriandoAcesso(true);
+    setErroAcesso(null);
+    try {
+      const response = await fetch(`/api/pacientes/${paciente.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailAcesso.trim() }),
+      });
+      const resultado = await response.json().catch(() => null);
+      if (!response.ok) {
+        setErroAcesso(resultado?.error ?? 'Não foi possível criar o acesso.');
+        return;
+      }
+      setPaciente(resultado as PacienteDetalhe);
+      setEmailAcesso('');
+      mostrarNotificacao({ tipo: 'sucesso', titulo: 'Acesso criado' });
+    } catch {
+      setErroAcesso('Não foi possível criar o acesso.');
+    } finally {
+      setCriandoAcesso(false);
+    }
+  };
+
   const handleSubmitEdicao = async (dados: PacienteFormValores) => {
     if (!paciente) return;
     setEnviando(true);
@@ -145,7 +173,9 @@ export default function DetalhePacientePage() {
     try {
       const alterados: PacienteEdicao = {};
       if (dados.nome !== paciente.nome) alterados.nome = dados.nome;
-      if (dados.email !== paciente.email) alterados.email = dados.email;
+      if (paciente.temLogin && (dados.email ?? undefined) !== (paciente.email ?? undefined)) {
+        alterados.email = dados.email ?? undefined;
+      }
       if (dados.telefone !== paciente.telefone) alterados.telefone = dados.telefone;
       if (dados.dataNascimento !== paciente.dataNascimento) alterados.dataNascimento = dados.dataNascimento;
       if ((dados.cpf ?? null) !== (paciente.cpf ?? null)) alterados.cpf = dados.cpf ?? null;
@@ -212,33 +242,38 @@ export default function DetalhePacientePage() {
           <span className="pmc-rotulo">Área da psicóloga</span>
           <h1 className="h3 mb-1 mt-1">{paciente.nome}</h1>
           <div>
-            {paciente.primeiroAcessoPendente && (
+            {!paciente.temLogin && <span className="pmc-badge-neutro me-2">Sem acesso</span>}
+            {paciente.temLogin && paciente.primeiroAcessoPendente && (
               <span className="pmc-badge-aviso me-2">Primeiro acesso pendente</span>
             )}
-            <span className={paciente.ativo ? 'pmc-badge-ok' : 'pmc-badge-neutro'}>
-              {paciente.ativo ? 'Ativo' : 'Inativo'}
-            </span>
+            {paciente.temLogin && (
+              <span className={paciente.ativo ? 'pmc-badge-ok' : 'pmc-badge-neutro'}>
+                {paciente.ativo ? 'Ativo' : 'Inativo'}
+              </span>
+            )}
           </div>
         </div>
-        <div className="d-flex align-items-center gap-3 flex-wrap">
-          {paciente.primeiroAcessoPendente ? (
-            <Button variant="outline-primary" disabled={gerandoLink} onClick={() => gerarLink('primeiro_acesso')}>
-              Gerar/reenviar link de primeiro acesso
-            </Button>
-          ) : (
-            <Button variant="outline-primary" disabled={gerandoLink} onClick={() => gerarLink('redefinicao_senha')}>
-              Gerar link de redefinição de senha
-            </Button>
-          )}
-          <Form.Check
-            type="switch"
-            id="paciente-ativo"
-            label="Ativo"
-            checked={paciente.ativo}
-            disabled={alterandoAtivo}
-            onChange={alternarAtivo}
-          />
-        </div>
+        {paciente.temLogin && (
+          <div className="d-flex align-items-center gap-3 flex-wrap">
+            {paciente.primeiroAcessoPendente ? (
+              <Button variant="outline-primary" disabled={gerandoLink} onClick={() => gerarLink('primeiro_acesso')}>
+                Gerar/reenviar link de primeiro acesso
+              </Button>
+            ) : (
+              <Button variant="outline-primary" disabled={gerandoLink} onClick={() => gerarLink('redefinicao_senha')}>
+                Gerar link de redefinição de senha
+              </Button>
+            )}
+            <Form.Check
+              type="switch"
+              id="paciente-ativo"
+              label="Ativo"
+              checked={paciente.ativo}
+              disabled={alterandoAtivo}
+              onChange={alternarAtivo}
+            />
+          </div>
+        )}
       </div>
 
       <Card className="mb-4">
@@ -249,7 +284,7 @@ export default function DetalhePacientePage() {
               <strong>CPF:</strong> {paciente.cpf ?? 'Não informado'}
             </Col>
             <Col md={4}>
-              <strong>E-mail:</strong> {paciente.email}
+              <strong>E-mail:</strong> {paciente.email ?? '—'}
             </Col>
             <Col md={4}>
               <strong>Telefone:</strong> {paciente.telefone}
@@ -257,6 +292,36 @@ export default function DetalhePacientePage() {
           </Row>
         </Card.Body>
       </Card>
+
+      {!paciente.temLogin && (
+        <Card className="mb-4 card--areia">
+          <Card.Body>
+            <span className="pmc-rotulo d-block mb-2">Acesso ao site</span>
+            <h2 className="h5">Este paciente não tem acesso ao site</h2>
+            <p className="pmc-texto-2">
+              A agenda deste paciente continua sendo gerida por você. Para dar acesso, informe um e-mail.
+            </p>
+            {erroAcesso && <Alert variant="danger">{erroAcesso}</Alert>}
+            <Row className="align-items-end g-2">
+              <Col md={8}>
+                <Form.Group controlId="pacienteEmailAcesso">
+                  <Form.Label>E-mail</Form.Label>
+                  <Form.Control
+                    type="email"
+                    value={emailAcesso}
+                    onChange={(e) => setEmailAcesso(e.target.value)}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={4}>
+                <Button variant="primary" disabled={criandoAcesso || !emailAcesso.trim()} onClick={criarAcesso}>
+                  {criandoAcesso ? 'Criando...' : 'Criar acesso'}
+                </Button>
+              </Col>
+            </Row>
+          </Card.Body>
+        </Card>
+      )}
 
       <Card>
         <Card.Body>
