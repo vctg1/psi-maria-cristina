@@ -2,8 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth } from '@/lib/auth/guard';
-import { SELECT_CONSULTA_COM_PACIENTE, paraConsultaDto, paraConsultaDtoPaciente } from '@/lib/agenda/consultas';
+import {
+  SELECT_CONSULTA_COM_PACIENTE,
+  paraConsultaDto,
+  paraConsultaDtoPaciente,
+  type ConsultaComPaciente,
+} from '@/lib/agenda/consultas';
 import { podeTransitar } from '@/lib/agenda/transicoes';
+import { partesLocais } from '@/lib/agenda/tempo';
 import type { ConsultaStatus } from '@/types';
 
 type Contexto = { params: Promise<{ id: string }> };
@@ -40,7 +46,7 @@ export async function POST(request: NextRequest, { params }: Contexto) {
 
     const existente = await prisma.consulta.findUnique({
       where: { id },
-      select: { status: true, inicio: true, pacienteId: true },
+      select: { status: true, inicio: true, pacienteId: true, paciente: { select: { nome: true } } },
     });
     if (!existente) {
       return NextResponse.json({ error: 'Consulta não encontrada' }, { status: 404 });
@@ -62,16 +68,36 @@ export async function POST(request: NextRequest, { params }: Contexto) {
       return NextResponse.json({ error: `Não é possível cancelar uma consulta com status "${existente.status}"` }, { status: 409 });
     }
 
-    const atualizado = await prisma.consulta.update({
-      where: { id },
-      data: {
-        status: 'cancelada',
-        canceladaEm: new Date(),
-        canceladaPor: auth.papel,
-        motivoCancelamento,
-      },
-      select: SELECT_CONSULTA_COM_PACIENTE,
-    });
+    const dadosAtualizacao = {
+      status: 'cancelada' as const,
+      canceladaEm: new Date(),
+      canceladaPor: auth.papel,
+      motivoCancelamento,
+    };
+
+    let atualizado: ConsultaComPaciente;
+
+    if (auth.papel === 'paciente') {
+      const { data, hora } = partesLocais(existente.inicio);
+      const dataBr = `${data.slice(8, 10)}/${data.slice(5, 7)}/${data.slice(0, 4)}`;
+      const mensagem = `${existente.paciente.nome} cancelou a consulta de ${dataBr} às ${hora}`;
+
+      const [consultaAtualizada] = await prisma.$transaction([
+        prisma.consulta.update({ where: { id }, data: dadosAtualizacao, select: SELECT_CONSULTA_COM_PACIENTE }),
+        prisma.notificacao.create({
+          data: {
+            tipo: 'cancelamento',
+            titulo: 'Consulta cancelada pelo paciente',
+            mensagem,
+            consultaId: id,
+            lida: false,
+          },
+        }),
+      ]);
+      atualizado = consultaAtualizada;
+    } else {
+      atualizado = await prisma.consulta.update({ where: { id }, data: dadosAtualizacao, select: SELECT_CONSULTA_COM_PACIENTE });
+    }
 
     return NextResponse.json(auth.papel === 'paciente' ? paraConsultaDtoPaciente(atualizado) : paraConsultaDto(atualizado));
   } catch (error) {

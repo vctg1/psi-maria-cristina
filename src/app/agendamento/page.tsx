@@ -394,7 +394,7 @@ export default function AgendamentoPage() {
                 </p>
 
                 <div className="d-flex flex-wrap justify-content-center gap-3">
-                  <Link href="/area-restrita">
+                  <Link href="/area-paciente">
                     <Button variant="primary">Ir para minha área</Button>
                   </Link>
                   <a href={whatsappURL} target="_blank" rel="noopener noreferrer">

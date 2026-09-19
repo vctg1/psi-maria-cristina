@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
@@ -11,7 +11,10 @@ import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
 import Container from 'react-bootstrap/Container';
 import Spinner from 'react-bootstrap/Spinner';
+import Offcanvas from 'react-bootstrap/Offcanvas';
 import { useAuth } from '@/contexts/AuthContext';
+import PainelAlertas from '@/components/area-restrita/alertas/PainelAlertas';
+import type { AlertasResposta } from '@/types/alertas';
 
 type LayoutPsicologaProps = {
   children: ReactNode;
@@ -21,6 +24,8 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
   const { usuario, carregando, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [totalAlertas, setTotalAlertas] = useState(0);
+  const [painelAberto, setPainelAberto] = useState(false);
 
   useEffect(() => {
     if (carregando) return;
@@ -28,6 +33,24 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
       router.replace('/login?next=/area-restrita/pacientes');
     }
   }, [carregando, usuario, router]);
+
+  const carregarTotais = useCallback(async () => {
+    if (!usuario || usuario.papel !== 'psicologa') return;
+    try {
+      const response = await fetch('/api/alertas');
+      if (!response.ok) return;
+      const dados = (await response.json()) as AlertasResposta;
+      setTotalAlertas(dados.totais.cancelamentos + dados.totais.lembretes);
+    } catch {
+      // silencioso: a badge só deixa de atualizar, sem impacto no resto da tela
+    }
+  }, [usuario]);
+
+  useEffect(() => {
+    carregarTotais();
+    const intervalo = setInterval(carregarTotais, 60000);
+    return () => clearInterval(intervalo);
+  }, [carregarTotais]);
 
   if (carregando || !usuario || usuario.papel !== 'psicologa') {
     return (
@@ -69,6 +92,17 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
               </Nav.Link>
             </Nav>
             <Nav className="align-items-md-center gap-2">
+              <span className="pmc-sino">
+                <Button
+                  variant="link"
+                  className="text-decoration-none p-1"
+                  aria-label="Alertas"
+                  onClick={() => setPainelAberto(true)}
+                >
+                  <i className="bi bi-bell fs-5" />
+                </Button>
+                {totalAlertas > 0 && <Badge className="pmc-badge-aviso">{totalAlertas}</Badge>}
+              </span>
               <Badge bg="light" text="dark" className="align-self-center">
                 Psicóloga
               </Badge>
@@ -82,6 +116,21 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
       <Container className="pmc-container pmc-area-conteudo">
         {children}
       </Container>
+
+      <Offcanvas show={painelAberto} onHide={() => setPainelAberto(false)} placement="end">
+        <Offcanvas.Header closeButton>
+          <Offcanvas.Title>Alertas</Offcanvas.Title>
+        </Offcanvas.Header>
+        <Offcanvas.Body>
+          {painelAberto && (
+            <PainelAlertas
+              modo="painel"
+              aoFechar={() => setPainelAberto(false)}
+              aoTotalMudar={setTotalAlertas}
+            />
+          )}
+        </Offcanvas.Body>
+      </Offcanvas>
     </>
   );
 }

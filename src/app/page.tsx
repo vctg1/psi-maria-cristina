@@ -57,7 +57,7 @@ export default function Home() {
               <Link href="/agendamento">
                 <Button variant="primary">Agendar consulta</Button>
               </Link>
-              <Link href="/area-restrita">
+              <Link href={usuario?.papel === 'paciente' ? '/area-paciente' : '/area-restrita'}>
                 <Button variant="outline-secondary">
                   <i className="bi bi-person-lock me-2" />
                   {usuario ? 'Minha área' : 'Área restrita'}

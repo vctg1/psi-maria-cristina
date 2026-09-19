@@ -12,9 +12,9 @@ Este arquivo é a **fonte única de verdade** sobre dívida de segurança pré-p
 
 Gravidade: **CRÍTICO** = exposição ou manipulação direta de dado de paciente/dinheiro, ou exigência legal · **ALTO** = facilita ataque ou compromete segredo/infra · **MÉDIO** = defesa em profundidade, higiene, superfície reduzida.
 
-Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), `2af0aed` (Fase 2 · pacientes), pendente (Fase 3 · agenda, a commitar).
+Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), `2af0aed` (Fase 2 · pacientes), `835fb22` (Fase 3 · agenda), pendente (Fase 4 · área do paciente e alertas, a commitar).
 
-Última atualização: 2026-09-18 (após Fase 3 · disponibilidade, agendamento e consultas).
+Última atualização: 2026-09-19 (após Fase 4 · área do paciente e alertas).
 
 ---
 
@@ -24,7 +24,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 |---|---|---|---|
 | CRÍTICO | 4 | 0 | 3 |
 | ALTO | 6 | 0 | 4 |
-| MÉDIO | 8 | 6 | 7 |
+| MÉDIO | 8 | 6 | 8 |
 
 ---
 
@@ -48,7 +48,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 
 ### R-C3 · Vazamento de dado pessoal no agendamento público (era C4) — RESOLVIDO (Fase 3)
 - **Era:** `POST /api/agendamento` (público) achava o paciente por email e devolvia `paciente: pacienteExistente` inteiro (nome, telefone, CPF, data de nascimento, responsável) — enumeração + coleta de CPF a partir de um e-mail.
-- **Resolução:** rota reescrita (Prisma). Resposta 201 contém apenas `{ consulta: { id, inicio, status }, novoCadastro }` + cookie de sessão `httpOnly`; 400 devolve só `error`/`campos` (mensagens fixas de validação do próprio input); 409 devolve `{ error, codigo: 'EMAIL_EXISTENTE' }` sem nenhum dado do registro (pré-cheque com `select: { id: true }`). Validação de formato/cadastro/senha ocorre **antes** do pré-cheque de e-mail, então payload inválido nunca revela existência de conta. A distinção 409/201 para e-mail válido é enumeração **aceita** pelo dono (mesmo perfil de M1). Cadastro (Usuario + Paciente) e consulta são criados na mesma transação Serializable. Confirmado pelo revisor (auditoria Fase 3, eixo a). Commit pendente (Fase 3).
+- **Resolução:** rota reescrita (Prisma). Resposta 201 contém apenas `{ consulta: { id, inicio, status }, novoCadastro }` + cookie de sessão `httpOnly`; 400 devolve só `error`/`campos` (mensagens fixas de validação do próprio input); 409 devolve `{ error, codigo: 'EMAIL_EXISTENTE' }` sem nenhum dado do registro (pré-cheque com `select: { id: true }`). Validação de formato/cadastro/senha ocorre **antes** do pré-cheque de e-mail, então payload inválido nunca revela existência de conta. A distinção 409/201 para e-mail válido é enumeração **aceita** pelo dono (mesmo perfil de M1). Cadastro (Usuario + Paciente) e consulta são criados na mesma transação Serializable. Confirmado pelo revisor (auditoria Fase 3, eixo a). Commit `835fb22`.
 
 ### C5 · LGPD — anonimização/exclusão de dados de paciente (Q12) — ABERTO
 - **Risco:** não há mecanismo para anonimizar ou excluir dados de paciente a pedido do titular (LGPD art. 18). Dados de saúde (`Consulta.relatorio`) são dado sensível. Sem isso, não se pode guardar dado real.
@@ -135,11 +135,11 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 
 ### R-M5 · Mass assignment no PUT de consulta da psicóloga (era M4) — RESOLVIDO (Fase 3)
 - **Era:** `PUT /api/area-restrita` fazia `{ ...consulta, ...updates }` com o body inteiro.
-- **Resolução:** `src/app/api/area-restrita/route.ts` **removido**. Substituto `PATCH /api/consultas/[id]` monta `Prisma.ConsultaUpdateInput` campo a campo (modalidade enum, motivo ≤ 200, observacoes ≤ 1000, relatorio ≤ 5000, `inicio` só via `data`+`hora` validados e revalidados em transação Serializable); `status`, `pacienteId`, `criadaPor`, `id` do body são ignorados. Status muda só em `POST /confirmar|/encerrar|/cancelar`, cada uma passando por `podeTransitar` (`src/lib/agenda/transicoes.ts`). Confirmado pelo revisor (eixo d). Commit pendente (Fase 3).
+- **Resolução:** `src/app/api/area-restrita/route.ts` **removido**. Substituto `PATCH /api/consultas/[id]` monta `Prisma.ConsultaUpdateInput` campo a campo (modalidade enum, motivo ≤ 200, observacoes ≤ 1000, relatorio ≤ 5000, `inicio` só via `data`+`hora` validados e revalidados em transação Serializable); `status`, `pacienteId`, `criadaPor`, `id` do body são ignorados. Status muda só em `POST /confirmar|/encerrar|/cancelar`, cada uma passando por `podeTransitar` (`src/lib/agenda/transicoes.ts`). Confirmado pelo revisor (eixo d). Commit `835fb22`.
 
 ### R-M6 · `observacoes` sem validação de tipo/tamanho (era M5) — RESOLVIDO (Fase 3)
 - **Era:** `PUT /api/consultas/[id]` gravava qualquer valor truthy em `observacoes` no JSON.
-- **Resolução:** rota reescrita como `PATCH`; `observacoes` exige `typeof === 'string'` e `≤ 1000`, `motivo ≤ 200`, `relatorio ≤ 5000`, `motivoCancelamento ≤ 300`; `null` explícito limpa o campo. Mesmos limites em `POST /api/consultas` e `POST /api/agendamento`. Confirmado pelo revisor. Commit pendente (Fase 3).
+- **Resolução:** rota reescrita como `PATCH`; `observacoes` exige `typeof === 'string'` e `≤ 1000`, `motivo ≤ 200`, `relatorio ≤ 5000`, `motivoCancelamento ≤ 300`; `null` explícito limpa o campo. Mesmos limites em `POST /api/consultas` e `POST /api/agendamento`. Confirmado pelo revisor. Commit `835fb22`.
 
 ### M6 · PII em query string — ABERTO
 - **Risco:** `GET /api/pagamento-checkout?consultaId=&email=&nome=` coloca email e nome do paciente na URL (logs de servidor/proxy).
@@ -165,6 +165,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Risco:** rotas legadas de pagamento ainda leem/escrevem `src/data/consultas.json` com `fs` — sem transação, em serverless não persiste, escrita concorrente corrompe. Além disso, o `consultas.json` legado **não tem mais relação com a tabela `consulta` do Prisma**: qualquer "marcar como pago" ali não reflete no banco real.
 - **Onde:** `src/app/api/pagamento-checkout/route.ts`, `src/app/api/pagamento-direto/route.ts`.
 - **Fase 3:** migrados para Prisma: `agendamento`, `consultas` (+ `[id]`, `/confirmar`, `/encerrar`, `/cancelar`), `disponibilidade`, `horarios` (+ `[id]`), `excecoes` (+ `[id]`). `area-restrita/route.ts` removido. Já em Prisma desde Fases 1–2: auth, pacientes. Nenhum arquivo fora de `pagamento-checkout`/`pagamento-direto` importa `fs` ou `src/data`.
+- **Fase 4:** sem alteração. Rotas novas (`paciente/me`, `paciente/me/consultas`, `alertas`, `alertas/[id]`) e `src/lib/agenda/alertas.ts` usam só Prisma; grep de `fs`/`src/data` nos arquivos da fase: zero. Persistência em JSON continua restrita a `pagamento-checkout`/`pagamento-direto`.
 - **Fase:** 5 (modelo `Pagamento` no Prisma; remoção de `src/data/*.json`). Segue **ABERTO** até lá — é bloqueante para produção porque as rotas de pagamento estão ativas (com `requireAuth`) e gravam em arquivo.
 
 ### M11 · CSRF — ACEITO com mitigação estrutural
@@ -179,12 +180,13 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 
 ### R-M7 · Chamada interna agendamento → pagamento quebrada pela guarda (era M13) — RESOLVIDO (Fase 3)
 - **Era:** `POST /api/agendamento` fazia `fetch` server-to-server para `/api/pagamento` sem sessão; recebia 401 engolido pelo `catch`.
-- **Resolução:** rota reescrita sem nenhum `fetch` interno e sem uso de `NEXT_PUBLIC_URL`; cobrança fica para a Fase 5 (pós-consulta). Confirmado pelo revisor (auditoria Fase 3). Commit pendente (Fase 3).
+- **Resolução:** rota reescrita sem nenhum `fetch` interno e sem uso de `NEXT_PUBLIC_URL`; cobrança fica para a Fase 5 (pós-consulta). Confirmado pelo revisor (auditoria Fase 3). Commit `835fb22`.
 
 ### M14 · Sem invalidação de sessão em logout / troca de senha — ABERTO
 - **Risco:** JWT stateless: logout só apaga o cookie e redefinir a senha não invalida sessões já emitidas — um cookie roubado continua válido até expirar (8 h), salvo `Usuario.ativo = false`.
 - **Onde:** `src/app/api/auth/logout/route.ts`; `src/lib/auth/consumir-token.ts`; `src/lib/auth/guard.ts`.
 - **Mitigação atual:** `autenticar()` consulta `ativo` no banco a cada request; expiração curta.
+- **Nota Fase 4:** o impacto de um cookie de **paciente** roubado aumentou: agora dá leitura de `GET /api/paciente/me` (nome, e-mail, telefone, CPF, nascimento, responsável), edição desses campos e cancelamento de consultas até a expiração (8 h). Não implementado nesta sub-fase; segue ABERTO (invalidação por `senhaAlteradaEm`/`sessaoVersao`).
 - **Fase:** 4 — `Usuario.senhaAlteradaEm` (ou `sessaoVersao`) comparado com `iat` do JWT em `autenticar()`; redefinição de senha atualiza o campo. Relaciona-se com Q10 da proposta (JWT puro × tabela `Sessao`).
 
 ### M15 · JWT sem `iss`/`aud` — ACEITO com dependência de A2
@@ -195,12 +197,22 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 ### M17 · Regra "menor de idade exige responsável" não é aplicada em edição parcial — ACEITO (limitação declarada)
 - **Risco:** `validarPacienteEdicao` é pura e só aplica a regra quando `dataNascimento` vem no body; `PATCH {"dataNascimento":"2015-01-01"}` em paciente sem responsável, ou `PATCH {"responsavel":null}` em menor, passam. Integridade cadastral, não exposição; só a psicóloga chama.
 - **Onde:** `src/lib/validacao/paciente.ts` linhas ~290–297; `src/app/api/pacientes/[id]/route.ts` linhas ~66–69 (o `select` de `existente` não traz `dataNascimento`/`responsavel`).
+- **Nota Fase 4:** `validarPacienteEdicaoPropria` (`src/lib/validacao/paciente.ts` ~399–404) herda a mesma limitação, agora acionável pelo próprio paciente em `PATCH /api/paciente/me`. A correção planejada (validar estado resultante existente ⊕ body) deve cobrir as duas rotas.
 - **Melhoria (Fase 4):** no PATCH, carregar `dataNascimento, responsavel, telefoneResponsavel` do registro e aplicar a regra sobre o estado resultante (existente ⊕ body) antes do `update`.
 
 ### M18 · Sem teto de agendamentos por paciente e sem rate limit no autocadastro público — ABERTO *(novo na Fase 3)*
 - **Risco:** `POST /api/agendamento` é público e cria `Usuario` + `Paciente` + `Consulta`; um paciente logado pode reservar **todos** os horários livres (nenhum limite de consultas futuras por `pacienteId`), e um visitante pode repetir com N e-mails — negação de serviço da agenda e poluição da base com cadastros fictícios. Não é vazamento; é disponibilidade/abuso.
 - **Onde:** `src/app/api/agendamento/route.ts` (ambos os ramos); `src/lib/agenda/consultas.ts` (`criarConsultaComTrava`).
+- **Nota Fase 4:** sem alteração de risco. `LayoutPaciente` expõe o link "Agendar" ao paciente logado (mesmo `POST /api/agendamento` da Fase 3); teto por paciente ainda não implementado. Segue ABERTO.
 - **Fase:** 4 — dentro da mesma transação Serializável, contar consultas do paciente com status em `CONSULTA_STATUS_OCUPA_HORARIO` e `inicio > now` e rejeitar 409 acima de um teto configurável (`Configuracao`, ex.: 2); rate limit por IP no autocadastro junto com A1.
+
+### R-M8 · `GET/PATCH /api/paciente/me` devolvia anotação interna da psicóloga e metadados de conta ao paciente — RESOLVIDO (Fase 4, antes do commit)
+- **Era:** a rota reutilizava `SELECT_DETALHE`/`paraDetalhe` da API da psicóloga e serializava `observacoesCadastro` (campo de uso interno da psicóloga sobre o paciente — mesma classe do `relatorio`), além de `usuarioId`, `origemCadastro`, `ultimoLoginEm`, `ativo`, `primeiroAcessoPendente`, e selecionava `usuario.senhaHash` (só convertido em boolean). A UI não exibia, mas qualquer paciente autenticado lia o JSON via DevTools/curl. Sem IDOR (só o próprio registro). Encontrado pelo revisor na auditoria da Fase 4 (eixo a, HIGH).
+- **Resolução:** `src/types/paciente.ts` ganhou `PacienteMeDto { id, nome, email, telefone, dataNascimento, cpf, responsavel, telefoneResponsavel }`; `src/lib/validacao/paciente.ts` ganhou `SELECT_ME` (seleciona só esses campos + `usuario.email`; sem `senhaHash`, `observacoesCadastro`, `origemCadastro`, `ultimoLoginEm`, `ativo`, `usuarioId`) e `paraMeDto`; `src/app/api/paciente/me/route.ts` GET/PATCH usam exclusivamente `SELECT_ME` + `paraMeDto`; `area-paciente/{page,dados/page}.tsx` tipam com `PacienteMeDto`. Grep dos campos proibidos em `src/app/api/paciente/**`: zero. Confirmado pelo revisor (re-checagem Fase 4, eixo a). Commit pendente (Fase 4).
+
+### INFORMATIVOS (LOW, não contam no Resumo) — Fase 4
+- **I4 · `?semana=` sem validação de formato em `src/app/area-restrita/agenda/page.tsx`:** só cliente/psicóloga; servidor valida `de/ate`. Corretude (data inválida pode quebrar a grade), não segurança. Fix opcional: aceitar só `YYYY-MM-DD`, senão `hojeLocalISO()`.
+- **I5 · `telefoneComDdi` duplicado** em `src/components/area-restrita/alertas/telefone.ts` e `src/app/area-restrita/pacientes/[id]/page.tsx` — higiene; unificar quando conveniente.
 
 ### INFORMATIVOS (LOW, não contam no Resumo) — Fase 3
 - **I1 · `P2002` genérico no autocadastro:** `POST /api/agendamento` responde `EMAIL_EXISTENTE` para qualquer violação de unique na transação, inclusive `cpf` — mensagem incorreta e permite distinguir CPF já cadastrado (409) de não cadastrado (201, criando conta). Fix (Fase 4): inspecionar `error.meta.target` e responder 409 genérico sem `codigo` para CPF, ou pré-checar como em `POST /api/pacientes`.

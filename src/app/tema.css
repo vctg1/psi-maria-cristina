@@ -407,6 +407,17 @@ a { text-underline-offset: 0.15em; }
 /* foco visível em tudo que é interativo */
 :focus-visible { outline: 3px solid var(--pmc-terracota); outline-offset: 2px; border-radius: var(--pmc-raio-sm); }
 
+/* ============================================================================
+   ALERTAS · sino de notificações no cabeçalho da área da psicóloga (Etapa 4)
+   ========================================================================== */
+.pmc-sino { position: relative; display: inline-flex; align-items: center; }
+.pmc-sino .badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  transform: translate(35%, -35%);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   .btn, .btn:hover { transition: none; transform: none; }

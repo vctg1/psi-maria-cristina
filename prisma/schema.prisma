@@ -249,6 +249,7 @@ model Consulta {
 
   confirmadaEm       DateTime?      @map("confirmada_em") @db.Timestamptz(3)
   encerradaEm        DateTime?      @map("encerrada_em") @db.Timestamptz(3) // realizada OU nao_compareceu — [?] Q7
+  lembreteEnviadoEm  DateTime?      @map("lembrete_enviado_em") @db.Timestamptz(3) // Fase 4: lembrete de véspera enviado via wa.me (derivado, sem job)
   canceladaEm        DateTime?      @map("cancelada_em") @db.Timestamptz(3)
   canceladaPor       AtorConsulta?  @map("cancelada_por")
   motivoCancelamento String?        @map("motivo_cancelamento")

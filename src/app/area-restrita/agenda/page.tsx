@@ -1,6 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Button from 'react-bootstrap/Button';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
@@ -10,6 +11,7 @@ import Alert from 'react-bootstrap/Alert';
 import LayoutPsicologa from '@/components/area-restrita/LayoutPsicologa';
 import ModalNovaConsulta from '@/components/area-restrita/agenda/ModalNovaConsulta';
 import PainelConsulta from '@/components/area-restrita/agenda/PainelConsulta';
+import PainelAlertas from '@/components/area-restrita/alertas/PainelAlertas';
 import type { ConsultaDto } from '@/types/agenda';
 import {
   DIAS_SEMANA_ORDEM,
@@ -38,13 +40,29 @@ const STATUS_LABEL: Record<ConsultaDto['status'], string> = {
 };
 
 export default function AgendaPage() {
-  const [referencia, setReferencia] = useState(hojeLocalISO());
+  return (
+    <Suspense fallback={null}>
+      <AgendaPageConteudo />
+    </Suspense>
+  );
+}
+
+function AgendaPageConteudo() {
+  const searchParams = useSearchParams();
+  const semanaParam = searchParams.get('semana');
+  const [referencia, setReferencia] = useState(semanaParam ?? hojeLocalISO());
   const [consultas, setConsultas] = useState<ConsultaDto[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [modalNovaAberto, setModalNovaAberto] = useState(false);
   const [dataParaNovaConsulta, setDataParaNovaConsulta] = useState<string | undefined>(undefined);
   const [consultaSelecionada, setConsultaSelecionada] = useState<ConsultaDto | null>(null);
+
+  useEffect(() => {
+    if (semanaParam) {
+      setReferencia(semanaParam);
+    }
+  }, [semanaParam]);
 
   const dias = diasDaSemana(referencia);
   const segunda = dias[0];
@@ -109,6 +127,8 @@ export default function AgendaPage() {
           Próxima ›
         </Button>
       </div>
+
+      <PainelAlertas modo="inline" />
 
       {erro && <Alert variant="danger">{erro}</Alert>}
 

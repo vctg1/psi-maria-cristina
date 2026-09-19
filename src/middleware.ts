@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { COOKIE_SESSAO, verificarSessao } from '@/lib/auth/jwt';
 
 export const config = {
-  matcher: ['/area-restrita/:path*'],
+  matcher: ['/area-restrita/:path*', '/area-paciente/:path*'],
 };
 
 // Roda no Edge Runtime: só jose (via verificarSessao), sem Prisma/bcrypt. Garante apenas que

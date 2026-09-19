@@ -1,5 +1,5 @@
 import 'server-only';
-import type { PacienteDetalhe, PacienteResumo } from '@/types/paciente';
+import type { PacienteDetalhe, PacienteMeDto, PacienteResumo } from '@/types/paciente';
 
 export type ResultadoValidacao<T> = { ok: true; dados: T } | { ok: false; campos: Record<string, string> };
 
@@ -326,6 +326,87 @@ export function validarPacienteEdicao(body: unknown): ResultadoValidacao<Pacient
   return { ok: true, dados };
 }
 
+export type PacienteEdicaoPropriaValidada = {
+  nome?: string;
+  telefone?: string;
+  dataNascimento?: string;
+  cpf?: string | null;
+  responsavel?: string | null;
+  telefoneResponsavel?: string | null;
+};
+
+/** Edição do próprio cadastro pelo paciente logado. Whitelist ESTRITA: nunca aceita `email`
+ *  (login não muda por aqui), `ativo` nem `observacoesCadastro` (uso interno da psicóloga) —
+ *  não há branch para essas chaves, então mesmo enviadas no body são ignoradas. */
+export function validarPacienteEdicaoPropria(body: unknown): ResultadoValidacao<PacienteEdicaoPropriaValidada> {
+  const obj = comoObjeto(body);
+  const campos: Record<string, string> = {};
+  const dados: PacienteEdicaoPropriaValidada = {};
+
+  let dataNascimentoValor: string | undefined;
+  let responsavelInformado = false;
+  let responsavelValor: string | null | undefined;
+  let telefoneRespInformado = false;
+  let telefoneRespValor: string | null | undefined;
+
+  if (obj.nome !== undefined) {
+    const nome = validarNomeCampo(obj.nome);
+    if (nome.erro) campos.nome = nome.erro;
+    else dados.nome = nome.valor;
+  }
+
+  if (obj.telefone !== undefined) {
+    const telefone = validarTelefoneCampo(obj.telefone, true);
+    if (telefone.erro) campos.telefone = telefone.erro;
+    else dados.telefone = telefone.valor as string;
+  }
+
+  if (obj.dataNascimento !== undefined) {
+    const dataNascimento = validarDataNascimentoCampo(obj.dataNascimento, true);
+    if (dataNascimento.erro) campos.dataNascimento = dataNascimento.erro;
+    else {
+      dados.dataNascimento = dataNascimento.valor as string;
+      dataNascimentoValor = dataNascimento.valor as string;
+    }
+  }
+
+  if (obj.cpf !== undefined) {
+    const cpf = validarCpfCampo(obj.cpf);
+    if (cpf.erro) campos.cpf = cpf.erro;
+    else dados.cpf = cpf.valor ?? null;
+  }
+
+  if (obj.responsavel !== undefined) {
+    const responsavel = validarTextoOpcional(obj.responsavel, 120, 'Responsável');
+    if (responsavel.erro) campos.responsavel = responsavel.erro;
+    else {
+      dados.responsavel = responsavel.valor ?? null;
+      responsavelInformado = true;
+      responsavelValor = responsavel.valor ?? null;
+    }
+  }
+
+  if (obj.telefoneResponsavel !== undefined) {
+    const telefoneResponsavel = validarTelefoneCampo(obj.telefoneResponsavel, false);
+    if (telefoneResponsavel.erro) campos.telefoneResponsavel = telefoneResponsavel.erro;
+    else {
+      dados.telefoneResponsavel = telefoneResponsavel.valor ?? null;
+      telefoneRespInformado = true;
+      telefoneRespValor = telefoneResponsavel.valor ?? null;
+    }
+  }
+
+  if (dataNascimentoValor && calcularIdade(dataNascimentoValor) < 18) {
+    if (responsavelInformado && !responsavelValor) campos.responsavel = 'Obrigatório para menor de idade';
+    if (telefoneRespInformado && !telefoneRespValor) {
+      campos.telefoneResponsavel = 'Obrigatório para menor de idade';
+    }
+  }
+
+  if (Object.keys(campos).length > 0) return { ok: false, campos };
+  return { ok: true, dados };
+}
+
 export type PacienteNovoConsultaValidado = {
   nome: string;
   telefone: string;
@@ -361,6 +442,45 @@ export function validarPacienteNovoParaConsulta(body: unknown): ResultadoValidac
       dataNascimento: dataNascimento.valor ? new Date(dataNascimento.valor + 'T12:00:00') : null,
       observacoesCadastro: observacoesCadastro.valor ?? null,
     },
+  };
+}
+
+/** Select mínimo para a própria área do paciente (`GET/PATCH /api/paciente/me`).
+ *  Exatamente os campos de `PacienteMeDto` — NUNCA `senhaHash`, `observacoesCadastro`
+ *  (anotação interna da psicóloga, mesma classe de `relatorio`), `origemCadastro`,
+ *  `ultimoLoginEm` ou `ativo`. */
+export const SELECT_ME = {
+  id: true,
+  nome: true,
+  telefone: true,
+  dataNascimento: true,
+  cpf: true,
+  responsavel: true,
+  telefoneResponsavel: true,
+  usuario: { select: { email: true } },
+} as const;
+
+export type PacienteParaMe = {
+  id: string;
+  nome: string;
+  telefone: string;
+  dataNascimento: Date | null;
+  cpf: string | null;
+  responsavel: string | null;
+  telefoneResponsavel: string | null;
+  usuario: { email: string } | null;
+};
+
+export function paraMeDto(p: PacienteParaMe): PacienteMeDto {
+  return {
+    id: p.id,
+    nome: p.nome,
+    email: p.usuario ? p.usuario.email : null,
+    telefone: p.telefone,
+    dataNascimento: p.dataNascimento ? p.dataNascimento.toISOString().slice(0, 10) : null,
+    cpf: p.cpf,
+    responsavel: p.responsavel,
+    telefoneResponsavel: p.telefoneResponsavel,
   };
 }
 

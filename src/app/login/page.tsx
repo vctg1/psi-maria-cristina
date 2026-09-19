@@ -23,7 +23,7 @@ function destinoSeguro(next: string | null): string | null {
 }
 
 function destinoPorPapel(usuario: Usuario): string {
-  return usuario.papel === 'psicologa' ? '/area-restrita/pacientes' : '/area-restrita';
+  return usuario.papel === 'psicologa' ? '/area-restrita/pacientes' : '/area-paciente';
 }
 
 export default function LoginPage() {

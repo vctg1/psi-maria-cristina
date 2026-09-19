@@ -41,4 +41,15 @@ export type PacienteEdicao = Partial<Omit<PacienteEntrada, 'email'>> & {
   ativo?: boolean;
 };
 
+export type PacienteMeDto = {
+  id: string;
+  nome: string;
+  email: string | null;
+  telefone: string;
+  dataNascimento: string | null;
+  cpf: string | null;
+  responsavel: string | null;
+  telefoneResponsavel: string | null;
+};
+
 export type ErroApi = { error: string; campos?: Record<string, string> };
