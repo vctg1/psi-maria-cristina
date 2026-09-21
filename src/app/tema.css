@@ -349,6 +349,38 @@ a { text-underline-offset: 0.15em; }
 @supports not (background: color-mix(in srgb, red 50%, transparent)) {
   .pmc-header { background: rgba(250, 246, 240, 0.92); border-bottom-color: var(--pmc-bege); }
 }
+.pmc-header .navbar-toggler {
+  border-color: var(--pmc-bege);
+  color: var(--pmc-terracota-escura);
+  padding: 0.35rem 0.55rem;
+}
+.pmc-header .navbar-toggler:focus { box-shadow: 0 0 0 0.2rem var(--pmc-terracota-suave); }
+.pmc-header .navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' width='30' height='30' viewBox='0 0 30 30'%3e%3cpath stroke='%238A4A34' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* altura máxima de 100px: 10px de padding + logo de 78px + borda */
+.pmc-header { padding-top: 10px; padding-bottom: 10px; }
+.pmc-header .navbar-brand { padding: 0; line-height: 0; }
+.pmc-header .navbar-brand img { height: 78px; width: auto; }
+
+/* menu lateral (só no mobile): cobre parte da tela, abrindo pela direita.
+   Acima de md o Bootstrap desmonta o offcanvas e os itens ficam inline. */
+@media (max-width: 767.98px) {
+  .pmc-menu-lateral.offcanvas {
+    width: min(78vw, 320px);
+    background: var(--pmc-fundo);
+    border-left: 1px solid var(--pmc-bege);
+    box-shadow: var(--pmc-sombra-lg);
+  }
+  .pmc-menu-lateral .offcanvas-header { border-bottom: 1px solid var(--pmc-bege); }
+  .pmc-menu-lateral .offcanvas-body .nav { flex-direction: column; align-items: stretch; }
+  .pmc-menu-lateral .offcanvas-body .btn { width: 100%; }
+
+  /* cabeçalho compacto no mobile para não roubar a tela ao rolar */
+  .pmc-header { padding-top: 8px; padding-bottom: 8px; }
+  .pmc-header .navbar-brand img { height: 56px; }
+}
 
 /* ============================================================================
    AUTENTICAÇÃO · login, primeiro acesso, redefinição de senha (Etapa 2A)

@@ -198,11 +198,11 @@ export default function CalendarioAgendamento({
         <Button
           onClick={mesAnterior}
           variant="link"
-          className="fs-4"
+          className="fs-4 lh-1 p-1"
           disabled={currentMonth.getMonth() === new Date().getMonth() && currentMonth.getFullYear() === new Date().getFullYear()}
           aria-label="Mês anterior"
         >
-          ‹
+          <i className="bi bi-chevron-left" />
         </Button>
 
         <h3 className="mb-0 text-center flex-grow-1">
@@ -212,11 +212,11 @@ export default function CalendarioAgendamento({
         <Button
           onClick={proximoMes}
           variant="link"
-          className="fs-4"
+          className="fs-4 lh-1 p-1"
           disabled={currentMonth.getFullYear() >= new Date().getFullYear() + 1 && currentMonth.getMonth() >= 11}
           aria-label="Próximo mês"
         >
-          ›
+          <i className="bi bi-chevron-right" />
         </Button>
       </div>
 
@@ -227,11 +227,13 @@ export default function CalendarioAgendamento({
             <span className="text-secondary">Carregando disponibilidade...</span>
           </div>
         ) : (
-          <Table borderless responsive className="text-center mb-0">
+          <Table borderless className="text-center mb-0" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
                 {['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'].map((dia) => (
-                  <th key={dia} className="pmc-rotulo">{dia}</th>
+                  <th key={dia} className="p-1 pb-2 fw-normal">
+                    <span className="pmc-rotulo">{dia}</span>
+                  </th>
                 ))}
               </tr>
             </thead>
@@ -251,7 +253,7 @@ export default function CalendarioAgendamento({
                         }
                         onClick={() => handleDateClick(item)}
                         disabled={!item.disponivel || !item.mesAtual || item.passado}
-                        className={`w-100 ${!item.mesAtual ? 'opacity-50' : ''}`}
+                        className={`w-100 px-0 ${!item.mesAtual ? 'opacity-50' : ''}`}
                       >
                         {item.dia}
                       </Button>

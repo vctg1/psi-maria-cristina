@@ -181,9 +181,9 @@ export default function AgendamentoPage() {
             <Image
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
-              width={140}
-              height={140}
-              style={{ objectFit: 'contain', maxWidth: '100%', height: 'auto' }}
+              width={84}
+              height={80}
+              style={{ objectFit: 'contain' }}
               priority
             />
           </Navbar.Brand>
