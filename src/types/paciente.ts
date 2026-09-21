@@ -53,3 +53,5 @@ export type PacienteMeDto = {
 };
 
 export type ErroApi = { error: string; campos?: Record<string, string> };
+
+export type TrocaSenhaEntrada = { senhaAtual: string; novaSenha: string };

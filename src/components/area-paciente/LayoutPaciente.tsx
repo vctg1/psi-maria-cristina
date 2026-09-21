@@ -24,13 +24,13 @@ export default function LayoutPaciente({ children }: LayoutPacienteProps) {
   useEffect(() => {
     if (carregando) return;
     if (!usuario) {
-      router.replace('/login?next=/area-paciente');
+      router.replace(`/login?next=${encodeURIComponent(pathname || '/area-paciente')}`);
       return;
     }
     if (usuario.papel === 'psicologa') {
       router.replace('/area-restrita/agenda');
     }
-  }, [carregando, usuario, router]);
+  }, [carregando, usuario, router, pathname]);
 
   if (carregando || !usuario || usuario.papel !== 'paciente') {
     return (

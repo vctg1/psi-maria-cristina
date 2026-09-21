@@ -330,14 +330,18 @@ export type PacienteEdicaoPropriaValidada = {
   nome?: string;
   telefone?: string;
   dataNascimento?: string;
-  cpf?: string | null;
+  email?: string;
   responsavel?: string | null;
   telefoneResponsavel?: string | null;
+  senhaAtual?: string;
 };
 
-/** Edição do próprio cadastro pelo paciente logado. Whitelist ESTRITA: nunca aceita `email`
- *  (login não muda por aqui), `ativo` nem `observacoesCadastro` (uso interno da psicóloga) —
- *  não há branch para essas chaves, então mesmo enviadas no body são ignoradas. */
+/** Edição do próprio cadastro pelo paciente logado. Whitelist ESTRITA: `cpf` nunca é aceito
+ *  aqui (só a psicóloga altera CPF, via `/api/pacientes/[id]`), assim como `ativo` e
+ *  `observacoesCadastro` (uso interno da psicóloga) — não há branch para essas chaves, então
+ *  mesmo enviadas no body são ignoradas. `email` é aceito e sempre obrigatório (nunca vazio).
+ *  `senhaAtual` é exigida pela rota quando `email` é alterado (checagem de posse de senha
+ *  feita no route handler, não aqui — esta função só valida forma). */
 export function validarPacienteEdicaoPropria(body: unknown): ResultadoValidacao<PacienteEdicaoPropriaValidada> {
   const obj = comoObjeto(body);
   const campos: Record<string, string> = {};
@@ -370,10 +374,10 @@ export function validarPacienteEdicaoPropria(body: unknown): ResultadoValidacao<
     }
   }
 
-  if (obj.cpf !== undefined) {
-    const cpf = validarCpfCampo(obj.cpf);
-    if (cpf.erro) campos.cpf = cpf.erro;
-    else dados.cpf = cpf.valor ?? null;
+  if (obj.email !== undefined) {
+    const email = validarEmailCampo(obj.email, true);
+    if (email.erro) campos.email = email.erro;
+    else dados.email = email.valor as string;
   }
 
   if (obj.responsavel !== undefined) {
@@ -400,6 +404,14 @@ export function validarPacienteEdicaoPropria(body: unknown): ResultadoValidacao<
     if (responsavelInformado && !responsavelValor) campos.responsavel = 'Obrigatório para menor de idade';
     if (telefoneRespInformado && !telefoneRespValor) {
       campos.telefoneResponsavel = 'Obrigatório para menor de idade';
+    }
+  }
+
+  if (obj.senhaAtual !== undefined) {
+    if (!isString(obj.senhaAtual) || obj.senhaAtual === '') {
+      campos.senhaAtual = 'Informe a senha atual';
+    } else {
+      dados.senhaAtual = obj.senhaAtual;
     }
   }
 

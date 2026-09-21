@@ -26,6 +26,21 @@ function destinoPorPapel(usuario: Usuario): string {
   return usuario.papel === 'psicologa' ? '/area-restrita/pacientes' : '/area-paciente';
 }
 
+// O `next` só é honrado se for uma rota do próprio papel. Sem isso, um `next=/area-restrita/...`
+// deixado pelo logout da psicóloga mandava o paciente recém-logado para a área dela, cujo guard
+// devolvia ao /login com o mesmo `next` — loop infinito de redirecionamentos.
+function nextCabeNoPapel(next: string, usuario: Usuario): boolean {
+  const areaDoPapel = usuario.papel === 'psicologa' ? '/area-restrita' : '/area-paciente';
+  const areaDoOutro = usuario.papel === 'psicologa' ? '/area-paciente' : '/area-restrita';
+  if (next === areaDoOutro || next.startsWith(areaDoOutro + '/')) return false;
+  return next === areaDoPapel || next.startsWith(areaDoPapel + '/') || !next.startsWith('/area-');
+}
+
+function destinoFinal(next: string | null, usuario: Usuario): string {
+  const seguro = destinoSeguro(next);
+  return seguro && nextCabeNoPapel(seguro, usuario) ? seguro : destinoPorPapel(usuario);
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const { usuario, carregando } = useAuth();
@@ -38,11 +53,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (carregando || !usuario) return;
-    router.replace(destinoSeguro(next) ?? destinoPorPapel(usuario));
+    router.replace(destinoFinal(next, usuario));
   }, [carregando, usuario, next, router]);
 
   const handleSucesso = (usuarioLogado: Usuario) => {
-    router.replace(destinoSeguro(next) ?? destinoPorPapel(usuarioLogado));
+    router.replace(destinoFinal(next, usuarioLogado));
   };
 
   if (carregando || usuario) {

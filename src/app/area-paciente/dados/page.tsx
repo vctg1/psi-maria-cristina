@@ -6,16 +6,18 @@ import Spinner from 'react-bootstrap/Spinner';
 import Alert from 'react-bootstrap/Alert';
 import LayoutPaciente from '@/components/area-paciente/LayoutPaciente';
 import PacienteForm, { type PacienteFormValores } from '@/components/area-restrita/PacienteForm';
+import AlterarSenhaForm from '@/components/area-paciente/AlterarSenhaForm';
 import type { PacienteMeDto } from '@/types/paciente';
 import { useNotificacao } from '@/components/NotificacaoProvider';
 
 type EdicaoPaciente = {
   nome?: string;
+  email?: string;
   telefone?: string;
   dataNascimento?: string | null;
-  cpf?: string | null;
   responsavel?: string | null;
   telefoneResponsavel?: string | null;
+  senhaAtual?: string;
 };
 
 export default function DadosPacientePage() {
@@ -57,11 +59,16 @@ export default function DadosPacientePage() {
     try {
       const alterados: EdicaoPaciente = {};
       if (dados.nome !== paciente.nome) alterados.nome = dados.nome;
+      const emailNormalizado = (dados.email ?? '').trim().toLowerCase();
+      const emailAtual = (paciente.email ?? '').trim().toLowerCase();
+      if (emailNormalizado !== emailAtual) {
+        alterados.email = emailNormalizado;
+        alterados.senhaAtual = dados.senhaAtual;
+      }
       if (dados.telefone !== paciente.telefone) alterados.telefone = dados.telefone;
       if ((dados.dataNascimento ?? null) !== (paciente.dataNascimento ?? null)) {
         alterados.dataNascimento = dados.dataNascimento ?? null;
       }
-      if ((dados.cpf ?? null) !== (paciente.cpf ?? null)) alterados.cpf = dados.cpf ?? null;
       if ((dados.responsavel ?? null) !== (paciente.responsavel ?? null)) {
         alterados.responsavel = dados.responsavel ?? null;
       }
@@ -81,7 +88,7 @@ export default function DadosPacientePage() {
       });
       const resultado = await response.json().catch(() => null);
       if (!response.ok) {
-        if (response.status === 400 && resultado?.campos) {
+        if ((response.status === 400 || response.status === 401 || response.status === 409) && resultado?.campos) {
           setErrosServidor(resultado.campos);
         }
         setErroFormulario(resultado?.error ?? 'Não foi possível salvar as alterações.');
@@ -110,16 +117,14 @@ export default function DadosPacientePage() {
       ) : paciente ? (
         <Card>
           <Card.Body>
-            {paciente.email && (
-              <p className="pmc-texto-2 mb-4">
-                E-mail de acesso: <strong>{paciente.email}</strong> — para alterar, fale com a psicóloga.
-              </p>
-            )}
             {erroFormulario && <Alert variant="danger">{erroFormulario}</Alert>}
             <PacienteForm
               modo="edicao"
               valorInicial={paciente}
-              camposObrigatorios={{ email: false, dataNascimento: false }}
+              camposObrigatorios={{ email: true, dataNascimento: false }}
+              cpfSomenteLeitura
+              textoAjudaEmail="Este é o seu e-mail de acesso ao site."
+              exigirSenhaAtualSeEmailMudar
               onSubmit={handleSubmit}
               errosServidor={errosServidor}
               enviando={enviando}
@@ -127,6 +132,16 @@ export default function DadosPacientePage() {
           </Card.Body>
         </Card>
       ) : null}
+
+      {!carregando && !erro && paciente && (
+        <Card className="mt-4">
+          <Card.Body>
+            <span className="pmc-rotulo d-block mb-3">Segurança</span>
+            <h2 className="h5 mb-3">Alterar senha</h2>
+            <AlterarSenhaForm />
+          </Card.Body>
+        </Card>
+      )}
     </LayoutPaciente>
   );
 }

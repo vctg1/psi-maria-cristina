@@ -12,9 +12,9 @@ Este arquivo é a **fonte única de verdade** sobre dívida de segurança pré-p
 
 Gravidade: **CRÍTICO** = exposição ou manipulação direta de dado de paciente/dinheiro, ou exigência legal · **ALTO** = facilita ataque ou compromete segredo/infra · **MÉDIO** = defesa em profundidade, higiene, superfície reduzida.
 
-Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), `2af0aed` (Fase 2 · pacientes), `835fb22` (Fase 3 · agenda), pendente (Fase 4 · área do paciente e alertas, a commitar).
+Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), `2af0aed` (Fase 2 · pacientes), `835fb22` (Fase 3 · agenda), pendente (Fase 4 · área do paciente e alertas, a commitar), pendente (Documentos clínicos, a commitar).
 
-Última atualização: 2026-09-19 (após Fase 4 · área do paciente e alertas).
+Última atualização: 2026-09-21 (após Documentos clínicos e edição de e-mail pelo paciente).
 
 ---
 
@@ -23,8 +23,8 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 | Gravidade | Abertos | Aceitos | Resolvidos |
 |---|---|---|---|
 | CRÍTICO | 4 | 0 | 3 |
-| ALTO | 6 | 0 | 4 |
-| MÉDIO | 8 | 6 | 8 |
+| ALTO | 8 | 0 | 4 |
+| MÉDIO | 11 | 6 | 8 |
 
 ---
 
@@ -55,6 +55,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** modelo — `Paciente` sem `anonimizadoEm`; nenhuma rota de anonimização; `onDelete: Restrict` impede exclusão física com histórico (correto, mas exige a anonimização lógica).
 - **Fase:** a definir — **antes de produção**, via migration incremental (`Paciente.anonimizadoEm`, limpeza de nome/telefone/cpf/avatar + exclusão do objeto no storage, `Usuario.ativo = false`) + rota protegida da psicóloga + registro em `PROPOSTA-schema.md` §8.
 - **Nota Fase 3 (CPF):** `Paciente.cpf` permanece **opcional no banco** (paciente pode existir sem login e sem CPF, cadastrado pela psicóloga só para agenda); `dataNascimento` e `usuarioId` passaram a nullable (migration `20260918231528_paciente_sem_login`). O CPF será **obrigatório no momento da cobrança** (Fase 5 / gateway), validado na aplicação (`validarCpfCampo` já existe), não por constraint. Para LGPD: minimização de dado — só coleta CPF de quem será cobrado. INFORMATIVO, não altera a contagem.
+- **Nota Documentos clínicos (2026-09-21):** a anonimização/exclusão (C5) **DEVE apagar os `Documento` do paciente — registro no banco E arquivo físico em `DOCUMENTOS_DIR`** (`removerArquivo` em `src/lib/documentos/armazenamento.ts`). `Documento.paciente` usa `onDelete: Restrict` **de propósito** (`prisma/schema.prisma`, migration `20260921225641_documento_clinico`): cascade no banco apagaria o registro e deixaria o binário órfão em disco com dado de saúde. A rotina de C5 deve iterar os documentos do paciente, apagar cada arquivo e só então o registro (ou usar a reconciliação de M20 como rede de segurança). Sem isso, C5 não pode ser dado como RESOLVIDO.
 
 ### R-C1 · Senha do paciente exposta em texto puro — RESOLVIDO (Fase 1)
 - **Era:** `POST /api/agendamento` devolvia `acessoAreaRestrita: { email, senha: id.slice(-8) }`; o passo 3 da página exibia a senha.
@@ -74,6 +75,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `src/app/api/auth/login/route.ts`, `primeiro-acesso/route.ts`, `redefinir-senha/route.ts`.
 - **Fase:** UI/middleware (Fase 4) — limite por IP+email (janela deslizante) em `middleware.ts` ou tabela de tentativas; lockout temporário após N falhas.
 
+- **Nota Troca de senha/e-mail (2026-09-21):** `PATCH /api/auth/senha` (`src/app/api/auth/senha/route.ts:67`) e `PATCH /api/paciente/me` com `email` (`src/app/api/paciente/me/route.ts:83`) passaram a fazer `bcrypt.compare` da senha atual exigindo apenas sessão válida. Com um cookie roubado (M14), o atacante tem 8 h para adivinhar a senha atual sem limite de tentativas e, acertando, troca senha ou e-mail (sequestro persistente — M21). Cada tentativa custa um bcrypt custo 12 no servidor (também esgota CPU). Incluir estas duas rotas no limitador de A1, com chave `usuarioId`+IP e lockout temporário após N falhas (ex.: 5 em 15 min), e registrar falhas repetidas para auditoria. Melhoria defensiva relacionada: `validarForcaSenha` sem tamanho máximo (bcrypt trunca em 72 bytes) — limitar a 72/128 caracteres.
 ### A2 · Segredos de produção distintos e fora do repositório — ABERTO
 - **Risco:** reutilizar `JWT_SECRET`, `DATABASE_URL`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET` de desenvolvimento em produção, ou commitá-los. Um vazamento local vira comprometimento de produção.
 - **Onde:** `.env.local` (dev, ignorado); VPS (produção, a configurar).
@@ -100,6 +102,16 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `src/app/api/pagamento-checkout/route.ts` linha ~133; `src/app/api/pagamento-direto/route.ts` linha ~151.
 - **Fase:** 5 (resposta só com `error` genérico + `statusDetail` mapeado).
 
+### A7 · `DOCUMENTOS_DIR` fora do backup — ABERTO *(novo · Documentos clínicos)*
+- **Risco:** os binários dos documentos clínicos ficam **fora do PostgreSQL** (só metadados na tabela `documento`). `pg_dump` não os cobre: perda do disco/crash do VPS destrói todos os documentos clínicos, deixando registros apontando para arquivos inexistentes (download responde 404, `download/route.ts` linha ~51). Dado de saúde sem cópia = violação de disponibilidade/integridade (LGPD art. 46).
+- **Onde:** pasta apontada por `DOCUMENTOS_DIR` (`src/lib/documentos/armazenamento.ts` linhas 18-34); `.env.example`.
+- **Fase:** 6 (deploy) — backup **criptografado** de `DOCUMENTOS_DIR` na mesma janela do `pg_dump` (snapshot consistente: banco e pasta), retenção definida, **restauração testada** (restaurar banco + pasta em ambiente limpo e baixar um documento).
+
+### A8 · Permissões da pasta de documentos no SO — ABERTO *(novo · Documentos clínicos)*
+- **Risco:** se `DOCUMENTOS_DIR` for legível por outros usuários do VPS, servida por engano pelo reverse proxy (alias de estáticos) ou ficar em disco sem criptografia, o dado de saúde fica exposto fora do controle de acesso da aplicação.
+- **Onde:** VPS (produção, a configurar); `src/lib/documentos/armazenamento.ts` já cria cada arquivo com `mode: 0o600` (linha 90) e recusa pasta dentro de `/public` (linhas 21-25) — a guarda compara caminhos de forma case-sensitive (irrelevante em Linux).
+- **Fase:** 6 — `DOCUMENTOS_DIR` com caminho **absoluto**, **fora da web root e do repositório**, `chown` para o usuário do app e `chmod 700`; nenhum `location`/`alias` do nginx apontando para ela; disco (ou volume) e backup criptografados.
+
 ### R-A1 · Logs com PAN/CVV/token de cartão e CPF — RESOLVIDO (Fase 0 · T0.1)
 - **Era:** `console.log('Dados do cartão:', cardForm)` no navegador; `paymentData` com `token` e `payer.identification` no servidor.
 - **Resolução:** todos removidos/sanitizados; catches logam `{ message, status, cause[{code, description}] }`. Commit `20cb0e7`.
@@ -123,6 +135,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `src/app/api/auth/login/route.ts` linhas ~29–34.
 - **Decisão do dono (Fase 1):** UX > sigilo de enumeração; base pequena e de baixo valor para enumeração. Todos os outros casos (inexistente, inativo, senha errada) devolvem 401 genérico com timing equalizado.
 
+- **Nota Área do paciente (2026-09-21):** `PATCH /api/paciente/me` responde 409 "E-mail já cadastrado" quando o e-mail pertence a outro `Usuario` (inclusive à psicóloga), permitindo a um paciente autenticado sondar existência de contas. Aceito pelos mesmos motivos de M1 e por exigir sessão de paciente; a mensagem não revela id, nome nem papel do dono.
 ### M2 · Cookie `secure` só em produção — ACEITO
 - **Risco:** em dev (`http://localhost`) o cookie vai sem `Secure`. Em produção depende de `NODE_ENV=production`.
 - **Onde:** `src/lib/auth/cookie.ts` linha 9.
@@ -173,6 +186,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `src/lib/auth/cookie.ts`.
 - **Reavaliar** se algum endpoint passar a aceitar `form-urlencoded` ou se `sameSite` mudar.
 
+- **Nota Documentos clínicos:** `POST /api/documentos` aceita `multipart/form-data` (um `<form>` cross-site consegue enviar) — o gatilho de reavaliação disparou. A mitigação restante é `sameSite=lax` (bloqueia o cookie em POST cross-site em todos os navegadores atuais); PATCH/DELETE seguem só JSON. Permanece ACEITO. Hardening barato e recomendado: no POST de upload, responder 403 se `Sec-Fetch-Site: cross-site` ou `Origin` presente e diferente da própria origem.
 ### M12 · Fallback `http://localhost:3000` para `NEXT_PUBLIC_URL` — ABERTO
 - **Risco:** se a env faltar em produção, `back_urls`/`notification_url` do MP e o `link` de primeiro acesso apontam para localhost (falha funcional, e o webhook nunca chega — reforça C2/A4).
 - **Onde:** `src/app/api/pagamento/route.ts` linhas ~44–50. (`agendamento/route.ts` não usa mais `NEXT_PUBLIC_URL` desde a Fase 3; `token-acesso` já falha com 500 se ausente — padrão correto.)
@@ -189,6 +203,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Nota Fase 4:** o impacto de um cookie de **paciente** roubado aumentou: agora dá leitura de `GET /api/paciente/me` (nome, e-mail, telefone, CPF, nascimento, responsável), edição desses campos e cancelamento de consultas até a expiração (8 h). Não implementado nesta sub-fase; segue ABERTO (invalidação por `senhaAlteradaEm`/`sessaoVersao`).
 - **Fase:** 4 — `Usuario.senhaAlteradaEm` (ou `sessaoVersao`) comparado com `iat` do JWT em `autenticar()`; redefinição de senha atualiza o campo. Relaciona-se com Q10 da proposta (JWT puro × tabela `Sessao`).
 
+- **Nota Área do paciente (2026-09-21):** cookie de paciente roubado agora também permite trocar o e-mail de login (ver M21), o que converte o acesso temporário (8 h) em sequestro persistente. Reforça a prioridade da invalidação por `sessaoVersao`.
 ### M15 · JWT sem `iss`/`aud` — ACEITO com dependência de A2
 - **Risco:** token assinado com o mesmo segredo em outro ambiente/aplicação seria aceito. Só é explorável se o `JWT_SECRET` for reutilizado entre ambientes — exatamente o que A2 proíbe.
 - **Onde:** `src/lib/auth/jwt.ts` linhas ~19–30.
@@ -209,6 +224,34 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 ### R-M8 · `GET/PATCH /api/paciente/me` devolvia anotação interna da psicóloga e metadados de conta ao paciente — RESOLVIDO (Fase 4, antes do commit)
 - **Era:** a rota reutilizava `SELECT_DETALHE`/`paraDetalhe` da API da psicóloga e serializava `observacoesCadastro` (campo de uso interno da psicóloga sobre o paciente — mesma classe do `relatorio`), além de `usuarioId`, `origemCadastro`, `ultimoLoginEm`, `ativo`, `primeiroAcessoPendente`, e selecionava `usuario.senhaHash` (só convertido em boolean). A UI não exibia, mas qualquer paciente autenticado lia o JSON via DevTools/curl. Sem IDOR (só o próprio registro). Encontrado pelo revisor na auditoria da Fase 4 (eixo a, HIGH).
 - **Resolução:** `src/types/paciente.ts` ganhou `PacienteMeDto { id, nome, email, telefone, dataNascimento, cpf, responsavel, telefoneResponsavel }`; `src/lib/validacao/paciente.ts` ganhou `SELECT_ME` (seleciona só esses campos + `usuario.email`; sem `senhaHash`, `observacoesCadastro`, `origemCadastro`, `ultimoLoginEm`, `ativo`, `usuarioId`) e `paraMeDto`; `src/app/api/paciente/me/route.ts` GET/PATCH usam exclusivamente `SELECT_ME` + `paraMeDto`; `area-paciente/{page,dados/page}.tsx` tipam com `PacienteMeDto`. Grep dos campos proibidos em `src/app/api/paciente/**`: zero. Confirmado pelo revisor (re-checagem Fase 4, eixo a). Commit pendente (Fase 4).
+
+### M19 · Upload carregado inteiro em memória antes da checagem de tamanho — ABERTO *(novo · Documentos clínicos)*
+- **Risco:** `POST /api/documentos` chama `request.formData()` (linha 27) antes de comparar `arquivo.size` com `limiteBytes()` (linha 61); o App Router não impõe limite de body. Bodies de centenas de MB em paralelo esgotam a memória do processo. Superfície pequena: a rota exige `requireAuth('psicologa')` (linha 21) — só a psicóloga ou um cookie dela roubado (M14).
+- **Onde:** `src/app/api/documentos/route.ts` linhas 27 e 61.
+- **Fase:** 6 — `client_max_body_size 16m` (ou `DOCUMENTOS_MAX_MB` + folga) no reverse proxy; na aplicação, pré-checar `content-length` e responder 413 antes de `formData()` (não cobre chunked, por isso o proxy é a defesa principal).
+
+### M20 · Arquivo órfão em disco após `DELETE /api/documentos/[id]` — ABERTO *(novo · Documentos clínicos)*
+- **Risco:** a rota apaga o registro (linha 87) e só depois o arquivo (linha 90); se o `unlink` falhar por motivo ≠ ENOENT (no Windows, download em andamento do mesmo arquivo → EBUSY/EPERM; em Linux, EACCES por permissão) ou o processo cair entre as duas operações, o binário com dado de saúde permanece em `DOCUMENTOS_DIR` sem registro — **inacessível pela aplicação** (não há download sem registro), mas retido indevidamente (LGPD: eliminação). A rota loga só o `id` (linha 92) e responde 200. A ordem escolhida é a correta (a alternativa deixaria registro fantasma apontando para arquivo removido).
+- **Onde:** `src/app/api/documentos/[id]/route.ts` linhas 82-95; `src/lib/documentos/armazenamento.ts` `removerArquivo` (94-101).
+- **Fase:** junto com C5 — rotina de reconciliação (script ou rota da psicóloga): listar `DOCUMENTOS_DIR`, apagar arquivos cujo nome não existe em `documento.nome_arquivo`; executar após anonimização e periodicamente.
+
+### M21 · Troca do e-mail de login pelo paciente sem reautenticação — PARCIALMENTE MITIGADO (manter ABERTO até (2)/(3))
+- **Risco:** `PATCH /api/paciente/me` passou a aceitar `email` e atualiza `Usuario.email` (credencial de login) exigindo apenas o cookie de sessão. Com um cookie de paciente roubado (M14, válido até 8 h) o atacante troca o e-mail para um endereço próprio: o titular deixa de conseguir entrar (login é por e-mail), e qualquer link de redefinição/primeiro acesso que venha a ser entregue ao e-mail cadastrado passa a chegar ao atacante — sequestro persistente da conta, que sobrevive à expiração do cookie. Sem aviso ao e-mail antigo, o titular só percebe ao tentar logar.
+- **Onde:** `src/app/api/paciente/me/route.ts` linhas 56-89 (pré-check e `tx.usuario.update`); `src/lib/validacao/paciente.ts` `validarPacienteEdicaoPropria` (branch `email`); UI em `src/app/area-paciente/dados/page.tsx`.
+- **Mitigação atual:** validação/normalização do e-mail, unicidade global e transação corretas; `Usuario.ativo=false` pela psicóloga corta o acesso; a psicóloga vê o e-mail atual em `/area-restrita/pacientes/[id]` e pode corrigi-lo. CPF deixou de ser editável pelo paciente na mesma mudança.
+- **Fase:** 4/5 — (1) exigir `senhaAtual` no body quando `email` for enviado (`bcrypt.compare` contra `Usuario.senhaHash`; 401 genérico em falha; rejeitar troca se `senhaHash` for null) e campo correspondente na tela; (2) quando houver envio de e-mail, notificar o endereço ANTIGO da troca (com o novo endereço mascarado); (3) M14 — invalidar sessões emitidas antes da troca (`sessaoVersao`/`senhaAlteradaEm` também incrementado ao mudar e-mail). Enquanto aberto, o item soma-se ao impacto de M14 já anotado na Fase 4.
+
+- **Mitigação (2026-09-21, Fase 4):** item (1) implementado. `PATCH /api/paciente/me` exige `senhaAtual` sempre que `email` vier no body (`src/app/api/paciente/me/route.ts:56-62`), rejeita cadastro sem `usuarioId`/`senhaHash` (linhas 71-83), faz `bcrypt.compare` contra `Usuario.senhaHash` (linha 83) e responde 401 genérico "Senha atual incorreta" (linhas 85-88); unicidade de e-mail só é verificada APÓS a senha conferir (linhas 91-100), evitando oráculo de e-mail sem posse da senha. Validação de forma em `validarPacienteEdicaoPropria` (`src/lib/validacao/paciente.ts:410-416`); UI em `PacienteForm` (`exigirSenhaAtualSeEmailMudar`, campo "Senha atual" só aparece se o e-mail divergir) e `src/app/area-paciente/dados/page.tsx:62-67`. Na mesma entrega: `PATCH /api/auth/senha` (`src/app/api/auth/senha/route.ts`) permite ao usuário trocar a própria senha com `senhaAtual` + `novaSenha` (`validarForcaSenha`, hash custo 12), UI em `src/components/area-paciente/AlterarSenhaForm.tsx`. Cobertura E2E 18/18.
+- **Residual:** cookie roubado + senha adivinhada (ver nota em A1) ainda troca o e-mail; itens (2) aviso ao endereço antigo e (3) invalidação de sessões anteriores (M14/`sessaoVersao`, também ao trocar e-mail e senha) seguem ABERTOS. Enquanto (3) não existir, trocar a senha em `/api/auth/senha` NÃO derruba a sessão do atacante.
+### INFORMATIVOS (LOW, não contam no Resumo) — Área do paciente
+- **I11 · Loop de redirecionamento login ↔ layouts por `next` de outro papel — RESOLVIDO (2026-09-21):** `next` só é honrado se pertencer à área do papel autenticado (`nextCabeNoPapel`/`destinoFinal`, `src/app/login/page.tsx:32-42`), sempre depois de `destinoSeguro` — R-M4 (open redirect) não regride. `LayoutPaciente`/`LayoutPsicologa` mandam papel errado para a própria área (nunca para `/login`) e, deslogado, para `/login?next=<encodeURIComponent(pathname)>`. Relevância: só disponibilidade (o loop era DoS acidental no navegador); nenhuma exposição de dados. Cobertura E2E 6/6.
+
+### INFORMATIVOS (LOW, não contam no Resumo) — Documentos clínicos
+- **I6 · Guarda anti-`/public` case-sensitive** (`src/lib/documentos/armazenamento.ts` linha 23): em FS case-insensitive (Windows/macOS dev) `./Public/x` passa; no VPS Linux não se aplica. Fix opcional: comparar via `realpath`/lowercase.
+- **I7 · `.gitignore` só cobre o caminho padrão** `/documentos-privados/`; `DOCUMENTOS_DIR` relativo alternativo dentro do repo entraria no `git add`. Regra: em produção sempre caminho absoluto fora do repo (A8).
+- **I8 · Limite de 15 MB hardcoded no cliente** (`PainelDocumentos.tsx` linha 21) vs `DOCUMENTOS_MAX_MB` no servidor — divergência só de UX; servidor é a autoridade (413).
+- **I9 · Magic bytes ≠ conteúdo inofensivo:** PDF com JavaScript é aceito. Mitigado por: só a psicóloga envia; download sempre `attachment` + `nosniff` + `CSP sandbox` (nunca renderizado inline na origem do site). Aceito.
+- **I10 · `diretorioGarantido`** (`armazenamento.ts` linhas 15, 27-31) é atribuído e nunca lido — código morto, sem impacto.
 
 ### INFORMATIVOS (LOW, não contam no Resumo) — Fase 4
 - **I4 · `?semana=` sem validação de formato em `src/app/area-restrita/agenda/page.tsx`:** só cliente/psicóloga; servidor valida `de/ate`. Corretude (data inválida pode quebrar a grade), não segurança. Fix opcional: aceitar só `YYYY-MM-DD`, senão `hojeLocalISO()`.
@@ -235,6 +278,23 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 
 ---
 
+## Documentos clínicos (dado de saúde) — modelo e controles
+
+Entidade `Documento` (`prisma/schema.prisma`, migration `20260921225641_documento_clinico`): documento clínico **do paciente** (não da consulta), enviado pela psicóloga — `id`, `pacienteId` (FK `onDelete: Restrict`), `titulo` ≤ 120, `nomeArquivo` (único; `uuid + .pdf|.png|.jpg`, gerado pelo sistema), `nomeOriginal` (só rótulo de exibição, sanitizado), `mimeType`, `tamanhoBytes`, `visivelParaPaciente` (default `false`), `enviadoPorId` (FK `Usuario`, `onDelete: SetNull`), `criadoEm`. O **binário fica fora do banco e fora de `/public`**, em `DOCUMENTOS_DIR` (env; padrão `./documentos-privados`, ignorado no git), gravado com `flag 'wx'` e `mode 0o600`. Único caminho para o binário: `GET /api/documentos/[id]/download` (autenticado + autorizado). Rotas: `POST /api/documentos` (upload, psicóloga), `PATCH|DELETE /api/documentos/[id]` (psicóloga), `GET /api/pacientes/[id]/documentos` (psicóloga, todos), `GET /api/paciente/me/documentos` (paciente, só os próprios visíveis). Auditado em 2026-09-21 (`code-reviewer-security`), com E2E Playwright 29/29 da tarefa.
+
+| Controle | Status | Evidência |
+|---|---|---|
+| (a) Download só após verificar dono + visibilidade; 404 idêntico; nenhum acesso ao disco antes da autorização | **CONFIRMADO** | `src/app/api/documentos/[id]/download/route.ts`: `requireAuth` 17-18 → regex UUID 22 → `findUnique` só metadados 24-35 → `autorizado` = psicóloga ∨ (paciente ∧ `doc.pacienteId === auth.pacienteId` ∧ `visivelParaPaciente === true`) 37-43 → `NAO_ENCONTRADO()` (10) para id inválido/inexistente/de outro/não visível (45) e arquivo físico ausente (52); primeiro toque no disco em `abrirStream` (49). `auth.pacienteId` vem do banco (`src/lib/auth/guard.ts` 16-27). |
+| (b) Nenhum arquivo acessível por URL direta/estática | **CONFIRMADO** | `src/lib/documentos/armazenamento.ts` 18-25 (resolve `DOCUMENTOS_DIR`, lança se `=== /public` ou dentro dele — fail-closed → 500 genérico), 1 (`server-only`); `.gitignore` 53; `.env.example` 23-29. Nenhum `fs`/`src/data` fora de `src/lib/documentos` e `src/app/api/**`. E2E `/documentos-privados/` → 404. Pendências operacionais: A7, A8. |
+| (c) Upload: magic bytes, tamanho, sanitização, nome uuid+ext, sem traversal; nada gravado em falha; rollback do arquivo se `create` falhar | **CONFIRMADO** | `src/app/api/documentos/route.ts`: ordem auth 21 → campos 39-50 → paciente 52-55 → arquivo 57-59 → 413 `limiteBytes()` 61-64 → 415 `detectarMime` 66-73 → 415 coerência `file.type` 74-79 → **só então** `salvarArquivo` 84 → `create` falha ⇒ `removerArquivo` + rethrow 86-105. `armazenamento.ts`: `detectarMime` 51-63 (`%PDF-`, PNG 8 bytes, `FF D8 FF`), `gerarNomeArquivo` 65-67, `caminhoDoArquivo` 69-84 (regex `^[0-9a-f-]{36}\.(pdf|png|jpg)$` + `startsWith(dir + sep)`), `salvarArquivo` 87-91 (`wx`, `0o600`), `sanitizarNomeOriginal` 113-119 (`basename`, remove controle/aspas/barras, ≤ 255). `tamanhoBytes` = `buffer.length` (94). Ressalva: M19. |
+| (d) Paciente vê só os próprios visíveis (WHERE); psicóloga vê todos; escrita só psicóloga; PATCH whitelist | **CONFIRMADO** | `src/app/api/paciente/me/documentos/route.ts` 10-18 (`requireAuth('paciente')`, `where: { pacienteId: auth.pacienteId, visivelParaPaciente: true }`, DTO sem `pacienteId`/flag); `src/app/api/pacientes/[id]/documentos/route.ts` 11-24 (`requireAuth('psicologa')`); POST 21, PATCH `[id]/route.ts` 13, DELETE 77 com `requireAuth('psicologa')`; PATCH monta `data` só com `titulo`/`visivelParaPaciente` 27-48, sem spread. |
+| (e) DELETE remove registro E arquivo | **CONFIRMADO com ressalva** | `src/app/api/documentos/[id]/route.ts` 82-95: registro primeiro (87), `unlink` depois (90), falha ≠ ENOENT loga só `id` (92). Ordem correta; cenário de órfão registrado em M20 (reconciliação junto com C5). |
+| (f) Caminho no disco / `nomeArquivo` / `enviadoPorId` / erros do fs nunca chegam ao cliente | **CONFIRMADO** | `SELECT_DOCUMENTO` (`armazenamento.ts` 128-137) e DTOs (150-172) sem `nomeArquivo`/`enviadoPorId`; `select` do download (24-35) usa `nomeArquivo` só no servidor; headers do download: `Content-Disposition` com fallback ASCII sem aspas/controle + `filename*` percent-encoded (122-125, sem injeção), `nosniff`, `Cache-Control: private, no-store`, `CSP default-src 'none'; sandbox` (55-65); únicos `console.*` (`download/route.ts` 51, `[id]/route.ts` 92) só com `id`; todos os `catch` de rota respondem `{ error: 'Erro interno do servidor' }`. `src/types/documento.ts` sem campos de servidor. |
+
+Relação com itens existentes: C5 (nota: exclusão deve apagar `Documento` + arquivo; `Restrict` proposital), M11 (nota `multipart`), M14 (cookie de psicóloga roubado também baixa/apaga documentos por até 8 h), A7/A8/M19/M20 novos.
+
+---
+
 ## Verificação de deploy (Fase 6) — checklist operacional
 
 Complementa os itens acima; marcar cada linha no dia do deploy:
@@ -248,3 +308,9 @@ Complementa os itens acima; marcar cada linha no dia do deploy:
 - [ ] `src/data/*.json` sem dado real (`consultas.json`, `notificacoes.json` fictícios ou vazios).
 - [ ] Rota de anonimização LGPD existente e testada (C5).
 - [ ] Rate limiting ativo no login (A1).
+- [ ] `DOCUMENTOS_DIR` com caminho absoluto, fora da web root e do repositório; nenhum alias/location do proxy apontando para ela (A8).
+- [ ] `DOCUMENTOS_DIR` com `chown` do usuário do app e `chmod 700`; disco/volume criptografado (A8).
+- [ ] `DOCUMENTOS_DIR` incluída no backup criptografado, na mesma janela do `pg_dump` (A7).
+- [ ] Restauração testada: banco + pasta em ambiente limpo, download de um documento OK (A7).
+- [ ] `client_max_body_size` no proxy ≥ `DOCUMENTOS_MAX_MB` + folga (M19).
+- [ ] Rotina de reconciliação de órfãos em `DOCUMENTOS_DIR` disponível e executada após anonimizações (M20/C5).

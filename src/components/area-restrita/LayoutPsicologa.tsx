@@ -29,10 +29,15 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
 
   useEffect(() => {
     if (carregando) return;
-    if (!usuario || usuario.papel !== 'psicologa') {
-      router.replace('/login?next=/area-restrita/pacientes');
+    if (!usuario) {
+      router.replace(`/login?next=${encodeURIComponent(pathname || '/area-restrita/pacientes')}`);
+      return;
     }
-  }, [carregando, usuario, router]);
+    // Logado com outro papel: manda para a área dele, nunca de volta ao /login (evita loop).
+    if (usuario.papel !== 'psicologa') {
+      router.replace('/area-paciente');
+    }
+  }, [carregando, usuario, router, pathname]);
 
   const carregarTotais = useCallback(async () => {
     if (!usuario || usuario.papel !== 'psicologa') return;

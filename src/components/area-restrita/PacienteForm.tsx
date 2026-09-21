@@ -9,7 +9,7 @@ import Button from 'react-bootstrap/Button';
 import Spinner from 'react-bootstrap/Spinner';
 import type { PacienteEntrada } from '@/types/paciente';
 
-export type PacienteFormValores = PacienteEntrada & { senha?: string };
+export type PacienteFormValores = PacienteEntrada & { senha?: string; senhaAtual?: string };
 
 type CamposObrigatorios = { email?: boolean; dataNascimento?: boolean };
 
@@ -23,6 +23,13 @@ type PacienteFormProps = {
   camposObrigatorios?: CamposObrigatorios;
   /** Só nome/telefone/nascimento/observações — usado no modal de nova consulta. */
   compacto?: boolean;
+  /** Quando true, o campo CPF fica somente leitura (usado na área do paciente). */
+  cpfSomenteLeitura?: boolean;
+  /** Substitui a dica padrão do campo e-mail ("Sem e-mail…"). `null` = sem dica. */
+  textoAjudaEmail?: string | null;
+  /** Quando true, exige "Senha atual" se o e-mail digitado divergir de `valorInicial.email`
+   * (usado na área do paciente, onde trocar o e-mail de acesso exige confirmar a senha). */
+  exigirSenhaAtualSeEmailMudar?: boolean;
   onSubmit: (dados: PacienteFormValores) => Promise<void>;
   errosServidor?: Record<string, string>;
   enviando?: boolean;
@@ -68,6 +75,9 @@ export default function PacienteForm({
   mostrarObservacoes = false,
   camposObrigatorios,
   compacto = false,
+  cpfSomenteLeitura = false,
+  textoAjudaEmail,
+  exigirSenhaAtualSeEmailMudar = false,
   onSubmit,
   errosServidor,
   enviando = false,
@@ -86,6 +96,7 @@ export default function PacienteForm({
   const [observacoesCadastro, setObservacoesCadastro] = useState(valorInicial?.observacoesCadastro ?? '');
   const [senha, setSenha] = useState('');
   const [confirmarSenha, setConfirmarSenha] = useState('');
+  const [senhaAtual, setSenhaAtual] = useState('');
   const [errosLocais, setErrosLocais] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -101,6 +112,10 @@ export default function PacienteForm({
 
   const idade = useMemo(() => calcularIdade(dataNascimento), [dataNascimento]);
   const menorDeIdade = !compacto && idade !== null && idade < 18;
+
+  const emailAtualNormalizado = (valorInicial?.email ?? '').trim().toLowerCase();
+  const emailMudou =
+    exigirSenhaAtualSeEmailMudar && email.trim().toLowerCase() !== emailAtualNormalizado;
 
   const erros = { ...errosLocais, ...errosServidor };
 
@@ -119,6 +134,9 @@ export default function PacienteForm({
     if (mostrarSenha) {
       if (senha.length < 8) novosErros.senha = 'A senha deve ter no mínimo 8 caracteres.';
       if (senha !== confirmarSenha) novosErros.confirmarSenha = 'As senhas não coincidem.';
+    }
+    if (emailMudou && !senhaAtual.trim()) {
+      novosErros.senhaAtual = 'Informe sua senha atual para confirmar a troca de e-mail.';
     }
     return novosErros;
   };
@@ -142,7 +160,13 @@ export default function PacienteForm({
     if (mostrarSenha) {
       dados.senha = senha;
     }
+    if (emailMudou) {
+      dados.senhaAtual = senhaAtual;
+    }
     await onSubmit(dados);
+    if (emailMudou) {
+      setSenhaAtual('');
+    }
   };
 
   return (
@@ -167,15 +191,40 @@ export default function PacienteForm({
                 isInvalid={!!erros.email}
               />
               <Form.Control.Feedback type="invalid">{erros.email}</Form.Control.Feedback>
-              {!emailObrigatorio && (
-                <Form.Text className="pmc-texto-2">
-                  Sem e-mail, o paciente não terá acesso ao site — a agenda continua sendo gerida por você.
-                </Form.Text>
-              )}
+              {textoAjudaEmail !== undefined
+                ? textoAjudaEmail !== null && (
+                    <Form.Text className="pmc-texto-2">{textoAjudaEmail}</Form.Text>
+                  )
+                : !emailObrigatorio && (
+                    <Form.Text className="pmc-texto-2">
+                      Sem e-mail, o paciente não terá acesso ao site — a agenda continua sendo gerida por você.
+                    </Form.Text>
+                  )}
             </Form.Group>
           </Col>
         )}
       </Row>
+
+      {emailMudou && (
+        <Row>
+          <Col md={6}>
+            <Form.Group className="mb-3" controlId="pacienteSenhaAtual">
+              <Form.Label>Senha atual</Form.Label>
+              <Form.Control
+                type="password"
+                autoComplete="current-password"
+                value={senhaAtual}
+                onChange={(e) => setSenhaAtual(e.target.value)}
+                isInvalid={!!erros.senhaAtual}
+              />
+              <Form.Control.Feedback type="invalid">{erros.senhaAtual}</Form.Control.Feedback>
+              <Form.Text className="pmc-texto-2">
+                Para alterar o e-mail de acesso, confirme sua senha atual.
+              </Form.Text>
+            </Form.Group>
+          </Col>
+        </Row>
+      )}
 
       <Row>
         <Col md={compacto ? 6 : 6}>
@@ -205,14 +254,23 @@ export default function PacienteForm({
         {!compacto && (
           <Col md={3}>
             <Form.Group className="mb-3" controlId="pacienteCpf">
-              <Form.Label>CPF (opcional)</Form.Label>
-              <Form.Control
-                value={cpf}
-                onChange={(e) => setCpf(formatarCpf(e.target.value))}
-                isInvalid={!!erros.cpf}
-                placeholder="000.000.000-00"
-              />
-              <Form.Control.Feedback type="invalid">{erros.cpf}</Form.Control.Feedback>
+              <Form.Label>CPF{!cpfSomenteLeitura && ' (opcional)'}</Form.Label>
+              {cpfSomenteLeitura ? (
+                <>
+                  <Form.Control value={cpf || 'Não informado'} readOnly plaintext disabled />
+                  <Form.Text className="pmc-texto-2">Para alterar o CPF, fale com a psicóloga.</Form.Text>
+                </>
+              ) : (
+                <>
+                  <Form.Control
+                    value={cpf}
+                    onChange={(e) => setCpf(formatarCpf(e.target.value))}
+                    isInvalid={!!erros.cpf}
+                    placeholder="000.000.000-00"
+                  />
+                  <Form.Control.Feedback type="invalid">{erros.cpf}</Form.Control.Feedback>
+                </>
+              )}
             </Form.Group>
           </Col>
         )}
