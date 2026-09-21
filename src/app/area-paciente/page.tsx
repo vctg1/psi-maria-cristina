@@ -9,6 +9,7 @@ import Alert from 'react-bootstrap/Alert';
 import Table from 'react-bootstrap/Table';
 import LayoutPaciente from '@/components/area-paciente/LayoutPaciente';
 import CartaoConsulta from '@/components/area-paciente/CartaoConsulta';
+import MeusDocumentos from '@/components/area-paciente/MeusDocumentos';
 import { formatarData, formatarHora } from '@/components/area-restrita/agenda/formatos';
 import type { ConsultaDtoPaciente, ConsultaStatus } from '@/types/agenda';
 import type { PacienteMeDto } from '@/types/paciente';
@@ -134,6 +135,8 @@ export default function AreaPacientePage() {
               <p className="pmc-texto-2 mb-0">Nenhuma consulta anterior por aqui ainda.</p>
             )}
           </section>
+
+          <MeusDocumentos />
         </>
       )}
     </LayoutPaciente>

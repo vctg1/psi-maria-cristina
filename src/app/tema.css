@@ -454,3 +454,27 @@ a { text-underline-offset: 0.15em; }
   html { scroll-behavior: auto; }
   .btn, .btn:hover { transition: none; transform: none; }
 }
+
+/* ============================================================================
+   DOCUMENTOS · área de arrastar-e-soltar para upload (documentos clínicos)
+   ========================================================================== */
+.pmc-dropzone {
+  border: 2px dashed var(--pmc-bege);
+  border-radius: var(--pmc-raio-md);
+  background: var(--pmc-areia);
+  padding: 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.pmc-dropzone:hover { border-color: var(--pmc-terracota-suave); }
+.pmc-dropzone--ativa {
+  border-color: var(--pmc-terracota);
+  background: var(--pmc-terracota-suave);
+}
+.pmc-dropzone__icone {
+  display: block;
+  font-size: 1.75rem;
+  color: var(--pmc-terracota);
+  margin-bottom: 0.5rem;
+}

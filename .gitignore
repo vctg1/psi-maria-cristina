@@ -48,3 +48,6 @@ src/data/pacientes.json
 
 # prisma client gerado (não versionado; gerar com `npx prisma generate`)
 src/generated/
+
+# documentos clínicos (dado de saúde) — pasta privada de desenvolvimento; NUNCA commitar
+/documentos-privados/

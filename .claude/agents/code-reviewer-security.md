@@ -3,6 +3,7 @@ name: code-reviewer-security
 description: Auditoria READ-ONLY de segurança do diff — vazamento de dados de paciente, segredos MercadoPago, proteção da área restrita, uso de bcrypt. Portão final de toda tarefa.
 tools: Read, Grep, Glob, Bash
 model: opus
+effort: medium
 ---
 
 # REGRAS FIXAS (imutáveis entre execuções)

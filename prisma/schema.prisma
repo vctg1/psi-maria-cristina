@@ -153,6 +153,7 @@ model Usuario {
   paciente          Paciente?
   tokensAcesso      TokenAcesso[]
   pagamentosGerados Pagamento[]   @relation("PagamentoGeradoPor")
+  documentosEnviados Documento[]  @relation("DocumentoEnviadoPor")
 
   @@map("usuario")
 }
@@ -196,10 +197,38 @@ model Paciente {
   criadoEm            DateTime       @default(now()) @map("criado_em") @db.Timestamptz(3)
   atualizadoEm        DateTime       @updatedAt @map("atualizado_em") @db.Timestamptz(3)
 
-  usuario   Usuario?   @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
-  consultas Consulta[]
+  usuario    Usuario?    @relation(fields: [usuarioId], references: [id], onDelete: Restrict)
+  consultas  Consulta[]
+  documentos Documento[]
 
   @@map("paciente")
+}
+
+// ---------------------------------------------------------------- documentos clínicos
+
+/// Documento clínico do PACIENTE (não da consulta), enviado pela psicóloga. DADO DE SAÚDE (LGPD art. 5º II).
+/// O binário fica FORA do banco e FORA de /public, em DOCUMENTOS_DIR (env), com nome gerado pelo sistema
+/// (`nomeArquivo` = uuid + extensão validada). `nomeOriginal` é só rótulo de exibição — nunca vira caminho.
+/// Único acesso ao binário: GET /api/documentos/[id]/download (autenticado + autorizado). O caminho no disco
+/// nunca sai para o cliente. onDelete Restrict no paciente: a exclusão/anonimização (C5) precisa apagar o
+/// arquivo físico explicitamente antes — cascade no banco deixaria arquivo órfão.
+model Documento {
+  id                  String   @id @default(uuid())
+  pacienteId          String   @map("paciente_id")
+  titulo              String   @db.VarChar(120)
+  nomeArquivo         String   @unique @map("nome_arquivo") @db.VarChar(64)   // uuid + ".pdf|.png|.jpg"; gerado, nunca do upload
+  nomeOriginal        String   @map("nome_original") @db.VarChar(255)         // exibição apenas
+  mimeType            String   @map("mime_type") @db.VarChar(64)
+  tamanhoBytes        Int      @map("tamanho_bytes")
+  visivelParaPaciente Boolean  @default(false) @map("visivel_para_paciente")
+  enviadoPorId        String?  @map("enviado_por_id")
+  criadoEm            DateTime @default(now()) @map("criado_em") @db.Timestamptz(3)
+
+  paciente   Paciente @relation(fields: [pacienteId], references: [id], onDelete: Restrict)
+  enviadoPor Usuario? @relation("DocumentoEnviadoPor", fields: [enviadoPorId], references: [id], onDelete: SetNull)
+
+  @@index([pacienteId, criadoEm])
+  @@map("documento")
 }
 
 // ---------------------------------------------------------------- disponibilidade

@@ -12,6 +12,7 @@ import Form from 'react-bootstrap/Form';
 import Modal from 'react-bootstrap/Modal';
 import LayoutPsicologa from '@/components/area-restrita/LayoutPsicologa';
 import PacienteForm, { type PacienteFormValores } from '@/components/area-restrita/PacienteForm';
+import PainelDocumentos from '@/components/area-restrita/documentos/PainelDocumentos';
 import type { PacienteDetalhe, PacienteEdicao } from '@/types/paciente';
 import { useNotificacao } from '@/components/NotificacaoProvider';
 
@@ -292,6 +293,8 @@ export default function DetalhePacientePage() {
           </Row>
         </Card.Body>
       </Card>
+
+      <PainelDocumentos pacienteId={paciente.id} />
 
       {!paciente.temLogin && (
         <Card className="mb-4 card--areia">
