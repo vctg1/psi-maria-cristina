@@ -9,8 +9,12 @@ import Modal from 'react-bootstrap/Modal';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import type { ConsultaDto, Modalidade } from '@/types/agenda';
+import type { PagamentoDto } from '@/types/pagamento';
+import { METODO_LABEL } from '@/types/pagamento';
 import { useNotificacao } from '@/components/NotificacaoProvider';
 import { formatarData, formatarHora } from './formatos';
+import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
+import ModalRegistrarPagamento from '@/components/area-restrita/financeiro/ModalRegistrarPagamento';
 
 type PainelConsultaProps = {
   consulta: ConsultaDto | null;
@@ -47,6 +51,13 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
   const [motivoCancelamento, setMotivoCancelamento] = useState('');
   const [processando, setProcessando] = useState(false);
 
+  const [valorInput, setValorInput] = useState('');
+  const [salvandoValor, setSalvandoValor] = useState(false);
+  const [erroValor, setErroValor] = useState<string | null>(null);
+  const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
+  const [modalEstornar, setModalEstornar] = useState(false);
+  const [estornando, setEstornando] = useState(false);
+
   useEffect(() => {
     setAtual(consulta);
     setModalidade(consulta?.modalidade ?? 'presencial');
@@ -57,6 +68,10 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
     setReagendarAberto(false);
     setModalCancelar(false);
     setMotivoCancelamento('');
+    setValorInput(consulta ? consulta.cobranca.valor.toFixed(2) : '');
+    setErroValor(null);
+    setModalPagamentoAberto(false);
+    setModalEstornar(false);
   }, [consulta]);
 
   useEffect(() => {
@@ -192,6 +207,75 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
     }
   };
 
+  const salvarValor = async (usarPadrao: boolean) => {
+    setSalvandoValor(true);
+    setErroValor(null);
+    try {
+      const valorNumerico = usarPadrao ? null : Number(valorInput);
+      const response = await fetch(`/api/consultas/${atual.id}/valor`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valor: valorNumerico }),
+      });
+      const dados = await response.json().catch(() => null);
+      if (!response.ok) {
+        setErroValor(dados?.error ?? 'Não foi possível salvar o valor.');
+        return;
+      }
+      setAtual(dados as ConsultaDto);
+      setValorInput((dados as ConsultaDto).cobranca.valor.toFixed(2));
+      mostrarNotificacao({ tipo: 'sucesso', titulo: 'Valor atualizado' });
+      onAtualizado();
+    } catch {
+      setErroValor('Não foi possível salvar o valor.');
+    } finally {
+      setSalvandoValor(false);
+    }
+  };
+
+  const aoRegistrarPagamento = (pagamento: PagamentoDto) => {
+    setAtual({
+      ...atual,
+      cobranca: {
+        ...atual.cobranca,
+        situacao: 'pago',
+        pagamentoId: pagamento.id,
+        metodo: pagamento.metodo,
+        recebidoEm: pagamento.recebidoEm,
+      },
+    });
+    setModalPagamentoAberto(false);
+    onAtualizado();
+  };
+
+  const desfazerPagamento = async () => {
+    if (!atual.cobranca.pagamentoId) return;
+    setEstornando(true);
+    try {
+      const response = await fetch(`/api/pagamentos/${atual.cobranca.pagamentoId}/estornar`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const dados = await response.json().catch(() => null);
+      if (!response.ok) {
+        mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: dados?.error ?? 'Não foi possível estornar.' });
+        return;
+      }
+      setAtual({
+        ...atual,
+        cobranca: { ...atual.cobranca, situacao: 'em_aberto', pagamentoId: null, metodo: null, recebidoEm: null },
+      });
+      setModalEstornar(false);
+      mostrarNotificacao({ tipo: 'sucesso', titulo: 'Pagamento desfeito' });
+      onAtualizado();
+    } catch {
+      mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: 'Não foi possível estornar.' });
+    } finally {
+      setEstornando(false);
+    }
+  };
+
   return (
     <>
       <Offcanvas show={consulta !== null} onHide={onHide} placement="end">
@@ -247,6 +331,90 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
             <Button variant="primary" disabled={salvando} onClick={salvarEdicao}>
               {salvando ? 'Salvando...' : 'Salvar alterações'}
             </Button>
+          </div>
+
+          <span className="pmc-rotulo d-block mb-2">Cobrança</span>
+          <div className="mb-4">
+            {erroValor && <Alert variant="danger">{erroValor}</Alert>}
+            <Row className="align-items-end">
+              <Col md={6}>
+                <Form.Group className="mb-2" controlId="painelValorConsulta">
+                  <Form.Label>Valor</Form.Label>
+                  <Form.Control
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={valorInput}
+                    disabled={atual.cobranca.situacao === 'pago'}
+                    onChange={(e) => setValorInput(e.target.value)}
+                  />
+                </Form.Group>
+              </Col>
+              <Col md={6} className="mb-2">
+                <div className="d-flex gap-2 flex-wrap">
+                  <Button
+                    id="botao-salvar-valor"
+                    variant="outline-secondary"
+                    size="sm"
+                    disabled={salvandoValor || atual.cobranca.situacao === 'pago'}
+                    onClick={() => salvarValor(false)}
+                  >
+                    {salvandoValor ? 'Salvando...' : 'Salvar valor'}
+                  </Button>
+                  {atual.cobranca.valorPersonalizado && atual.cobranca.situacao !== 'pago' && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="p-0"
+                      disabled={salvandoValor}
+                      onClick={() => salvarValor(true)}
+                    >
+                      usar padrão
+                    </Button>
+                  )}
+                </div>
+              </Col>
+            </Row>
+
+            <div className="mb-2">
+              {atual.cobranca.situacao === 'pago' && <span className="pmc-badge-ok">Paga</span>}
+              {atual.cobranca.situacao === 'em_aberto' && <span className="pmc-badge-aviso">Em aberto</span>}
+              {atual.cobranca.situacao === 'nao_cobravel' && <span className="pmc-badge-neutro">Não cobrável</span>}
+            </div>
+
+            {atual.cobranca.situacao === 'em_aberto' && (
+              <Button
+                id="botao-registrar-pagamento"
+                variant="primary"
+                size="sm"
+                onClick={() => setModalPagamentoAberto(true)}
+              >
+                Registrar pagamento
+              </Button>
+            )}
+
+            {atual.cobranca.situacao === 'pago' && (
+              <div className="pmc-texto-2 pmc-t-sm">
+                <div>
+                  Método: {atual.cobranca.metodo ? METODO_LABEL[atual.cobranca.metodo] : '—'}
+                </div>
+                <div>
+                  Recebido em:{' '}
+                  {atual.cobranca.recebidoEm
+                    ? formatarData(`${atual.cobranca.recebidoEm}T12:00:00`, { day: '2-digit', month: '2-digit', year: 'numeric' })
+                    : '—'}
+                </div>
+                <Button
+                  id="botao-desfazer-pagamento"
+                  variant="outline-danger"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => setModalEstornar(true)}
+                >
+                  Desfazer pagamento
+                </Button>
+              </div>
+            )}
           </div>
 
           <span className="pmc-rotulo d-block mb-2">Reagendar</span>
@@ -336,6 +504,37 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
           </Button>
           <Button variant="outline-danger" disabled={processando} onClick={cancelarConsulta}>
             {processando ? 'Cancelando...' : 'Confirmar cancelamento'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <ModalRegistrarPagamento
+        show={modalPagamentoAberto}
+        consultas={[
+          {
+            id: atual.id,
+            inicio: atual.inicio,
+            pacienteNome: atual.paciente.nome,
+            valor: atual.cobranca.valor,
+          },
+        ]}
+        onHide={() => setModalPagamentoAberto(false)}
+        onRegistrado={aoRegistrarPagamento}
+      />
+
+      <Modal show={modalEstornar} onHide={() => setModalEstornar(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Desfazer pagamento</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-0">Tem certeza que deseja desfazer o pagamento desta consulta?</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={() => setModalEstornar(false)}>
+            Voltar
+          </Button>
+          <Button variant="outline-danger" disabled={estornando} onClick={desfazerPagamento}>
+            {estornando ? 'Desfazendo...' : 'Confirmar'}
           </Button>
         </Modal.Footer>
       </Modal>

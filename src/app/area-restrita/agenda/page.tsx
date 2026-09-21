@@ -22,6 +22,19 @@ import {
   hojeLocalISO,
   somarDiasISO,
 } from '@/components/area-restrita/agenda/formatos';
+import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
+
+const COBRANCA_CLASSE: Record<'pago' | 'em_aberto' | 'nao_cobravel', string> = {
+  pago: 'pmc-badge-ok',
+  em_aberto: 'pmc-badge-aviso',
+  nao_cobravel: '',
+};
+
+const COBRANCA_LABEL: Record<'pago' | 'em_aberto' | 'nao_cobravel', string> = {
+  pago: 'Paga',
+  em_aberto: 'Em aberto',
+  nao_cobravel: '',
+};
 
 const STATUS_CLASSE: Record<ConsultaDto['status'], string> = {
   agendada: 'pmc-badge-aviso',
@@ -173,12 +186,22 @@ function AgendaPageConteudo() {
                                 <i className={`bi ${consulta.modalidade === 'online' ? 'bi-camera-video' : 'bi-geo-alt'}`} />
                               </div>
                               <div className="pmc-t-sm">{consulta.paciente.nome}</div>
-                              <div className="mt-1">
+                              <div className="mt-1 d-flex align-items-center flex-wrap gap-1">
                                 <span className={STATUS_CLASSE[consulta.status]}>{STATUS_LABEL[consulta.status]}</span>
                                 {!consulta.paciente.temLogin && (
-                                  <span className="pmc-badge-neutro ms-1">sem acesso</span>
+                                  <span className="pmc-badge-neutro">sem acesso</span>
+                                )}
+                                {consulta.cobranca.situacao !== 'nao_cobravel' && (
+                                  <span className={COBRANCA_CLASSE[consulta.cobranca.situacao]}>
+                                    {COBRANCA_LABEL[consulta.cobranca.situacao]}
+                                  </span>
                                 )}
                               </div>
+                              {consulta.cobranca.situacao !== 'nao_cobravel' && (
+                                <div className="pmc-texto-2 pmc-t-sm mt-1">
+                                  {formatarMoeda(consulta.cobranca.valor)}
+                                </div>
+                              )}
                             </Card.Body>
                           </Card>
                         ))}

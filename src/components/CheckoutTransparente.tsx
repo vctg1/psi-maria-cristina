@@ -27,6 +27,11 @@ export default function CheckoutTransparente({
   const [qrCodePix, setQrCodePix] = useState('');
   const [pixCopiaECola, setPixCopiaECola] = useState('');
   const [paymentIdPix, setPaymentIdPix] = useState('');
+  const [valorConsulta, setValorConsulta] = useState<number | null>(null);
+
+  const valorFormatado = valorConsulta !== null
+    ? valorConsulta.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+    : '—';
   
   // Estados para cartão de crédito
   const [dadosCartao, setDadosCartao] = useState({
@@ -105,7 +110,10 @@ export default function CheckoutTransparente({
         setQrCodePix(data.qrCodeBase64);
         setPixCopiaECola(data.pixCopiaECola);
         setPaymentIdPix(data.paymentId);
-        
+        if (typeof data.valor === 'number') {
+          setValorConsulta(data.valor);
+        }
+
         // Verificar status do pagamento a cada 3 segundos
         const interval = setInterval(async () => {
           try {
@@ -261,12 +269,15 @@ export default function CheckoutTransparente({
             parcelas: dadosCartao.parcelas,
             issuerId: null
           },
-          dadosPagador,
-          valor: 150.00
+          dadosPagador
         })
       });
 
       const data = await response.json();
+
+      if (typeof data.valor === 'number') {
+        setValorConsulta(data.valor);
+      }
 
       if (data.success) {
         if (data.status === 'approved') {
@@ -342,7 +353,7 @@ export default function CheckoutTransparente({
           <h4 style={{ margin: '0 0 10px 0' }}>Detalhes da Consulta</h4>
           <p style={{ margin: '5px 0' }}><strong>Data:</strong> {new Date(consulta.data + 'T12:00:00').toLocaleDateString('pt-BR')}</p>
           <p style={{ margin: '5px 0' }}><strong>Horário:</strong> {consulta.hora}</p>
-          <p style={{ margin: '5px 0' }}><strong>Valor:</strong> R$ 150,00</p>
+          <p style={{ margin: '5px 0' }}><strong>Valor:</strong> {valorFormatado}</p>
         </div>
 
         {/* Seleção do método de pagamento */}
@@ -634,12 +645,13 @@ export default function CheckoutTransparente({
                     fontSize: '16px'
                   }}
                 >
-                  <option value={1}>1x R$ 150,00</option>
-                  <option value={2}>2x R$ 75,00</option>
-                  <option value={3}>3x R$ 50,00</option>
-                  <option value={4}>4x R$ 37,50</option>
-                  <option value={5}>5x R$ 30,00</option>
-                  <option value={6}>6x R$ 25,00</option>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>
+                      {n}x {valorConsulta !== null
+                        ? (valorConsulta / n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                        : '—'}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -659,7 +671,7 @@ export default function CheckoutTransparente({
                 marginTop: '1rem'
               }}
             >
-              {processandoPagamento ? 'Processando...' : `Pagar R$ 150,00`}
+              {processandoPagamento ? 'Processando...' : `Pagar ${valorFormatado}`}
             </button>
           </div>
         )}

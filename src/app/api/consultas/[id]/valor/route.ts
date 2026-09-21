@@ -3,15 +3,21 @@ import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth } from '@/lib/auth/guard';
 import { SELECT_CONSULTA_COM_PACIENTE, paraConsultaDto } from '@/lib/agenda/consultas';
-import { podeTransitar } from '@/lib/agenda/transicoes';
 import { obterValorPadraoSessao } from '@/lib/pagamentos/cobranca';
-import type { ConsultaStatus } from '@/types';
+import { PAGAMENTO_VALOR_MAX } from '@/types/pagamento';
 
 type Contexto = { params: Promise<{ id: string }> };
-const STATUS_ENCERRAMENTO: ConsultaStatus[] = ['realizada', 'nao_compareceu'];
 
-// POST /api/consultas/[id]/encerrar { status: 'realizada'|'nao_compareceu' } — psicóloga.
-export async function POST(request: NextRequest, { params }: Contexto) {
+function comoObjeto(body: unknown): Record<string, unknown> {
+  return body && typeof body === 'object' ? (body as Record<string, unknown>) : {};
+}
+
+function valorValido(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= PAGAMENTO_VALOR_MAX && Math.round(v * 100) / 100 === v;
+}
+
+// PATCH /api/consultas/[id]/valor { valor: number | null } — psicóloga.
+export async function PATCH(request: NextRequest, { params }: Contexto) {
   try {
     const r = await requireAuth(request, 'psicologa');
     if ('erro' in r) return r.erro;
@@ -24,26 +30,26 @@ export async function POST(request: NextRequest, { params }: Contexto) {
     } catch {
       return NextResponse.json({ error: 'JSON inválido' }, { status: 400 });
     }
-    const obj = (body && typeof body === 'object' ? body : {}) as Record<string, unknown>;
-    const status = obj.status;
-    if (typeof status !== 'string' || !STATUS_ENCERRAMENTO.includes(status as ConsultaStatus)) {
-      return NextResponse.json({ error: 'Status deve ser "realizada" ou "nao_compareceu"' }, { status: 400 });
+    const obj = comoObjeto(body);
+
+    if (!('valor' in obj) || (obj.valor !== null && !valorValido(obj.valor))) {
+      return NextResponse.json(
+        { error: 'Dados inválidos', campos: { valor: `Informe null ou um número entre 0 e ${PAGAMENTO_VALOR_MAX} (até 2 casas decimais)` } },
+        { status: 400 }
+      );
     }
 
-    const existente = await prisma.consulta.findUnique({ where: { id }, select: { status: true, inicio: true } });
+    const existente = await prisma.consulta.findUnique({ where: { id }, select: { pagamentoId: true } });
     if (!existente) {
       return NextResponse.json({ error: 'Consulta não encontrada' }, { status: 404 });
     }
-    if (!podeTransitar(existente.status as ConsultaStatus, status as ConsultaStatus)) {
-      return NextResponse.json({ error: `Não é possível marcar "${status}" a partir de "${existente.status}"` }, { status: 409 });
-    }
-    if (existente.inicio.getTime() > Date.now()) {
-      return NextResponse.json({ error: 'A consulta ainda não ocorreu' }, { status: 400 });
+    if (existente.pagamentoId !== null) {
+      return NextResponse.json({ error: 'Consulta já paga; o valor não pode ser alterado' }, { status: 409 });
     }
 
     const atualizado = await prisma.consulta.update({
       where: { id },
-      data: { status: status as ConsultaStatus, encerradaEm: new Date() },
+      data: { valor: obj.valor === null ? null : new Prisma.Decimal(obj.valor as number) },
       select: SELECT_CONSULTA_COM_PACIENTE,
     });
 

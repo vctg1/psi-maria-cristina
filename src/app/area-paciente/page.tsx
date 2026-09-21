@@ -11,6 +11,7 @@ import LayoutPaciente from '@/components/area-paciente/LayoutPaciente';
 import CartaoConsulta from '@/components/area-paciente/CartaoConsulta';
 import MeusDocumentos from '@/components/area-paciente/MeusDocumentos';
 import { formatarData, formatarHora } from '@/components/area-restrita/agenda/formatos';
+import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
 import type { ConsultaDtoPaciente, ConsultaStatus } from '@/types/agenda';
 import type { PacienteMeDto } from '@/types/paciente';
 
@@ -116,6 +117,8 @@ export default function AreaPacientePage() {
                     <th>Data</th>
                     <th>Modalidade</th>
                     <th>Status</th>
+                    <th className="text-end">Valor</th>
+                    <th>Cobrança</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -127,6 +130,15 @@ export default function AreaPacientePage() {
                       </td>
                       <td>{consulta.modalidade === 'online' ? 'Online' : 'Presencial'}</td>
                       <td>{STATUS_LABEL[consulta.status]}</td>
+                      <td className="text-end">
+                        {consulta.cobranca.situacao !== 'nao_cobravel' ? formatarMoeda(consulta.cobranca.valor) : '—'}
+                      </td>
+                      <td>
+                        {consulta.cobranca.situacao === 'pago' && <span className="pmc-badge-ok">Paga</span>}
+                        {consulta.cobranca.situacao === 'em_aberto' && (
+                          <span className="pmc-badge-aviso">Em aberto</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

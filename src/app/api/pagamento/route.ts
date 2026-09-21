@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { MercadoPagoConfig, Preference } from 'mercadopago';
 import { requireAuth } from '@/lib/auth/guard';
+import { obterValorPadraoSessao } from '@/lib/pagamentos/valor-padrao';
 
 function getClient(): MercadoPagoConfig | null {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -16,7 +17,8 @@ export async function POST(request: NextRequest) {
     if ('erro' in r) return r.erro;
 
     const body = await request.json();
-    const { consultaId, pacienteNome, pacienteEmail, valor, metodoPagamento } = body;
+    const { consultaId, pacienteNome, pacienteEmail, metodoPagamento } = body;
+    const valor = await obterValorPadraoSessao();
 
     const client = getClient();
     if (!client) {
@@ -69,7 +71,8 @@ export async function POST(request: NextRequest) {
       preferenceId: response.id,
       initPoint: response.init_point,
       sandboxInitPoint: response.sandbox_init_point,
-      qrCode: (response as any).qr_code
+      qrCode: (response as any).qr_code,
+      valor
     });
 
   } catch (error: any) {

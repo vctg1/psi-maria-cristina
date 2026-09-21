@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth/guard';
 import { formatoDataValido, formatoHoraValido, montarInicio } from '@/lib/agenda/tempo';
 import { verificarLivreNaTransacao } from '@/lib/agenda/disponibilidade';
 import { SELECT_CONSULTA_COM_PACIENTE, paraConsultaDto } from '@/lib/agenda/consultas';
+import { obterValorPadraoSessao } from '@/lib/pagamentos/cobranca';
 import { CONSULTA_STATUS_OCUPA_HORARIO, type ConsultaStatus } from '@/types';
 import type { Modalidade } from '@/types/agenda';
 
@@ -23,11 +24,14 @@ export async function GET(request: NextRequest, { params }: Contexto) {
     if ('erro' in r) return r.erro;
 
     const { id } = await params;
-    const consulta = await prisma.consulta.findUnique({ where: { id }, select: SELECT_CONSULTA_COM_PACIENTE });
+    const [consulta, valorPadrao] = await Promise.all([
+      prisma.consulta.findUnique({ where: { id }, select: SELECT_CONSULTA_COM_PACIENTE }),
+      obterValorPadraoSessao(),
+    ]);
     if (!consulta) {
       return NextResponse.json({ error: 'Consulta não encontrada' }, { status: 404 });
     }
-    return NextResponse.json(paraConsultaDto(consulta));
+    return NextResponse.json(paraConsultaDto(consulta, valorPadrao));
   } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
@@ -111,7 +115,8 @@ export async function PATCH(request: NextRequest, { params }: Contexto) {
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable, maxWait: 5000, timeout: 10000 }
     );
 
-    return NextResponse.json(paraConsultaDto(atualizado));
+    const valorPadrao = await obterValorPadraoSessao();
+    return NextResponse.json(paraConsultaDto(atualizado, valorPadrao));
   } catch (error) {
     if (error instanceof ReagendamentoIndisponivel) {
       return NextResponse.json({ error: 'Horário indisponível' }, { status: 409 });

@@ -9,6 +9,7 @@ import Form from 'react-bootstrap/Form';
 import Alert from 'react-bootstrap/Alert';
 import type { ConsultaDtoPaciente, ConsultaStatus } from '@/types/agenda';
 import { formatarData, formatarHora } from '@/components/area-restrita/agenda/formatos';
+import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
 import { useNotificacao } from '@/components/NotificacaoProvider';
 
 const WHATSAPP_PSICOLOGA = 'https://wa.me/5561995391540';
@@ -123,8 +124,15 @@ export default function CartaoConsulta({
                 {consulta.modalidade === 'online' ? 'Online' : 'Presencial'}
               </p>
               {consulta.motivo && <p className="mb-0 pmc-texto-2">{consulta.motivo}</p>}
+              {consulta.cobranca.situacao !== 'nao_cobravel' && (
+                <p className="mb-0 pmc-texto-2 small">{formatarMoeda(consulta.cobranca.valor)}</p>
+              )}
             </div>
-            <span className={STATUS_BADGE[consulta.status]}>{STATUS_LABEL[consulta.status]}</span>
+            <div className="d-flex flex-column align-items-end gap-1">
+              <span className={STATUS_BADGE[consulta.status]}>{STATUS_LABEL[consulta.status]}</span>
+              {consulta.cobranca.situacao === 'pago' && <span className="pmc-badge-ok">Paga</span>}
+              {consulta.cobranca.situacao === 'em_aberto' && <span className="pmc-badge-aviso">Em aberto</span>}
+            </div>
           </div>
 
           {permitirCancelamento && (

@@ -3,6 +3,7 @@ import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { requireAuth } from '@/lib/auth/guard';
+import { obterValorPadraoSessao } from '@/lib/pagamentos/valor-padrao';
 
 function getClient(): MercadoPagoConfig | null {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -37,9 +38,9 @@ export async function POST(request: NextRequest) {
     const {
       consultaId,
       dadosCartao,
-      dadosPagador,
-      valor = 150.00
+      dadosPagador
     } = body;
+    const valor = await obterValorPadraoSessao();
 
     const client = getClient();
     if (!client) {
@@ -124,7 +125,8 @@ export async function POST(request: NextRequest) {
       },
       status: response.status,
       statusDetail: response.status_detail,
-      paymentId: response.id
+      paymentId: response.id,
+      valor
     });
 
   } catch (error: any) {

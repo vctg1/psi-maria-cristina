@@ -105,17 +105,37 @@ enum Modalidade {
 /// 4 estados. Mapeamento do MercadoPago na §4 do documento.
 enum PagamentoStatus {
   pendente   // cobrança gerada (preference criada), aguardando
-  pago       // MP payment approved — fonte de verdade: webhook ou reconciliação
-  falhou     // MP payment rejected
-  expirado   // preference/payment cancelled por expiração
+  pago       // manual: registrado pela psicóloga · online: payment approved (webhook/reconciliação)
+  falhou     // online: payment rejected
+  expirado   // online: preference/payment cancelled por expiração
+  estornado  // Fase 5a: pagamento manual desfeito pela psicóloga (consultas voltam a "em aberto")
 
   @@map("pagamento_status")
 }
 
+/// Fase 5a: quem originou o pagamento. `manual` = psicóloga registrou recebimento fora do sistema
+/// (PIX, dinheiro, maquininha). `online` = gateway (Fase 5b), preparado mas não usado ainda.
+enum OrigemPagamento {
+  manual
+  online
+
+  @@map("origem_pagamento")
+}
+
+/// Fase 5a: gateway padrão da cobrança online (só armazenado; usado na Fase 5b).
+enum GatewayPagamento {
+  mercadopago
+  asaas
+
+  @@map("gateway_pagamento")
+}
+
 enum MetodoPagamento {
   pix
-  boleto
-  cartao
+  dinheiro    // Fase 5a (manual): em espécie
+  maquininha  // Fase 5a (manual): cartão na maquininha do consultório
+  boleto      // online (5b)
+  cartao      // online (5b)
   outro
 
   @@map("metodo_pagamento")
@@ -283,28 +303,42 @@ model Consulta {
   canceladaPor       AtorConsulta?  @map("cancelada_por")
   motivoCancelamento String?        @map("motivo_cancelamento")
 
+  /// Fase 5a: valor de cobrança desta consulta definido pela psicóloga (desconto/pacote).
+  /// null = usa Configuracao.valorPadraoSessao. NUNCA vem do cliente/paciente.
+  valor              Decimal?       @db.Decimal(10, 2)
+  /// Fase 5a: pagamento que cobre esta consulta (1:N — um Pagamento cobre uma ou várias consultas).
+  /// FK aqui (e não tabela de junção) garante no banco que uma consulta tem NO MÁXIMO um pagamento.
+  /// null = em aberto. Estorno limpa o campo (SetNull) e mantém o Pagamento como histórico.
+  pagamentoId        String?        @map("pagamento_id")
+
   criadaEm           DateTime       @default(now()) @map("criada_em") @db.Timestamptz(3)
   atualizadaEm       DateTime       @updatedAt @map("atualizada_em") @db.Timestamptz(3)
 
   paciente     Paciente      @relation(fields: [pacienteId], references: [id], onDelete: Restrict)
-  pagamento    Pagamento?
+  pagamento    Pagamento?    @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
   notificacoes Notificacao[]
 
   @@index([pacienteId, inicio])
   @@index([inicio, status])
+  @@index([pagamentoId])
   @@map("consulta")
 }
 
 // ---------------------------------------------------------------- pagamento
 
-/// Cobrança pós-consulta via Checkout Pro (link), 1:1 com Consulta, gerada manualmente pela psicóloga.
-/// Fonte de verdade do status: MercadoPago (webhook; fallback reconciliação). Ver §4.
+/// Fase 5a: Pagamento cobre UMA OU VÁRIAS consultas (Consulta.pagamentoId → 1:N). Sem crédito/saldo:
+/// "pacote" = um pagamento ligado a N consultas. A idempotência que o antigo `consultaId @unique` dava
+/// vive na aplicação: só se marca paga consulta com `pagamentoId` null (updateMany condicional em transação).
+/// `manual` (5a): registrado pela psicóloga — metodo, valor, recebidoEm, geradoPorId.
+/// `online` (5b): Checkout Pro / gateway; fonte de verdade = webhook + reconciliação (§4).
 model Pagamento {
   id                    String           @id @default(uuid())
-  consultaId            String           @unique @map("consulta_id")   // 1:1 — impede cobrança duplicada
-  valor                 Decimal          @db.Decimal(10, 2)            // editável; default Configuracao
+  origem                OrigemPagamento
+  valor                 Decimal          @db.Decimal(10, 2)            // soma das consultas ou valor de pacote definido pela psicóloga
   status                PagamentoStatus  @default(pendente)
   metodo                MetodoPagamento?
+  recebidoEm            DateTime?        @map("recebido_em") @db.Date  // manual: data do recebimento informada pela psicóloga
+  estornadoEm           DateTime?        @map("estornado_em") @db.Timestamptz(3)
 
   mpPreferenceId        String?          @unique @map("mp_preference_id")   // Checkout Pro
   linkCobranca          String?          @map("link_cobranca")              // init_point → wa.me
@@ -320,10 +354,11 @@ model Pagamento {
   criadoEm              DateTime         @default(now()) @map("criado_em") @db.Timestamptz(3)
   atualizadoEm          DateTime         @updatedAt @map("atualizado_em") @db.Timestamptz(3)
 
-  consulta  Consulta          @relation(fields: [consultaId], references: [id], onDelete: Restrict)
+  consultas Consulta[]
   geradoPor Usuario?          @relation("PagamentoGeradoPor", fields: [geradoPorId], references: [id], onDelete: SetNull)
   eventos   EventoPagamento[]
 
+  @@index([status, criadoEm])
   @@map("pagamento")
 }
 
@@ -353,6 +388,7 @@ model Configuracao {
   valorPadraoSessao             Decimal  @default(200) @map("valor_padrao_sessao") @db.Decimal(10, 2)
   duracaoSessaoMin              Int      @default(50) @map("duracao_sessao_min")   // INFORMATIVO (exibido), não cálculo
   antecedenciaCancelamentoHoras Int      @default(24) @map("antecedencia_cancelamento_horas")
+  gatewayPadrao                 GatewayPagamento @default(mercadopago) @map("gateway_padrao") // Fase 5a: só armazenado; usado na 5b
   atualizadoEm                  DateTime @updatedAt @map("atualizado_em") @db.Timestamptz(3)
 
   @@map("configuracao")

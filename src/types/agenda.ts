@@ -3,6 +3,7 @@
 // por Client Components.
 
 import type { ConsultaStatus } from './index';
+import type { CobrancaConsulta } from './pagamento';
 
 export type { ConsultaStatus };
 
@@ -37,6 +38,8 @@ export type ConsultaDto = {
   motivoCancelamento: string | null;
   criadaEm: string;
   paciente: PacienteNaConsulta;
+  /** Fase 5a: status de cobrança (valor efetivo, pago/em aberto). Presente para psicóloga e paciente. */
+  cobranca: CobrancaConsulta;
 };
 
 export type ConsultaDtoPaciente = Omit<ConsultaDto, 'relatorio' | 'paciente'> & {

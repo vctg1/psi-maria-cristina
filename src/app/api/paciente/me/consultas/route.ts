@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth/guard';
 import { SELECT_CONSULTA_COM_PACIENTE, paraConsultaDtoPaciente } from '@/lib/agenda/consultas';
+import { obterValorPadraoSessao } from '@/lib/pagamentos/cobranca';
 import { CONSULTA_STATUS_OCUPA_HORARIO } from '@/types';
 
 const LIMITE_HISTORICO = 100;
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     const agora = new Date();
 
-    const [proximasRaw, historicoRaw, config] = await Promise.all([
+    const [proximasRaw, historicoRaw, config, valorPadrao] = await Promise.all([
       prisma.consulta.findMany({
         where: {
           pacienteId: auth.pacienteId,
@@ -39,11 +40,12 @@ export async function GET(request: NextRequest) {
         take: LIMITE_HISTORICO,
       }),
       prisma.configuracao.findUnique({ where: { id: 1 }, select: { antecedenciaCancelamentoHoras: true } }),
+      obterValorPadraoSessao(),
     ]);
 
     return NextResponse.json({
-      proximas: proximasRaw.map(paraConsultaDtoPaciente),
-      historico: historicoRaw.map(paraConsultaDtoPaciente),
+      proximas: proximasRaw.map((c) => paraConsultaDtoPaciente(c, valorPadrao)),
+      historico: historicoRaw.map((c) => paraConsultaDtoPaciente(c, valorPadrao)),
       antecedenciaCancelamentoHoras: config?.antecedenciaCancelamentoHoras ?? 24,
     });
   } catch {

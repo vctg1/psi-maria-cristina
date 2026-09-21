@@ -3,6 +3,7 @@ import { MercadoPagoConfig, Payment } from 'mercadopago';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { requireAuth } from '@/lib/auth/guard';
+import { obterValorPadraoSessao } from '@/lib/pagamentos/valor-padrao';
 
 function getClient(): MercadoPagoConfig | null {
   const accessToken = process.env.MP_ACCESS_TOKEN;
@@ -38,9 +39,9 @@ export async function POST(request: NextRequest) {
       consultaId,
       metodoPagamento,
       dadosCartao,
-      dadosPagador,
-      valor = 150.00
+      dadosPagador
     } = body;
+    const valor = await obterValorPadraoSessao();
 
     console.log('Dados recebidos para pagamento:', { consultaId, metodoPagamento });
 
@@ -106,7 +107,8 @@ export async function POST(request: NextRequest) {
       payment: response,
       status: response.status,
       statusDetail: response.status_detail,
-      paymentId: response.id
+      paymentId: response.id,
+      valor
     });
 
   } catch (error: any) {
@@ -157,9 +159,10 @@ export async function GET(request: NextRequest) {
     }
 
     const payment = new Payment(client);
+    const valor = await obterValorPadraoSessao();
 
     const paymentData = {
-      transaction_amount: 150.00,
+      transaction_amount: valor,
       description: `Consulta Psicológica - Psicóloga Maria Cristina`,
       payment_method_id: 'pix',
       payer: {
@@ -177,7 +180,8 @@ export async function GET(request: NextRequest) {
       paymentId: response.id,
       qrCode: response.point_of_interaction?.transaction_data?.qr_code,
       qrCodeBase64: response.point_of_interaction?.transaction_data?.qr_code_base64,
-      pixCopiaECola: response.point_of_interaction?.transaction_data?.qr_code
+      pixCopiaECola: response.point_of_interaction?.transaction_data?.qr_code,
+      valor
     });
 
   } catch (error: any) {

@@ -11,6 +11,7 @@ import {
   paraConsultaDtoPaciente,
   HorarioIndisponivel,
 } from '@/lib/agenda/consultas';
+import { obterValorPadraoSessao } from '@/lib/pagamentos/cobranca';
 import { CONSULTA_STATUS, type ConsultaStatus } from '@/types';
 import type { Modalidade, NovaConsultaEntrada, ResultadoLote } from '@/types/agenda';
 
@@ -53,12 +54,15 @@ export async function GET(request: NextRequest) {
       if (!auth.pacienteId) {
         return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
       }
-      const consultas = await prisma.consulta.findMany({
-        where: { pacienteId: auth.pacienteId, inicio: { gte, lt } },
-        select: SELECT_CONSULTA_COM_PACIENTE,
-        orderBy: { inicio: 'asc' },
-      });
-      return NextResponse.json(consultas.map(paraConsultaDtoPaciente));
+      const [consultas, valorPadrao] = await Promise.all([
+        prisma.consulta.findMany({
+          where: { pacienteId: auth.pacienteId, inicio: { gte, lt } },
+          select: SELECT_CONSULTA_COM_PACIENTE,
+          orderBy: { inicio: 'asc' },
+        }),
+        obterValorPadraoSessao(),
+      ]);
+      return NextResponse.json(consultas.map((c) => paraConsultaDtoPaciente(c, valorPadrao)));
     }
 
     // Psicóloga: filtros adicionais de status e pacienteId.
@@ -68,16 +72,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Status inválido' }, { status: 400 });
     }
 
-    const consultas = await prisma.consulta.findMany({
-      where: {
-        inicio: { gte, lt },
-        ...(statusParam ? { status: statusParam as ConsultaStatus } : {}),
-        ...(pacienteIdParam ? { pacienteId: pacienteIdParam } : {}),
-      },
-      select: SELECT_CONSULTA_COM_PACIENTE,
-      orderBy: { inicio: 'asc' },
-    });
-    return NextResponse.json(consultas.map(paraConsultaDto));
+    const [consultas, valorPadrao] = await Promise.all([
+      prisma.consulta.findMany({
+        where: {
+          inicio: { gte, lt },
+          ...(statusParam ? { status: statusParam as ConsultaStatus } : {}),
+          ...(pacienteIdParam ? { pacienteId: pacienteIdParam } : {}),
+        },
+        select: SELECT_CONSULTA_COM_PACIENTE,
+        orderBy: { inicio: 'asc' },
+      }),
+      obterValorPadraoSessao(),
+    ]);
+    return NextResponse.json(consultas.map((c) => paraConsultaDto(c, valorPadrao)));
   } catch {
     return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
   }
@@ -165,6 +172,7 @@ export async function POST(request: NextRequest) {
 
     const criadas: ResultadoLote['criadas'] = [];
     const puladas: ResultadoLote['puladas'] = [];
+    const valorPadrao = await obterValorPadraoSessao();
 
     for (let i = 0; i <= repetirSemanas; i++) {
       const dataOcorrencia = somarDias(obj.data, i * 7);
@@ -178,7 +186,7 @@ export async function POST(request: NextRequest) {
           observacoes,
           criadaPor: 'psicologa',
         });
-        criadas.push(paraConsultaDto(consulta));
+        criadas.push(paraConsultaDto(consulta, valorPadrao));
       } catch (error) {
         if (error instanceof HorarioIndisponivel) {
           puladas.push({ data: dataOcorrencia, motivo: error.motivo });

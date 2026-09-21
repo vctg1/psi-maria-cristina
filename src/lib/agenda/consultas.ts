@@ -4,6 +4,7 @@ import { Prisma } from '@/generated/prisma/client';
 import type { ConsultaStatus } from '@/types';
 import type { ConsultaDto, ConsultaDtoPaciente, Modalidade } from '@/types/agenda';
 import { verificarLivreNaTransacao, type ResultadoVerificacao } from './disponibilidade';
+import { SELECT_COBRANCA, montarCobranca } from '@/lib/pagamentos/cobranca';
 
 export class HorarioIndisponivel extends Error {
   motivo: Exclude<ResultadoVerificacao, 'livre'>;
@@ -30,6 +31,7 @@ export const SELECT_CONSULTA_COM_PACIENTE = {
   criadaEm: true,
   pacienteId: true,
   paciente: { select: { id: true, nome: true, telefone: true, usuarioId: true } },
+  ...SELECT_COBRANCA,
 } as const;
 
 export type ConsultaComPaciente = Prisma.ConsultaGetPayload<{ select: typeof SELECT_CONSULTA_COM_PACIENTE }>;
@@ -75,7 +77,7 @@ export async function criarConsultaComTrava(dados: NovaConsulta): Promise<Consul
   }
 }
 
-export function paraConsultaDto(c: ConsultaComPaciente): ConsultaDto {
+export function paraConsultaDto(c: ConsultaComPaciente, valorPadrao: number): ConsultaDto {
   return {
     id: c.id,
     inicio: c.inicio.toISOString(),
@@ -97,11 +99,12 @@ export function paraConsultaDto(c: ConsultaComPaciente): ConsultaDto {
       telefone: c.paciente.telefone,
       temLogin: c.paciente.usuarioId !== null,
     },
+    cobranca: montarCobranca(c, valorPadrao),
   };
 }
 
-export function paraConsultaDtoPaciente(c: ConsultaComPaciente): ConsultaDtoPaciente {
-  const dto = paraConsultaDto(c);
+export function paraConsultaDtoPaciente(c: ConsultaComPaciente, valorPadrao: number): ConsultaDtoPaciente {
+  const dto = paraConsultaDto(c, valorPadrao);
   return {
     id: dto.id,
     inicio: dto.inicio,
@@ -117,5 +120,6 @@ export function paraConsultaDtoPaciente(c: ConsultaComPaciente): ConsultaDtoPaci
     motivoCancelamento: dto.motivoCancelamento,
     criadaEm: dto.criadaEm,
     paciente: { id: c.paciente.id, nome: c.paciente.nome },
+    cobranca: dto.cobranca,
   };
 }
