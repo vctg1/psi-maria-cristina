@@ -31,7 +31,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deploy na VPS
 
-O passo a passo para `cristinapsi.online`, Docker Compose e CI/CD na branch
+O passo a passo para `cristinapsi.online`, PM2, PostgreSQL da VPS e CI/CD na branch
 `master` está em [deploy/README.md](deploy/README.md). Antes de habilitar o
 deploy para uso real, consulte [SEGURANCA-PRE-PRODUCAO.md](SEGURANCA-PRE-PRODUCAO.md).
 

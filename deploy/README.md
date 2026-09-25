@@ -1,12 +1,22 @@
-# Deploy com PM2 na VPS
+# Deploy na VPS com PM2 e PostgreSQL da máquina
 
-**Estado atual:** o domínio `cristinapsi.online` tem HTTPS e exibe uma página
-temporária. A VPS usa Nginx e PM2 para outros projetos. Este projeto fica em
-`/opt/psi/app`, usa a porta local `3010` e tem PostgreSQL isolado em Docker na
-porta local `5436`. O clone em `/root/projetos/psi-maria-cristina` não é usado
-pelo deploy; atualmente está em `main` com mudanças locais.
+O deploy usa a branch `master`, a pasta `/opt/psi/app`, o processo PM2
+`psi-maria-cristina`, Node 24, Nginx e o PostgreSQL instalado na VPS. O banco
+se chama `psi_maria_cristina`, com usuário próprio, na porta local `5432`.
 
-## Fazer um deploy manual na VPS
+O clone em `/root/projetos/psi-maria-cristina` é uma cópia separada, atualmente
+na branch `main`; o workflow não faz deploy a partir dela.
+
+## Comandos na VPS
+
+Preparação do banco (uma vez):
+
+```bash
+cd /opt/psi/app
+sudo bash deploy/setup-host-postgres.sh
+```
+
+Deploy manual para testar ou recuperar:
 
 ```bash
 cd /opt/psi/app
@@ -16,60 +26,37 @@ pm2 status
 curl -I http://127.0.0.1:3010/
 ```
 
-O script carrega `/opt/psi/.env`, instala dependências, gera o Prisma Client,
-compila, aplica as migrations e inicia/recarrega **somente** o processo PM2
-`psi-maria-cristina`. O banco preserva seus dados em um volume Docker. O
-arquivo `/opt/psi/.env` não fica no Git.
+O script carrega as variáveis privadas de `/opt/psi/.env`, instala as
+dependências, compila, aplica migrations e recarrega apenas o processo PM2
+deste projeto. `/opt/psi/app/.env` é um link para esse arquivo privado e não
+entra no Git. Para entrar no banco, use:
 
-## Ligar o CI/CD da branch master
-
-O job de CI já passa a cada push em `master`. Para permitir o job de deploy,
-configure no repositório GitHub, em **Settings → Secrets and variables → Actions**:
-
-| Tipo | Nome | Valor |
-| --- | --- | --- |
-| Secret | `DEPLOY_SSH_KEY` | Conteúdo da chave privada SSH de deploy |
-| Secret | `DEPLOY_KNOWN_HOSTS` | Linha abaixo |
-| Variável | `DEPLOY_HOST` | `147.93.9.44` |
-| Variável | `DEPLOY_USER` | `root` |
-| Variável | `DEPLOY_PORT` | `22` |
-| Variável | `DEPLOY_ENABLED` | `true` somente quando a publicação estiver permitida |
-
-```text
-147.93.9.44 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB929SXAp7ZxRGzp0X+Ql94Gml85tabk047WNG+4TgVH
+```bash
+sudo -u postgres psql -d psi_maria_cristina
 ```
 
-Fingerprint verificado: `SHA256:hIkzDWHQcdmojguwNWtIDOu57INf3kzob3Vt30pNQG8`.
-Crie também o ambiente GitHub `production` em **Settings → Environments**.
-O workflow sincroniza `master` em `/opt/psi/app` e executa
-`bash deploy/release-pm2.sh`. Não use `git push` de `main` para testar esse
-workflow.
+## CI/CD
 
-## Acesso público e segurança
+O GitHub Actions executa lint, TypeScript e build a cada push em `master`.
+Depois das verificações, sincroniza o código em `/opt/psi/app` e executa
+`bash deploy/release-pm2.sh` por SSH. O job de deploy exige os secrets
+`DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` e as variáveis de repositório
+`DEPLOY_HOST=147.93.9.44`, `DEPLOY_USER=root`, `DEPLOY_PORT=22` e
+`DEPLOY_ENABLED=true`. O ambiente GitHub chama-se `production`.
 
-`SEGURANCA-PRE-PRODUCAO.md` registra pendências críticas e altas. Não receba
-dados reais de pacientes enquanto elas estiverem abertas. Para uma prévia
-restrita, use `deploy/nginx-preview.conf` com uma senha em
-`/etc/nginx/psi-preview.htpasswd`. Depois da revisão, troque pelo arquivo
-`deploy/nginx-cristinapsi.online.conf` e recarregue o Nginx:
+## Domínio e dados de pacientes
+
+O domínio já tem HTTPS, mas exibe uma página temporária. O checklist
+`SEGURANCA-PRE-PRODUCAO.md` ainda registra riscos críticos e altos. Não
+receba dados reais de pacientes até resolvê-los. Para liberar a aplicação
+depois da revisão:
 
 ```bash
 cp /opt/psi/app/deploy/nginx-cristinapsi.online.conf /etc/nginx/sites-available/cristinapsi.online
 nginx -t && systemctl reload nginx
 ```
 
-O certificado HTTPS foi emitido em 2026-09-25 e a renovação simulada passou.
-Adicione um e-mail de contato com `certbot update_account --email SEU_EMAIL`.
-
-## Backups
-
-Antes de receber pacientes, agende backups criptografados fora da VPS do
-PostgreSQL e de `/opt/psi/documentos`, e teste a restauração. Um dump manual:
-
-```bash
-cd /opt/psi/app
-docker compose --env-file /opt/psi/.env -f deploy/compose.yml exec -T db \
-  pg_dump -U psi -d psi_maria_cristina -Fc > /opt/psi/backup-$(date +%F).dump
-```
-
-Esse dump fica somente na VPS até que seja transferido ao destino de backup.
+Antes disso, configure backups criptografados fora da VPS do banco e de
+`/opt/psi/documentos`, e teste a restauração. O certificado HTTPS tem
+renovação automática; adicione um e-mail de contato com
+`certbot update_account --email SEU_EMAIL`.
