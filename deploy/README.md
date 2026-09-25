@@ -75,6 +75,18 @@ Os secrets podem ficar no repositório ou no ambiente `production`:
 | Variável | `DEPLOY_PORT` | `22` |
 | Variável do repositório | `DEPLOY_ENABLED` | Comece sem essa variável; defina `true` somente após resolver o checklist de segurança |
 
+A linha verificada nesta VPS para `DEPLOY_KNOWN_HOSTS` é:
+
+```text
+147.93.9.44 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB929SXAp7ZxRGzp0X+Ql94Gml85tabk047WNG+4TgVH
+```
+
+Fingerprint: `SHA256:hIkzDWHQcdmojguwNWtIDOu57INf3kzob3Vt30pNQG8`.
+Se a VPS for reinstalada ou a chave do host mudar, compare novamente antes
+de atualizar o secret. Para copiar `DEPLOY_SSH_KEY`, abra o arquivo privado
+`C:\Users\victo\.ssh\psi_deploy_ed25519` no seu computador e cole seu
+conteúdo inteiro no campo Secret do GitHub. Não o envie em chat nem o versione.
+
 A chave **pública** correspondente deve constar em `~/.ssh/authorized_keys` do
 usuário de deploy na VPS. Nunca adicione a chave privada ao repositório.
 As demais variáveis também devem ser do repositório. Os secrets do ambiente
@@ -100,6 +112,9 @@ nginx -t && systemctl reload nginx
 ```
 
 O Certbot já está instalado nesta VPS. Troque `SEU_EMAIL` por um endereço seu.
+O certificado foi emitido em 2026-09-25 com a conta Certbot existente, que
+não tinha e-mail. Adicione um contato com `certbot update_account --email
+SEU_EMAIL` para receber avisos.
 O certificado exige DNS apontando para esta VPS. Instale o hook de renovação:
 
 ```sh
