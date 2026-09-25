@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: psi_maria_cristina
+      POSTGRES_USER: psi
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in /opt/psi/.env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U psi -d psi_maria_cristina"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        NEXT_PUBLIC_URL: https://cristinapsi.online
+        NEXT_PUBLIC_MP_PUBLIC_KEY: ${NEXT_PUBLIC_MP_PUBLIC_KEY:-}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://psi:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in /opt/psi/.env}@db:5432/psi_maria_cristina
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in /opt/psi/.env}
+      NEXT_PUBLIC_URL: https://cristinapsi.online
+      NEXT_PUBLIC_MP_PUBLIC_KEY: ${NEXT_PUBLIC_MP_PUBLIC_KEY:-}
+      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
+      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
+      DOCUMENTOS_DIR: /data/documentos
+      DOCUMENTOS_MAX_MB: ${DOCUMENTOS_MAX_MB:-15}
+    volumes:
+      - /opt/psi/documentos:/data/documentos
+    command: ["sh", "-c", "npx prisma migrate deploy && npm run start -- --hostname 0.0.0.0"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:
