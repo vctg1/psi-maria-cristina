@@ -14,7 +14,7 @@ export DOCUMENTOS_DIR=/opt/psi/documentos
 export DATABASE_URL="postgresql://psi:${POSTGRES_PASSWORD}@127.0.0.1:5436/psi_maria_cristina"
 
 docker compose --env-file /opt/psi/.env -f deploy/compose.yml up -d db
-npm ci
+npm ci --include=dev
 npx prisma generate
 npm run build
 npx prisma migrate deploy
