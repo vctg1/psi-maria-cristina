@@ -1,4 +1,0 @@
-cristinapsi.online {
-    encode zstd gzip
-    reverse_proxy app:3000
-}

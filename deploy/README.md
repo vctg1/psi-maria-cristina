@@ -1,6 +1,7 @@
 # Deploy em VPS: cristinapsi.online
 
-Este projeto usa Next.js, PostgreSQL e Caddy em Docker Compose. O GitHub Actions
+Este projeto usa Next.js e PostgreSQL em Docker Compose, atrás do Nginx já
+instalado na VPS. O GitHub Actions
 verifica cada push em `master`. O deploy só roda quando a variável
 `DEPLOY_ENABLED=true` estiver configurada como variável do repositório no GitHub.
 
@@ -14,18 +15,17 @@ insira dados reais de pacientes enquanto esses itens não forem resolvidos.**
 
 No painel DNS da Hostinger, crie/edite o registro `A` de `@` para
 `147.93.9.44`. Remova registros `AAAA` incorretos. Se quiser `www`, configure
-um `CNAME` para `cristinapsi.online` e acrescente o domínio `www` ao Caddyfile.
-Libere TCP 80 e 443 no firewall da VPS e do provedor; preserve a porta SSH.
-O Caddy emite e renova o certificado HTTPS após o DNS propagar.
+um `CNAME` para `cristinapsi.online` e acrescente `www` ao arquivo de Nginx e
+ao certificado. Preserve as portas 80, 443 e SSH. A aplicação escuta apenas em
+`127.0.0.1:3010`; PostgreSQL não publica porta.
 
 Verifique: `dig +short cristinapsi.online A` deve mostrar `147.93.9.44`.
 
 ## 2. Preparar a VPS
 
-Conecte como `root`. Confirme a distribuição com `cat /etc/os-release`.
-Instale Docker Engine e o plugin Compose conforme a [instrução oficial para
-Ubuntu](https://docs.docker.com/engine/install/ubuntu/) ou [Debian](https://docs.docker.com/engine/install/debian/).
-Confirme com `docker version` e `docker compose version`.
+A VPS atual usa Ubuntu 24.04 e já tem Docker Compose e Nginx. Não remova nem
+reinicie os serviços de outros projetos. Se recriar a VPS, instale o Docker
+conforme a [documentação oficial para Ubuntu](https://docs.docker.com/engine/install/ubuntu/).
 
 Crie o diretório de deploy e o de documentos clínicos:
 
@@ -86,8 +86,20 @@ menos 4 GB de RAM ou swap suficiente para o build.
 
 ## 4. Primeiro deploy e conta inicial
 
-Depois da revisão de segurança, publique o branch `master`, configure
-`DEPLOY_ENABLED=true` e observe a execução em **Actions**. Na VPS:
+Após a revisão de segurança, instale o virtual host isolado no Nginx e emita
+um certificado com Certbot, preservando as configurações existentes:
+
+```sh
+cp /opt/psi/app/deploy/nginx-cristinapsi.online.conf /etc/nginx/sites-available/cristinapsi.online
+ln -s /etc/nginx/sites-available/cristinapsi.online /etc/nginx/sites-enabled/cristinapsi.online
+nginx -t && systemctl reload nginx
+certbot --nginx -d cristinapsi.online
+```
+
+Se `certbot` não estiver instalado, instale `certbot` e
+`python3-certbot-nginx` pelo apt antes desse passo. O certificado exige que o
+DNS já aponte para esta VPS. Depois configure `DEPLOY_ENABLED=true` e observe
+o workflow em **Actions**. Na VPS:
 
 ```sh
 cd /opt/psi/app

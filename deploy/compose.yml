@@ -1,3 +1,5 @@
+name: psi_maria_cristina
+
 services:
   db:
     image: postgres:17-alpine
@@ -22,6 +24,8 @@ services:
         NEXT_PUBLIC_URL: https://cristinapsi.online
         NEXT_PUBLIC_MP_PUBLIC_KEY: ${NEXT_PUBLIC_MP_PUBLIC_KEY:-}
     restart: unless-stopped
+    ports:
+      - "127.0.0.1:3010:3000"
     depends_on:
       db:
         condition: service_healthy
@@ -39,20 +43,5 @@ services:
       - /opt/psi/documentos:/data/documentos
     command: ["sh", "-c", "npx prisma migrate deploy && npm run start -- --hostname 0.0.0.0"]
 
-  caddy:
-    image: caddy:2-alpine
-    restart: unless-stopped
-    depends_on:
-      - app
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:
