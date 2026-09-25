@@ -67,8 +67,9 @@ jobs:
             'bash /opt/psi/app/deploy/release-pm2.sh'
       - name: Check public site
         run: |
-          status=$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' --retry 12 --retry-delay 5 --retry-all-errors https://cristinapsi.online/)
-          case "$status" in
-            200|401) echo "Public endpoint returned HTTP $status" ;;
-            *) echo "Unexpected HTTP status: $status" >&2; exit 1 ;;
-          esac
+          curl --fail --silent --show-error --retry 12 --retry-delay 5 --retry-all-errors \
+            https://cristinapsi.online/ --output /tmp/psi-home.html
+          if ! grep -q '/_next/static/' /tmp/psi-home.html; then
+            echo 'The public domain is not serving the Next.js application' >&2
+            exit 1
+          fi
