@@ -84,22 +84,38 @@ O workflow usa SSH para sincronizar o código e executar `docker compose up -d
 --build`. A VPS precisa de espaço e memória para compilar Next.js. Reserve ao
 menos 4 GB de RAM ou swap suficiente para o build.
 
-## 4. Primeiro deploy e conta inicial
+## 4. Domínio e certificado
 
-Após a revisão de segurança, instale o virtual host isolado no Nginx e emita
-um certificado com Certbot, preservando as configurações existentes:
+Antes da liberação do sistema, use uma página temporária. Crie o webroot para
+o desafio ACME e instale somente o virtual host novo:
+
+```sh
+install -d -m 755 /var/www/psi-acme
+cp /opt/psi/app/deploy/nginx-acme.conf /etc/nginx/sites-available/cristinapsi.online
+ln -s /etc/nginx/sites-available/cristinapsi.online /etc/nginx/sites-enabled/cristinapsi.online
+nginx -t && systemctl reload nginx
+certbot certonly --webroot -w /var/www/psi-acme -d cristinapsi.online --email SEU_EMAIL --agree-tos --non-interactive
+cp /opt/psi/app/deploy/nginx-maintenance.conf /etc/nginx/sites-available/cristinapsi.online
+nginx -t && systemctl reload nginx
+```
+
+O Certbot já está instalado nesta VPS. Troque `SEU_EMAIL` por um endereço seu.
+O certificado exige DNS apontando para esta VPS. Mantenha um hook de renovação
+que recarregue o Nginx após a troca do certificado. A página temporária deve
+responder `200` em `https://cristinapsi.online` e não expõe a aplicação.
+
+## 5. Publicação e conta inicial
+
+Depois de resolver o checklist de segurança, substitua a página temporária
+pelo proxy da aplicação e ative o deploy automático:
 
 ```sh
 cp /opt/psi/app/deploy/nginx-cristinapsi.online.conf /etc/nginx/sites-available/cristinapsi.online
-ln -s /etc/nginx/sites-available/cristinapsi.online /etc/nginx/sites-enabled/cristinapsi.online
 nginx -t && systemctl reload nginx
-certbot --nginx -d cristinapsi.online
 ```
 
-Se `certbot` não estiver instalado, instale `certbot` e
-`python3-certbot-nginx` pelo apt antes desse passo. O certificado exige que o
-DNS já aponte para esta VPS. Depois configure `DEPLOY_ENABLED=true` e observe
-o workflow em **Actions**. Na VPS:
+Configure `DEPLOY_ENABLED=true` no GitHub e observe o workflow em **Actions**.
+Na VPS:
 
 ```sh
 cd /opt/psi/app
@@ -116,7 +132,7 @@ na máquina com as dependências instaladas), e rode o seed uma vez com
 a senha em histórico de shell; use um terminal privado e apague os valores ao
 fim. O seed atual também define horários iniciais; revise antes de executá-lo.
 
-## 5. Backups e manutenção
+## 6. Backups e manutenção
 
 Agende cópias **criptografadas fora da VPS** do banco PostgreSQL e de
 `/opt/psi/documentos`, e teste a restauração antes de aceitar pacientes.
