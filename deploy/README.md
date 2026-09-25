@@ -100,8 +100,14 @@ nginx -t && systemctl reload nginx
 ```
 
 O Certbot já está instalado nesta VPS. Troque `SEU_EMAIL` por um endereço seu.
-O certificado exige DNS apontando para esta VPS. Mantenha um hook de renovação
-que recarregue o Nginx após a troca do certificado. A página temporária deve
+O certificado exige DNS apontando para esta VPS. Instale o hook de renovação:
+
+```sh
+install -m 755 /opt/psi/app/deploy/renew-nginx.sh /etc/letsencrypt/renewal-hooks/deploy/psi-reload-nginx.sh
+certbot renew --dry-run --cert-name cristinapsi.online
+```
+
+A página temporária deve
 responder `200` em `https://cristinapsi.online` e não expõe a aplicação.
 
 ## 5. Publicação e conta inicial
