@@ -6,10 +6,7 @@ import Button from 'react-bootstrap/Button';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
-import Navbar from 'react-bootstrap/Navbar';
-import Nav from 'react-bootstrap/Nav';
-import Offcanvas from 'react-bootstrap/Offcanvas';
-import { useAuth } from '@/contexts/AuthContext';
+import SiteHeader from '@/components/SiteHeader';
 
 const especialidades = [
   'Terapia Cognitivo-Comportamental',
@@ -35,56 +32,9 @@ function OndaBaixo({ cor }: { cor: string }) {
 }
 
 export default function Home() {
-  const { usuario, logout } = useAuth();
-
   return (
     <div>
-      {/* Header */}
-      <Navbar expand="md" className="pmc-header" as="header">
-        <Container className="pmc-container">
-          <Navbar.Brand as={Link} href="/">
-            <Image
-              src="/maria-cristina-logo.png"
-              alt="Psicóloga Maria Cristina"
-              width={84}
-              height={80}
-              style={{ objectFit: 'contain' }}
-              priority
-            />
-          </Navbar.Brand>
-          <Navbar.Toggle aria-controls="navbar-principal" aria-label="Abrir menu" />
-          <Navbar.Offcanvas
-            id="navbar-principal"
-            aria-labelledby="navbar-principal-titulo"
-            placement="end"
-            className="pmc-menu-lateral"
-          >
-            <Offcanvas.Header closeButton closeLabel="Fechar menu">
-              <Offcanvas.Title id="navbar-principal-titulo" className="pmc-rotulo">
-                Menu
-              </Offcanvas.Title>
-            </Offcanvas.Header>
-            <Offcanvas.Body className="justify-content-md-end">
-              <Nav className="align-items-md-center gap-2">
-                <Link href="/agendamento" className="d-grid text-decoration-none">
-                  <Button variant="primary">Agendar consulta</Button>
-                </Link>
-                <Link href={usuario?.papel === 'paciente' ? '/area-paciente' : '/area-restrita'} className="d-grid text-decoration-none">
-                  <Button variant="outline-secondary">
-                    <i className="bi bi-person-lock me-2" />
-                    {usuario ? 'Minha área' : 'Área restrita'}
-                  </Button>
-                </Link>
-                {usuario && (
-                  <Button variant="outline-secondary" onClick={() => logout()}>
-                    Sair
-                  </Button>
-                )}
-              </Nav>
-            </Offcanvas.Body>
-          </Navbar.Offcanvas>
-        </Container>
-      </Navbar>
+      <SiteHeader />
 
       {/* Hero */}
       <section className="pmc-secao">

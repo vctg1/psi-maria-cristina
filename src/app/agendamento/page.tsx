@@ -2,14 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import Container from 'react-bootstrap/Container';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import Card from 'react-bootstrap/Card';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
-import Navbar from 'react-bootstrap/Navbar';
 import Alert from 'react-bootstrap/Alert';
 import Tabs from 'react-bootstrap/Tabs';
 import Tab from 'react-bootstrap/Tab';
@@ -18,6 +16,7 @@ import CalendarioAgendamento from '@/components/CalendarioAgendamento';
 import PacienteForm from '@/components/area-restrita/PacienteForm';
 import type { PacienteFormValores } from '@/components/area-restrita/PacienteForm';
 import LoginForm from '@/components/LoginForm';
+import SiteHeader from '@/components/SiteHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AgendamentoEntrada, AgendamentoResposta, Modalidade, ErroApi } from '@/types/agenda';
 
@@ -174,21 +173,7 @@ export default function AgendamentoPage() {
 
   return (
     <div>
-      {/* Header */}
-      <Navbar expand="md" className="pmc-header" as="header">
-        <Container className="pmc-container justify-content-center">
-          <Navbar.Brand as={Link} href="/">
-            <Image
-              src="/maria-cristina-logo.png"
-              alt="Psicóloga Maria Cristina"
-              width={84}
-              height={80}
-              style={{ objectFit: 'contain' }}
-              priority
-            />
-          </Navbar.Brand>
-        </Container>
-      </Navbar>
+      <SiteHeader />
 
       <section className="pmc-secao pb-0">
         <Container className="pmc-container">
@@ -394,7 +379,7 @@ export default function AgendamentoPage() {
                 </p>
 
                 <div className="d-flex flex-wrap justify-content-center gap-3">
-                  <Link href="/area-paciente">
+                  <Link href="/area-paciente" target="_blank" rel="noopener noreferrer">
                     <Button variant="primary">Ir para minha área</Button>
                   </Link>
                   <a href={whatsappURL} target="_blank" rel="noopener noreferrer">
