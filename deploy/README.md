@@ -57,6 +57,10 @@ MercadoPago devem ser de produção somente após a revisão das rotas de pagame
 
 ## 3. GitHub Actions
 
+O branch `master` foi criado para o deploy. Se ele será o branch principal do
+projeto, altere também **Settings → General → Default branch** para `master`.
+Commits em `main` não acionam este workflow.
+
 No repositório, vá a **Settings → Environments → New environment** e crie
 `production`. Em **Secrets and variables → Actions**, configure as variáveis
 na seção do **repositório** (o `if` do job as lê antes de entrar no ambiente).
