@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
   const sessao = token ? await verificarSessao(token) : null;
 
   if (!sessao) {
-    const loginUrl = new URL('/login', request.url);
+    const loginUrl = new URL('/login', process.env.NEXT_PUBLIC_URL || request.url);
     loginUrl.searchParams.set('next', request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }

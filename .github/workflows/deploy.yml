@@ -73,3 +73,9 @@ jobs:
             echo 'The public domain is not serving the Next.js application' >&2
             exit 1
           fi
+          login_redirect=$(curl --silent --show-error --output /dev/null --write-out '%{redirect_url}' \
+            https://cristinapsi.online/area-restrita)
+          case "$login_redirect" in
+            https://cristinapsi.online/login\?next=*) ;;
+            *) echo "Unexpected login redirect: $login_redirect" >&2; exit 1 ;;
+          esac
