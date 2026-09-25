@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: psi_maria_cristina
       POSTGRES_USER: psi
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in /opt/psi/.env}
+    ports:
+      - "127.0.0.1:5436:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -15,33 +17,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-
-  app:
-    build:
-      context: ..
-      dockerfile: deploy/Dockerfile
-      args:
-        NEXT_PUBLIC_URL: https://cristinapsi.online
-        NEXT_PUBLIC_MP_PUBLIC_KEY: ${NEXT_PUBLIC_MP_PUBLIC_KEY:-}
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:3010:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      NODE_ENV: production
-      DATABASE_URL: postgresql://psi:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in /opt/psi/.env}@db:5432/psi_maria_cristina
-      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in /opt/psi/.env}
-      NEXT_PUBLIC_URL: https://cristinapsi.online
-      NEXT_PUBLIC_MP_PUBLIC_KEY: ${NEXT_PUBLIC_MP_PUBLIC_KEY:-}
-      MP_ACCESS_TOKEN: ${MP_ACCESS_TOKEN:-}
-      MP_WEBHOOK_SECRET: ${MP_WEBHOOK_SECRET:-}
-      DOCUMENTOS_DIR: /data/documentos
-      DOCUMENTOS_MAX_MB: ${DOCUMENTOS_MAX_MB:-15}
-    volumes:
-      - /opt/psi/documentos:/data/documentos
-    command: ["sh", "-c", "npx prisma migrate deploy && npm run start -- --hostname 0.0.0.0"]
 
 volumes:
   postgres_data:
