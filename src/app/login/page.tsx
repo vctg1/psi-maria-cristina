@@ -1,9 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/navigation';
 import Container from 'react-bootstrap/Container';
 import Card from 'react-bootstrap/Card';
 import Spinner from 'react-bootstrap/Spinner';
@@ -23,7 +22,7 @@ function destinoSeguro(next: string | null): string | null {
 }
 
 function destinoPorPapel(usuario: Usuario): string {
-  return usuario.papel === 'psicologa' ? '/area-restrita/pacientes' : '/area-paciente';
+  return usuario.papel === 'psicologa' ? '/area-restrita/agenda' : '/area-paciente';
 }
 
 // O `next` só é honrado se for uma rota do próprio papel. Sem isso, um `next=/area-restrita/...`
@@ -38,26 +37,26 @@ function nextCabeNoPapel(next: string, usuario: Usuario): boolean {
 
 function destinoFinal(next: string | null, usuario: Usuario): string {
   const seguro = destinoSeguro(next);
+  if (seguro === '/area-restrita' && usuario.papel === 'psicologa') return '/area-restrita/agenda';
   return seguro && nextCabeNoPapel(seguro, usuario) ? seguro : destinoPorPapel(usuario);
 }
 
 export default function LoginPage() {
-  const router = useRouter();
   const { usuario, carregando } = useAuth();
-  const [next, setNext] = useState<string | null>(null);
+  const redirecionando = useRef(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setNext(params.get('next'));
-  }, []);
-
-  useEffect(() => {
-    if (carregando || !usuario) return;
-    router.replace(destinoFinal(next, usuario));
-  }, [carregando, usuario, next, router]);
+    if (carregando || !usuario || redirecionando.current) return;
+    redirecionando.current = true;
+    const next = new URLSearchParams(window.location.search).get('next');
+    window.location.replace(destinoFinal(next, usuario));
+  }, [carregando, usuario]);
 
   const handleSucesso = (usuarioLogado: Usuario) => {
-    router.replace(destinoFinal(next, usuarioLogado));
+    if (redirecionando.current) return;
+    redirecionando.current = true;
+    const next = new URLSearchParams(window.location.search).get('next');
+    window.location.replace(destinoFinal(next, usuarioLogado));
   };
 
   if (carregando || usuario) {
