@@ -1,11 +1,11 @@
 # Deploy na VPS com PM2 e PostgreSQL da máquina
 
-O deploy usa a branch `master`, a pasta `/opt/psi/app`, o processo PM2
+O deploy usa a branch `master`, releases em `/opt/psi/releases/<commit>` e o processo PM2
 `psi-maria-cristina`, Node 24, Nginx e o PostgreSQL instalado na VPS. O banco
 se chama `psi_maria_cristina`, usa o usuário existente `admin` e a porta local `5432`.
 
-O clone em `/root/projetos/psi-maria-cristina` é uma cópia separada, atualmente
-na branch `main`; o workflow não faz deploy a partir dela.
+O clone em `/root/projetos/psi-maria-cristina` é uma cópia separada; o workflow
+faz deploy apenas dos pushes em `master`.
 
 ## Comandos na VPS
 
@@ -17,21 +17,21 @@ sudo -u postgres createdb -O admin psi_maria_cristina
 
 Configure `DATABASE_URL` em `/opt/psi/.env` com o usuário `admin`, a senha
 existente codificada para URL e o banco `psi_maria_cristina`. Não registre a
-senha no Git. O arquivo `/opt/psi/app/.env` é um link para esse arquivo privado.
+senha no Git. Cada release tem `.env` como link para esse arquivo privado.
 
-Deploy manual para testar ou recuperar:
+Para conferir ou reiniciar a versão ativa:
 
 ```bash
-cd /opt/psi/app
-git pull --ff-only origin master
-bash deploy/release-pm2.sh
+export PATH="/root/.nvm/versions/node/v24.18.1/bin:$PATH"
 pm2 status
+pm2 restart psi-maria-cristina
 curl -I http://127.0.0.1:3010/
 ```
 
 O script carrega as variáveis privadas de `/opt/psi/.env`, instala as
-dependências, compila, aplica migrations e recarrega apenas o processo PM2
-deste projeto. Para entrar no banco, use:
+dependências, compila, aplica migrations e reinicia apenas o processo PM2
+deste projeto. O build acontece na nova release antes da troca, preservando os
+arquivos CSS/JS servidos pela versão anterior durante a compilação. Para entrar no banco, use:
 
 ```bash
 psql -h 127.0.0.1 -U admin -d psi_maria_cristina
@@ -40,7 +40,7 @@ psql -h 127.0.0.1 -U admin -d psi_maria_cristina
 ## CI/CD
 
 O GitHub Actions executa lint, TypeScript e build a cada push em `master`.
-Depois das verificações, sincroniza o código em `/opt/psi/app` e executa
+Depois das verificações, sincroniza o código em `/opt/psi/releases/<commit>` e executa
 `bash deploy/release-pm2.sh` por SSH. O job de deploy exige os secrets
 `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` e as variáveis de repositório
 `DEPLOY_HOST=147.93.9.44`, `DEPLOY_USER=root`, `DEPLOY_PORT=22` e
