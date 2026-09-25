@@ -227,7 +227,7 @@ export default function PacienteForm({
       )}
 
       <Row>
-        <Col md={compacto ? 6 : 6}>
+        <Col md={compacto ? 6 : 4}>
           <Form.Group className="mb-3" controlId="pacienteTelefone">
             <Form.Label>Telefone</Form.Label>
             <Form.Control
@@ -239,9 +239,9 @@ export default function PacienteForm({
             <Form.Control.Feedback type="invalid">{erros.telefone}</Form.Control.Feedback>
           </Form.Group>
         </Col>
-        <Col md={compacto ? 6 : 3}>
+        <Col md={compacto ? 6 : 4}>
           <Form.Group className="mb-3" controlId="pacienteDataNascimento">
-            <Form.Label>Data de nascimento{!dataNascimentoObrigatoria && ' (opcional)'}</Form.Label>
+            <Form.Label className="text-nowrap">Nascimento{!dataNascimentoObrigatoria && ' (opcional)'}</Form.Label>
             <Form.Control
               type="date"
               value={dataNascimento}
@@ -252,7 +252,7 @@ export default function PacienteForm({
           </Form.Group>
         </Col>
         {!compacto && (
-          <Col md={3}>
+          <Col md={4}>
             <Form.Group className="mb-3" controlId="pacienteCpf">
               <Form.Label>CPF{!cpfSomenteLeitura && ' (opcional)'}</Form.Label>
               {cpfSomenteLeitura ? (

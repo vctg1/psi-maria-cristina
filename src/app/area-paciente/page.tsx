@@ -115,10 +115,10 @@ export default function AreaPacientePage() {
                 <thead>
                   <tr>
                     <th>Data</th>
-                    <th>Modalidade</th>
+                    {/* colunas secundárias saem no mobile: 5 colunas não cabem em 390px */}
+                    <th className="d-none d-md-table-cell">Modalidade</th>
                     <th>Status</th>
                     <th className="text-end">Valor</th>
-                    <th>Cobrança</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -128,15 +128,33 @@ export default function AreaPacientePage() {
                         {formatarData(consulta.inicio, { day: '2-digit', month: '2-digit', year: 'numeric' })}{' '}
                         às {formatarHora(consulta.inicio)}
                       </td>
-                      <td>{consulta.modalidade === 'online' ? 'Online' : 'Presencial'}</td>
-                      <td>{STATUS_LABEL[consulta.status]}</td>
-                      <td className="text-end">
-                        {consulta.cobranca.situacao !== 'nao_cobravel' ? formatarMoeda(consulta.cobranca.valor) : '—'}
+                      <td className="d-none d-md-table-cell">
+                        {consulta.modalidade === 'online' ? 'Online' : 'Presencial'}
                       </td>
-                      <td>
-                        {consulta.cobranca.situacao === 'pago' && <span className="pmc-badge-ok">Paga</span>}
+                      <td>{STATUS_LABEL[consulta.status]}</td>
+                      <td className="text-end text-nowrap">
+                        {consulta.cobranca.situacao !== 'nao_cobravel' ? formatarMoeda(consulta.cobranca.valor) : '—'}
+                        {consulta.cobranca.situacao === 'pago' && (
+                          <span className="pmc-badge-ok d-block mt-1">Paga</span>
+                        )}
                         {consulta.cobranca.situacao === 'em_aberto' && (
-                          <span className="pmc-badge-aviso">Em aberto</span>
+                          <span className="pmc-badge-aviso d-block mt-1">Em aberto</span>
+                        )}
+                        {consulta.cobranca.situacao === 'aguardando' && (
+                          <>
+                            <span className="pmc-badge-aviso d-block mt-1">Aguardando pagamento</span>
+                            {consulta.cobranca.linkCheckout && (
+                              <a
+                                id={`botao-pagar-historico-${consulta.id}`}
+                                className="btn btn-primary btn-sm mt-1"
+                                href={consulta.cobranca.linkCheckout}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Pagar
+                              </a>
+                            )}
+                          </>
                         )}
                       </td>
                     </tr>

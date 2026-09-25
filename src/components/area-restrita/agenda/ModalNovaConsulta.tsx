@@ -11,7 +11,7 @@ import Spinner from 'react-bootstrap/Spinner';
 import ListGroup from 'react-bootstrap/ListGroup';
 import type { PacienteResumo } from '@/types/paciente';
 import type { Modalidade, NovaConsultaEntrada, ResultadoLote } from '@/types/agenda';
-import { hojeLocalISO } from './formatos';
+import { hojeLocalISO, formatarDataCurta, somarDiasISO } from './formatos';
 
 type ModalNovaConsultaProps = {
   show: boolean;
@@ -61,7 +61,9 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
   const [modalidade, setModalidade] = useState<Modalidade>('presencial');
   const [motivo, setMotivo] = useState('');
   const [observacoes, setObservacoes] = useState('');
-  const [repetirSemanas, setRepetirSemanas] = useState(0);
+  const [quantidade, setQuantidade] = useState(1);
+  const [valorPadrao, setValorPadrao] = useState<number | null>(null);
+  const [valorInput, setValorInput] = useState('');
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -84,10 +86,26 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
     setModalidade('presencial');
     setMotivo('');
     setObservacoes('');
-    setRepetirSemanas(0);
+    setQuantidade(1);
+    setValorInput('');
     setErro(null);
     setResultado(null);
   }, [show, dataInicial]);
+
+  useEffect(() => {
+    if (!show) return;
+    fetch('/api/configuracao')
+      .then((r) => r.json())
+      .then((dados) => {
+        const valor = typeof dados?.valorPadraoSessao === 'number' ? dados.valorPadraoSessao : null;
+        setValorPadrao(valor);
+        setValorInput(valor !== null ? valor.toFixed(2) : '');
+      })
+      .catch(() => {
+        setValorPadrao(null);
+        setValorInput('');
+      });
+  }, [show]);
 
   useEffect(() => {
     if (!show || tipoPaciente !== 'existente') return;
@@ -119,6 +137,13 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
       .finally(() => setCarregandoHorarios(false));
   }, [passo, data]);
 
+  const datasRepeticao = (() => {
+    if (quantidade <= 1 || !data) return '';
+    const datas = Array.from({ length: quantidade }, (_, i) => formatarDataCurta(somarDiasISO(data, i * 7)));
+    if (datas.length === 1) return datas[0];
+    return `${datas.slice(0, -1).join(', ')} e ${datas[datas.length - 1]}`;
+  })();
+
   const podeAvancar =
     tipoPaciente === 'existente' ? pacienteSelecionado !== null : novoNome.trim() && apenasDigitos(novoTelefone).length >= 10;
 
@@ -130,13 +155,25 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
     setEnviando(true);
     setErro(null);
     try {
+      // Aceita vírgula decimal ("180,50"): sem isso `Number` devolveria NaN e o valor digitado
+      // seria descartado em silêncio, criando as consultas com o valor padrão.
+      const valorNumerico = valorInput.trim() ? Number(valorInput.trim().replace(',', '.')) : null;
+      if (valorNumerico !== null && (!Number.isFinite(valorNumerico) || valorNumerico <= 0)) {
+        setErro('Informe um valor válido (ex.: 180 ou 180,50).');
+        setEnviando(false);
+        return;
+      }
+      const valorDiferenteDoPadrao =
+        valorNumerico !== null && (valorPadrao === null || Math.abs(valorNumerico - valorPadrao) > 0.001);
+
       const entrada: NovaConsultaEntrada = {
         data,
         hora,
         modalidade,
         motivo: motivo.trim() || undefined,
         observacoes: observacoes.trim() || undefined,
-        repetirSemanas,
+        quantidade,
+        valor: valorDiferenteDoPadrao ? valorNumerico : undefined,
       };
       if (tipoPaciente === 'existente' && pacienteSelecionado) {
         entrada.pacienteId = pacienteSelecionado.id;
@@ -340,19 +377,45 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
                     maxLength={1000}
                   />
                 </Form.Group>
-                <Form.Group className="mb-3" controlId="novaConsultaRepetir">
-                  <Form.Label>Repetir nas próximas semanas</Form.Label>
-                  <Form.Select value={repetirSemanas} onChange={(e) => setRepetirSemanas(Number(e.target.value))}>
-                    {Array.from({ length: 13 }, (_, n) => (
-                      <option key={n} value={n}>
-                        {n === 0 ? 'Não repetir' : `${n} semana(s)`}
-                      </option>
-                    ))}
-                  </Form.Select>
-                  <Form.Text className="pmc-texto-2">
-                    Cria consultas independentes, uma por semana; pula semanas sem horário ou já ocupadas.
-                  </Form.Text>
-                </Form.Group>
+                <Row>
+                  <Col md={6}>
+                    <Form.Group className="mb-3" controlId="novaConsultaQuantidade">
+                      <Form.Label>Quantas consultas?</Form.Label>
+                      <Form.Select value={quantidade} onChange={(e) => setQuantidade(Number(e.target.value))}>
+                        <option value={1}>Consulta única</option>
+                        {Array.from({ length: 11 }, (_, i) => i + 2).map((n) => (
+                          <option key={n} value={n}>
+                            {n} consultas
+                          </option>
+                        ))}
+                      </Form.Select>
+                      {quantidade > 1 && data && (
+                        <Form.Text className="pmc-texto-2">
+                          Serão criadas {quantidade} consultas: {datasRepeticao}.
+                        </Form.Text>
+                      )}
+                    </Form.Group>
+                  </Col>
+                  <Col md={6}>
+                    <Form.Group className="mb-3" controlId="novaConsultaValor">
+                      <Form.Label>Valor da consulta (R$)</Form.Label>
+                      {/* `type="text"` + inputMode decimal: em pt-BR o `type="number"` descarta a
+                          vírgula e o valor digitado seria perdido silenciosamente. */}
+                      <Form.Control
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="200,00"
+                        value={valorInput}
+                        onChange={(e) => setValorInput(e.target.value.replace(/[^\d.,]/g, ''))}
+                      />
+                      <Form.Text className="pmc-texto-2">
+                        {quantidade > 1
+                          ? 'Este valor vale para cada uma das consultas.'
+                          : 'Deixe como está para usar o valor padrão.'}
+                      </Form.Text>
+                    </Form.Group>
+                  </Col>
+                </Row>
               </>
             )}
           </>

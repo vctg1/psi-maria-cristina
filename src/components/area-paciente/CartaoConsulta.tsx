@@ -132,6 +132,20 @@ export default function CartaoConsulta({
               <span className={STATUS_BADGE[consulta.status]}>{STATUS_LABEL[consulta.status]}</span>
               {consulta.cobranca.situacao === 'pago' && <span className="pmc-badge-ok">Paga</span>}
               {consulta.cobranca.situacao === 'em_aberto' && <span className="pmc-badge-aviso">Em aberto</span>}
+              {consulta.cobranca.situacao === 'aguardando' && (
+                <span className="pmc-badge-aviso">Aguardando pagamento</span>
+              )}
+              {consulta.cobranca.situacao === 'aguardando' && consulta.cobranca.linkCheckout && (
+                <a
+                  id={`botao-pagar-${consulta.id}`}
+                  className="btn btn-primary btn-sm"
+                  href={consulta.cobranca.linkCheckout}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Pagar
+                </a>
+              )}
             </div>
           </div>
 

@@ -23,9 +23,10 @@ export type OrigemPagamento = 'manual' | 'online';
 
 /** Resumo de cobrança embutido em cada consulta (psicóloga e paciente veem a mesma forma). */
 export type CobrancaConsulta = {
-  /** `pago` = coberta por um Pagamento com status pago · `em_aberto` = sem pagamento e cobrável ·
+  /** `pago` = coberta por um Pagamento com status pago · `aguardando` = tem cobrança ONLINE
+   *  pendente (link gerado, ainda não pago) · `em_aberto` = sem pagamento e cobrável ·
    *  `nao_cobravel` = cancelada/não compareceu sem pagamento (não entra em "em aberto"). */
-  situacao: 'pago' | 'em_aberto' | 'nao_cobravel';
+  situacao: 'pago' | 'aguardando' | 'em_aberto' | 'nao_cobravel';
   /** Valor efetivo em reais: Consulta.valor quando definido, senão Configuracao.valorPadraoSessao. */
   valor: number;
   /** true quando a psicóloga definiu um valor específico para esta consulta. */
@@ -34,6 +35,9 @@ export type CobrancaConsulta = {
   metodo: MetodoManual | 'boleto' | 'cartao' | null;
   /** YYYY-MM-DD (manual) ou ISO (online). */
   recebidoEm: string | null;
+  /** Fase 5b: link hospedado de checkout quando `situacao === 'aguardando'`. É o ÚNICO campo de
+   *  pagamento online que chega ao paciente — sem ids de gateway, sem credenciais. */
+  linkCheckout: string | null;
 };
 
 /** Consulta vista pela tela Financeiro (em aberto) — só o necessário. */
@@ -81,3 +85,45 @@ export type ConfiguracaoDto = {
 
 export const PAGAMENTO_VALOR_MAX = 100000; // teto de sanidade (R$)
 export const PAGAMENTO_CONSULTAS_MAX = 50;
+
+// ---------------------------------------------------------------- Fase 5b · cobrança ONLINE
+
+export const GATEWAYS = ['mercadopago', 'asaas'] as const;
+export type Gateway = (typeof GATEWAYS)[number];
+
+export const GATEWAY_LABEL: Record<Gateway, string> = {
+  mercadopago: 'MercadoPago',
+  asaas: 'Asaas',
+};
+
+/** Body de POST /api/pagamentos/online (psicóloga). O VALOR NUNCA VEM DAQUI: é derivado das
+ *  consultas no servidor (`Consulta.valor ?? Configuracao.valorPadraoSessao`). */
+export type CobrancaOnlineEntrada = {
+  /** Consultas a cobrar (1..PAGAMENTO_CONSULTAS_MAX), todas em aberto e do mesmo paciente. */
+  consultaIds: string[];
+  /** Gateway a usar; omitido = `Configuracao.gatewayPadrao`. */
+  gateway?: Gateway;
+};
+
+/** Resposta da geração e da consulta de status. Só o que a tela precisa — nunca o objeto bruto
+ *  do gateway, nunca credenciais, nunca o payload do webhook. */
+export type CobrancaOnlineDto = {
+  pagamentoId: string;
+  gateway: Gateway;
+  status: PagamentoStatus;
+  valor: number;
+  /** URL hospedada do checkout (Checkout Pro / link de pagamento). */
+  linkCheckout: string | null;
+  expiraEm: string | null; // ISO
+  pagoEm: string | null; // ISO
+  criadoEm: string; // ISO
+  consultas: { id: string; inicio: string; paciente: { id: string; nome: string } }[];
+};
+
+/** Mensagem pronta para o wa.me que a psicóloga envia ao paciente (montada no cliente). */
+export type StatusPagamentoPublico = {
+  status: PagamentoStatus;
+  valor: number;
+  linkCheckout: string | null;
+  pagoEm: string | null;
+};

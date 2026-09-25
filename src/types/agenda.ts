@@ -59,7 +59,8 @@ export type NovaConsultaEntrada = {
   modalidade: Modalidade;
   motivo?: string;
   observacoes?: string;
-  repetirSemanas?: number; // 0..12
+  quantidade?: number; // 1..12, default 1. 1 = consulta única; N = N consultas consecutivas.
+  valor?: number | null; // aplicado a todas as consultas do lote; null/ausente = valor padrão
 };
 
 export type ResultadoLote = {

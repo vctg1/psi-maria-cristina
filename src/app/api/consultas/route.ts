@@ -13,7 +13,12 @@ import {
 } from '@/lib/agenda/consultas';
 import { obterValorPadraoSessao } from '@/lib/pagamentos/cobranca';
 import { CONSULTA_STATUS, type ConsultaStatus } from '@/types';
+import { PAGAMENTO_VALOR_MAX } from '@/types/pagamento';
 import type { Modalidade, NovaConsultaEntrada, ResultadoLote } from '@/types/agenda';
+
+function valorValido(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= PAGAMENTO_VALOR_MAX && Math.round(v * 100) / 100 === v;
+}
 
 const MODALIDADES: Modalidade[] = ['presencial', 'online'];
 const JANELA_MAX_DIAS = 62;
@@ -90,7 +95,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/consultas (psicóloga) — cria consulta(s) avulsas ou com repetição semanal.
+// POST /api/consultas (psicóloga) — cria 1..12 consultas consecutivas, com valor opcional.
 export async function POST(request: NextRequest) {
   try {
     const r = await requireAuth(request, 'psicologa');
@@ -135,12 +140,22 @@ export async function POST(request: NextRequest) {
       }
       observacoes = obj.observacoes.trim() || null;
     }
-    let repetirSemanas = 0;
-    if (obj.repetirSemanas !== undefined) {
-      if (typeof obj.repetirSemanas !== 'number' || !Number.isInteger(obj.repetirSemanas) || obj.repetirSemanas < 0 || obj.repetirSemanas > 12) {
-        return NextResponse.json({ error: 'repetirSemanas deve ser um inteiro entre 0 e 12' }, { status: 400 });
+    let quantidade = 1;
+    if (obj.quantidade !== undefined) {
+      if (typeof obj.quantidade !== 'number' || !Number.isInteger(obj.quantidade) || obj.quantidade < 1 || obj.quantidade > 12) {
+        return NextResponse.json({ error: 'quantidade deve ser um inteiro entre 1 e 12' }, { status: 400 });
       }
-      repetirSemanas = obj.repetirSemanas;
+      quantidade = obj.quantidade;
+    }
+    let valor: number | null = null;
+    if (obj.valor !== undefined && obj.valor !== null) {
+      if (!valorValido(obj.valor)) {
+        return NextResponse.json(
+          { error: 'Dados inválidos', campos: { valor: `Informe null ou um número maior que 0 e até ${PAGAMENTO_VALOR_MAX} (até 2 casas decimais)` } },
+          { status: 400 }
+        );
+      }
+      valor = obj.valor;
     }
 
     let pacienteId: string;
@@ -174,7 +189,7 @@ export async function POST(request: NextRequest) {
     const puladas: ResultadoLote['puladas'] = [];
     const valorPadrao = await obterValorPadraoSessao();
 
-    for (let i = 0; i <= repetirSemanas; i++) {
+    for (let i = 0; i < quantidade; i++) {
       const dataOcorrencia = somarDias(obj.data, i * 7);
       const inicio = montarInicio(dataOcorrencia, hora);
       try {
@@ -185,6 +200,7 @@ export async function POST(request: NextRequest) {
           motivo,
           observacoes,
           criadaPor: 'psicologa',
+          valor,
         });
         criadas.push(paraConsultaDto(consulta, valorPadrao));
       } catch (error) {

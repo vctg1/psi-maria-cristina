@@ -43,6 +43,7 @@ type NovaConsulta = {
   motivo?: string | null;
   observacoes?: string | null;
   criadaPor: 'paciente' | 'psicologa';
+  valor?: Prisma.Decimal | number | null;
 };
 
 /** Cria a consulta revalidando a disponibilidade dentro de uma transação serializável. */
@@ -62,6 +63,12 @@ export async function criarConsultaComTrava(dados: NovaConsulta): Promise<Consul
             observacoes: dados.observacoes ?? null,
             criadaPor: dados.criadaPor,
             status: 'agendada',
+            valor:
+              dados.valor === undefined || dados.valor === null
+                ? null
+                : dados.valor instanceof Prisma.Decimal
+                  ? dados.valor
+                  : new Prisma.Decimal(dados.valor),
           },
           select: SELECT_CONSULTA_COM_PACIENTE,
         });

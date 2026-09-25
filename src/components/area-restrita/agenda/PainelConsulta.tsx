@@ -9,12 +9,13 @@ import Modal from 'react-bootstrap/Modal';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import type { ConsultaDto, Modalidade } from '@/types/agenda';
-import type { PagamentoDto } from '@/types/pagamento';
-import { METODO_LABEL } from '@/types/pagamento';
+import type { CobrancaOnlineDto, PagamentoDto } from '@/types/pagamento';
+import { GATEWAY_LABEL, METODO_LABEL } from '@/types/pagamento';
 import { useNotificacao } from '@/components/NotificacaoProvider';
 import { formatarData, formatarHora } from './formatos';
 import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
 import ModalRegistrarPagamento from '@/components/area-restrita/financeiro/ModalRegistrarPagamento';
+import ModalCobrancaOnline from '@/components/area-restrita/financeiro/ModalCobrancaOnline';
 
 type PainelConsultaProps = {
   consulta: ConsultaDto | null;
@@ -57,6 +58,10 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
   const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
   const [modalEstornar, setModalEstornar] = useState(false);
   const [estornando, setEstornando] = useState(false);
+  const [modalCobrancaOnlineAberto, setModalCobrancaOnlineAberto] = useState(false);
+  const [atualizandoStatusOnline, setAtualizandoStatusOnline] = useState(false);
+  const [erroStatusOnline, setErroStatusOnline] = useState<string | null>(null);
+  const [gatewayCobrancaOnline, setGatewayCobrancaOnline] = useState<CobrancaOnlineDto['gateway'] | null>(null);
 
   useEffect(() => {
     setAtual(consulta);
@@ -72,6 +77,9 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
     setErroValor(null);
     setModalPagamentoAberto(false);
     setModalEstornar(false);
+    setModalCobrancaOnlineAberto(false);
+    setErroStatusOnline(null);
+    setGatewayCobrancaOnline(null);
   }, [consulta]);
 
   useEffect(() => {
@@ -207,11 +215,11 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
     }
   };
 
-  const salvarValor = async (usarPadrao: boolean) => {
+  const salvarValor = async () => {
     setSalvandoValor(true);
     setErroValor(null);
     try {
-      const valorNumerico = usarPadrao ? null : Number(valorInput);
+      const valorNumerico = Number(valorInput);
       const response = await fetch(`/api/consultas/${atual.id}/valor`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -230,6 +238,56 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
       setErroValor('Não foi possível salvar o valor.');
     } finally {
       setSalvandoValor(false);
+    }
+  };
+
+  const aoGerarCobrancaOnline = (cobranca: CobrancaOnlineDto) => {
+    setAtual({
+      ...atual,
+      cobranca: {
+        ...atual.cobranca,
+        situacao: 'aguardando',
+        pagamentoId: cobranca.pagamentoId,
+        linkCheckout: cobranca.linkCheckout,
+        metodo: null,
+        recebidoEm: null,
+      },
+    });
+    setGatewayCobrancaOnline(cobranca.gateway);
+    setModalCobrancaOnlineAberto(false);
+    onAtualizado();
+  };
+
+  const atualizarStatusOnline = async () => {
+    if (!atual.cobranca.pagamentoId) return;
+    setAtualizandoStatusOnline(true);
+    setErroStatusOnline(null);
+    try {
+      const response = await fetch(`/api/pagamentos/${atual.cobranca.pagamentoId}/cobranca`);
+      const dados = await response.json().catch(() => null);
+      if (!response.ok) {
+        setErroStatusOnline(dados?.error ?? 'Não foi possível atualizar o status.');
+        return;
+      }
+      const cobranca = dados as CobrancaOnlineDto;
+      const situacao = cobranca.status === 'pago' ? 'pago' : cobranca.status === 'pendente' ? 'aguardando' : 'em_aberto';
+      setGatewayCobrancaOnline(situacao === 'em_aberto' ? null : cobranca.gateway);
+      setAtual({
+        ...atual,
+        cobranca: {
+          ...atual.cobranca,
+          situacao,
+          pagamentoId: situacao === 'em_aberto' ? null : cobranca.pagamentoId,
+          linkCheckout: situacao === 'aguardando' ? cobranca.linkCheckout : null,
+          recebidoEm: cobranca.pagoEm,
+        },
+      });
+      mostrarNotificacao({ tipo: 'sucesso', titulo: 'Status atualizado' });
+      onAtualizado();
+    } catch {
+      setErroStatusOnline('Não foi possível atualizar o status.');
+    } finally {
+      setAtualizandoStatusOnline(false);
     }
   };
 
@@ -356,41 +414,98 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
                     id="botao-salvar-valor"
                     variant="outline-secondary"
                     size="sm"
-                    disabled={salvandoValor || atual.cobranca.situacao === 'pago'}
-                    onClick={() => salvarValor(false)}
+                    disabled={salvandoValor || !valorInput.trim() || atual.cobranca.situacao === 'pago'}
+                    onClick={() => salvarValor()}
                   >
                     {salvandoValor ? 'Salvando...' : 'Salvar valor'}
                   </Button>
-                  {atual.cobranca.valorPersonalizado && atual.cobranca.situacao !== 'pago' && (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="p-0"
-                      disabled={salvandoValor}
-                      onClick={() => salvarValor(true)}
-                    >
-                      usar padrão
-                    </Button>
-                  )}
                 </div>
               </Col>
             </Row>
 
             <div className="mb-2">
               {atual.cobranca.situacao === 'pago' && <span className="pmc-badge-ok">Paga</span>}
+              {atual.cobranca.situacao === 'aguardando' && <span className="pmc-badge-aviso">Aguardando pagamento</span>}
               {atual.cobranca.situacao === 'em_aberto' && <span className="pmc-badge-aviso">Em aberto</span>}
               {atual.cobranca.situacao === 'nao_cobravel' && <span className="pmc-badge-neutro">Não cobrável</span>}
             </div>
 
+            {erroStatusOnline && <Alert variant="danger">{erroStatusOnline}</Alert>}
+
             {atual.cobranca.situacao === 'em_aberto' && (
-              <Button
-                id="botao-registrar-pagamento"
-                variant="primary"
-                size="sm"
-                onClick={() => setModalPagamentoAberto(true)}
-              >
-                Registrar pagamento
-              </Button>
+              <div className="d-flex flex-wrap gap-2">
+                <Button
+                  id="botao-registrar-pagamento"
+                  variant="primary"
+                  size="sm"
+                  onClick={() => setModalPagamentoAberto(true)}
+                >
+                  Registrar pagamento
+                </Button>
+                <Button
+                  id="botao-gerar-cobranca-online"
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={() => setModalCobrancaOnlineAberto(true)}
+                >
+                  Gerar cobrança online
+                </Button>
+              </div>
+            )}
+
+            {atual.cobranca.situacao === 'aguardando' && (
+              <div className="pmc-texto-2 pmc-t-sm">
+                {gatewayCobrancaOnline && <div className="mb-2">Gateway: {GATEWAY_LABEL[gatewayCobrancaOnline]}</div>}
+                {atual.cobranca.linkCheckout && (
+                  <Form.Group className="mb-2" controlId="painelLinkCobrancaOnline">
+                    <Form.Control id="input-link-cobranca-painel" readOnly value={atual.cobranca.linkCheckout} />
+                  </Form.Group>
+                )}
+                <div className="d-flex flex-wrap gap-2">
+                  {atual.cobranca.linkCheckout && (
+                    <Button
+                      id="botao-copiar-link-cobranca-painel"
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(atual.cobranca.linkCheckout ?? '');
+                          mostrarNotificacao({ tipo: 'sucesso', titulo: 'Link copiado' });
+                        } catch {
+                          mostrarNotificacao({ tipo: 'erro', titulo: 'Não foi possível copiar o link' });
+                        }
+                      }}
+                    >
+                      Copiar link
+                    </Button>
+                  )}
+                  {atual.cobranca.linkCheckout && (
+                    <Button
+                      id="botao-whatsapp-cobranca-painel"
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={() => {
+                        const mensagem = `Olá, ${atual.paciente.nome}! Segue o link para o pagamento da sua consulta: ${atual.cobranca.linkCheckout}`;
+                        const digitos = atual.paciente.telefone.replace(/\D/g, '');
+                        const comDdi = digitos.startsWith('55') ? digitos : `55${digitos}`;
+                        window.open(`https://wa.me/${comDdi}?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
+                      }}
+                    >
+                      <i className="bi bi-whatsapp me-2" />
+                      WhatsApp
+                    </Button>
+                  )}
+                  <Button
+                    id="botao-atualizar-status-online"
+                    variant="primary"
+                    size="sm"
+                    disabled={atualizandoStatusOnline}
+                    onClick={atualizarStatusOnline}
+                  >
+                    {atualizandoStatusOnline ? 'Atualizando...' : 'Atualizar status'}
+                  </Button>
+                </div>
+              </div>
             )}
 
             {atual.cobranca.situacao === 'pago' && (
@@ -520,6 +635,21 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
         ]}
         onHide={() => setModalPagamentoAberto(false)}
         onRegistrado={aoRegistrarPagamento}
+      />
+
+      <ModalCobrancaOnline
+        show={modalCobrancaOnlineAberto}
+        consultas={[
+          {
+            id: atual.id,
+            inicio: atual.inicio,
+            pacienteNome: atual.paciente.nome,
+            valor: atual.cobranca.valor,
+            pacienteTelefone: atual.paciente.telefone,
+          },
+        ]}
+        onHide={() => setModalCobrancaOnlineAberto(false)}
+        onGerada={aoGerarCobrancaOnline}
       />
 
       <Modal show={modalEstornar} onHide={() => setModalEstornar(false)} centered>

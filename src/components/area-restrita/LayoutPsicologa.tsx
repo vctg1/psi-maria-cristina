@@ -102,6 +102,13 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
               >
                 Financeiro
               </Nav.Link>
+              <Nav.Link
+                as={Link}
+                href="/area-restrita/configuracao"
+                active={pathname?.startsWith('/area-restrita/configuracao')}
+              >
+                Configuração
+              </Nav.Link>
             </Nav>
             <Nav className="align-items-md-center gap-2">
               <span className="pmc-sino">

@@ -39,19 +39,20 @@ export async function PATCH(request: NextRequest, { params }: Contexto) {
       );
     }
 
-    const existente = await prisma.consulta.findUnique({ where: { id }, select: { pagamentoId: true } });
-    if (!existente) {
-      return NextResponse.json({ error: 'Consulta não encontrada' }, { status: 404 });
-    }
-    if (existente.pagamentoId !== null) {
+    const { count } = await prisma.consulta.updateMany({
+      where: { id, pagamentoId: null },
+      data: { valor: obj.valor === null ? null : new Prisma.Decimal(obj.valor as number) },
+    });
+
+    if (count === 0) {
+      const existente = await prisma.consulta.findUnique({ where: { id }, select: { id: true } });
+      if (!existente) {
+        return NextResponse.json({ error: 'Consulta não encontrada' }, { status: 404 });
+      }
       return NextResponse.json({ error: 'Consulta já paga; o valor não pode ser alterado' }, { status: 409 });
     }
 
-    const atualizado = await prisma.consulta.update({
-      where: { id },
-      data: { valor: obj.valor === null ? null : new Prisma.Decimal(obj.valor as number) },
-      select: SELECT_CONSULTA_COM_PACIENTE,
-    });
+    const atualizado = await prisma.consulta.findUniqueOrThrow({ where: { id }, select: SELECT_CONSULTA_COM_PACIENTE });
 
     const valorPadrao = await obterValorPadraoSessao();
     return NextResponse.json(paraConsultaDto(atualizado, valorPadrao));

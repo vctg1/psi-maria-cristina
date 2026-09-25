@@ -24,14 +24,16 @@ import {
 } from '@/components/area-restrita/agenda/formatos';
 import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
 
-const COBRANCA_CLASSE: Record<'pago' | 'em_aberto' | 'nao_cobravel', string> = {
+const COBRANCA_CLASSE: Record<'pago' | 'aguardando' | 'em_aberto' | 'nao_cobravel', string> = {
   pago: 'pmc-badge-ok',
+  aguardando: 'pmc-badge-aviso',
   em_aberto: 'pmc-badge-aviso',
   nao_cobravel: '',
 };
 
-const COBRANCA_LABEL: Record<'pago' | 'em_aberto' | 'nao_cobravel', string> = {
+const COBRANCA_LABEL: Record<'pago' | 'aguardando' | 'em_aberto' | 'nao_cobravel', string> = {
   pago: 'Paga',
+  aguardando: 'Aguardando pagamento',
   em_aberto: 'Em aberto',
   nao_cobravel: '',
 };

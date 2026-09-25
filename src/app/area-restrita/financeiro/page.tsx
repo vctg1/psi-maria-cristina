@@ -13,7 +13,8 @@ import OverlayTrigger from 'react-bootstrap/OverlayTrigger';
 import Tooltip from 'react-bootstrap/Tooltip';
 import LayoutPsicologa from '@/components/area-restrita/LayoutPsicologa';
 import ModalRegistrarPagamento from '@/components/area-restrita/financeiro/ModalRegistrarPagamento';
-import type { ConsultaCobrancaDto, PagamentoDto } from '@/types/pagamento';
+import ModalCobrancaOnline from '@/components/area-restrita/financeiro/ModalCobrancaOnline';
+import type { CobrancaOnlineDto, ConsultaCobrancaDto, PagamentoDto } from '@/types/pagamento';
 import { METODO_LABEL } from '@/types/pagamento';
 import { formatarData, formatarHora } from '@/components/area-restrita/agenda/formatos';
 import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
@@ -36,12 +37,14 @@ export default function FinanceiroPage() {
   const [filtroPaciente, setFiltroPaciente] = useState('');
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set());
   const [modalPagamentoAberto, setModalPagamentoAberto] = useState(false);
+  const [modalCobrancaOnlineAberto, setModalCobrancaOnlineAberto] = useState(false);
 
   const [pagamentos, setPagamentos] = useState<PagamentoDto[]>([]);
   const [carregandoHistorico, setCarregandoHistorico] = useState(true);
   const [erroHistorico, setErroHistorico] = useState<string | null>(null);
   const [estornandoId, setEstornandoId] = useState<string | null>(null);
   const [modalConfirmarEstorno, setModalConfirmarEstorno] = useState<string | null>(null);
+  const [atualizandoStatusId, setAtualizandoStatusId] = useState<string | null>(null);
 
   const carregarEmAberto = useCallback(async () => {
     setCarregandoEmAberto(true);
@@ -132,11 +135,43 @@ export default function FinanceiroPage() {
 
   const totalSelecionado = consultasSelecionadas.reduce((soma, c) => soma + c.cobranca.valor, 0);
 
+  const pacientesDistintosNaSelecao = useMemo(
+    () => new Set(consultasSelecionadas.map((c) => c.paciente.id)).size,
+    [consultasSelecionadas]
+  );
+  const cobrancaOnlineDesabilitada = consultasSelecionadas.length === 0 || pacientesDistintosNaSelecao > 1;
+
   const aoRegistrarPagamento = (_pagamento: PagamentoDto) => {
     setModalPagamentoAberto(false);
     setSelecionadas(new Set());
     carregarEmAberto();
     carregarHistorico();
+  };
+
+  const aoGerarCobrancaOnline = (_cobranca: CobrancaOnlineDto) => {
+    setModalCobrancaOnlineAberto(false);
+    setSelecionadas(new Set());
+    carregarEmAberto();
+    carregarHistorico();
+  };
+
+  const atualizarStatusOnline = async (pagamentoId: string) => {
+    setAtualizandoStatusId(pagamentoId);
+    try {
+      const response = await fetch(`/api/pagamentos/${pagamentoId}/cobranca`);
+      const dados = await response.json().catch(() => null);
+      if (!response.ok) {
+        mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: dados?.error ?? 'Não foi possível atualizar o status.' });
+        return;
+      }
+      mostrarNotificacao({ tipo: 'sucesso', titulo: 'Status atualizado' });
+      carregarEmAberto();
+      carregarHistorico();
+    } catch {
+      mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: 'Não foi possível atualizar o status.' });
+    } finally {
+      setAtualizandoStatusId(null);
+    }
   };
 
   const confirmarEstorno = async (pagamentoId: string) => {
@@ -242,14 +277,38 @@ export default function FinanceiroPage() {
                   {consultasSelecionadas.length} selecionada{consultasSelecionadas.length === 1 ? '' : 's'} ·{' '}
                   total {formatarMoeda(totalSelecionado)}
                 </span>
-                <Button
-                  id="botao-registrar-pagamento-financeiro"
-                  variant="primary"
-                  disabled={consultasSelecionadas.length === 0}
-                  onClick={() => setModalPagamentoAberto(true)}
-                >
-                  Registrar pagamento
-                </Button>
+                <div className="d-flex gap-2">
+                  <Button
+                    id="botao-registrar-pagamento-financeiro"
+                    variant="primary"
+                    disabled={consultasSelecionadas.length === 0}
+                    onClick={() => setModalPagamentoAberto(true)}
+                  >
+                    Registrar pagamento
+                  </Button>
+                  <OverlayTrigger
+                    overlay={
+                      pacientesDistintosNaSelecao > 1 ? (
+                        <Tooltip id="tooltip-cobranca-online-desabilitada">
+                          Selecione consultas de um único paciente para gerar a cobrança online.
+                        </Tooltip>
+                      ) : (
+                        <span />
+                      )
+                    }
+                  >
+                    <span>
+                      <Button
+                        id="botao-gerar-cobranca-online-financeiro"
+                        variant="outline-primary"
+                        disabled={cobrancaOnlineDesabilitada}
+                        onClick={() => setModalCobrancaOnlineAberto(true)}
+                      >
+                        Gerar cobrança online
+                      </Button>
+                    </span>
+                  </OverlayTrigger>
+                </div>
               </div>
             </>
           )}
@@ -271,6 +330,7 @@ export default function FinanceiroPage() {
                   <th>Criado em</th>
                   <th>Recebido em</th>
                   <th>Método</th>
+                  <th>Origem</th>
                   <th className="text-end">Valor</th>
                   <th>Consultas</th>
                   <th>Status</th>
@@ -296,6 +356,7 @@ export default function FinanceiroPage() {
                           : '—'}
                       </td>
                       <td>{p.metodo ? METODO_LABEL[p.metodo] : '—'}</td>
+                      <td>{p.origem === 'online' ? 'Online' : 'Manual'}</td>
                       <td className="text-end">{formatarMoeda(p.valor)}</td>
                       <td>
                         <OverlayTrigger overlay={<Tooltip id={`tooltip-consultas-${p.id}`}>{listaTooltip}</Tooltip>}>
@@ -321,6 +382,17 @@ export default function FinanceiroPage() {
                             Desfazer
                           </Button>
                         )}
+                        {p.origem === 'online' && p.status === 'pendente' && (
+                          <Button
+                            id={`botao-atualizar-status-${p.id}`}
+                            variant="outline-primary"
+                            size="sm"
+                            disabled={atualizandoStatusId === p.id}
+                            onClick={() => atualizarStatusOnline(p.id)}
+                          >
+                            {atualizandoStatusId === p.id ? 'Atualizando...' : 'Atualizar status'}
+                          </Button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -341,6 +413,18 @@ export default function FinanceiroPage() {
         }))}
         onHide={() => setModalPagamentoAberto(false)}
         onRegistrado={aoRegistrarPagamento}
+      />
+
+      <ModalCobrancaOnline
+        show={modalCobrancaOnlineAberto}
+        consultas={consultasSelecionadas.map((c) => ({
+          id: c.id,
+          inicio: c.inicio,
+          pacienteNome: c.paciente.nome,
+          valor: c.cobranca.valor,
+        }))}
+        onHide={() => setModalCobrancaOnlineAberto(false)}
+        onGerada={aoGerarCobrancaOnline}
       />
 
       <Modal show={modalConfirmarEstorno !== null} onHide={() => setModalConfirmarEstorno(null)} centered>

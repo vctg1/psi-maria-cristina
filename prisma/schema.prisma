@@ -340,13 +340,19 @@ model Pagamento {
   recebidoEm            DateTime?        @map("recebido_em") @db.Date  // manual: data do recebimento informada pela psicóloga
   estornadoEm           DateTime?        @map("estornado_em") @db.Timestamptz(3)
 
-  mpPreferenceId        String?          @unique @map("mp_preference_id")   // Checkout Pro
-  linkCobranca          String?          @map("link_cobranca")              // init_point → wa.me
-  mpPaymentId           String?          @unique @map("mp_payment_id")      // âncora de idempotência
-  mpStatus              String?          @map("mp_status")                  // cru: approved, rejected…
-  mpStatusDetail        String?          @map("mp_status_detail")
+  // --- Fase 5b: cobrança ONLINE via Checkout Pro / link hospedado. Campos genéricos: o mesmo
+  // contrato serve MercadoPago e Asaas (ver src/lib/pagamentos/gateways). Nada aqui é preenchido
+  // por input do cliente; tudo vem da resposta do gateway no servidor.
+  gateway               GatewayPagamento? // qual gateway gerou esta cobrança (null = manual)
+  /// Id da COBRANÇA no gateway (MP: preference.id · Asaas: payment.id). Único: evita duplicar cobrança.
+  referenciaExterna     String?          @unique @map("referencia_externa")
+  /// Id do PAGAMENTO aprovado no gateway (MP: payment.id · Asaas: payment.id). Âncora de idempotência.
+  pagamentoExternoId    String?          @unique @map("pagamento_externo_id")
+  statusExterno         String?          @map("status_externo")             // cru: approved, RECEIVED…
+  statusExternoDetalhe  String?          @map("status_externo_detalhe")
+  linkCheckout          String?          @map("link_checkout")              // URL hospedada → wa.me
   expiraEm              DateTime?        @map("expira_em") @db.Timestamptz(3)
-  pagoEm                DateTime?        @map("pago_em") @db.Timestamptz(3) // date_approved do MP
+  pagoEm                DateTime?        @map("pago_em") @db.Timestamptz(3)
   ultimaReconciliacaoEm DateTime?        @map("ultima_reconciliacao_em") @db.Timestamptz(3)
 
   geradoPorId           String?          @map("gerado_por_id")
@@ -359,6 +365,7 @@ model Pagamento {
   eventos   EventoPagamento[]
 
   @@index([status, criadoEm])
+  @@index([status, ultimaReconciliacaoEm])   // varredura de reconciliação de pendentes
   @@map("pagamento")
 }
 
@@ -367,8 +374,11 @@ model EventoPagamento {
   id               String           @id @default(uuid())
   pagamentoId      String?          @map("pagamento_id")
   origem           OrigemEvento
-  mpNotificationId String?          @unique @map("mp_notification_id")
-  mpPaymentId      String?          @map("mp_payment_id")
+  gateway          GatewayPagamento?
+  /// Id da NOTIFICAÇÃO no gateway (MP: x-request-id/notification id · Asaas: event id).
+  /// @unique = dedupe de reentrega: webhook repetido não reprocessa.
+  notificacaoExternaId String?      @unique @map("notificacao_externa_id")
+  pagamentoExternoId   String?      @map("pagamento_externo_id")
   statusAnterior   PagamentoStatus? @map("status_anterior")
   statusNovo       PagamentoStatus? @map("status_novo")
   payload          Json?                                      // sanitizado: sem card / payer.identification
@@ -376,7 +386,7 @@ model EventoPagamento {
 
   pagamento Pagamento? @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
 
-  @@index([mpPaymentId])
+  @@index([pagamentoExternoId])
   @@map("evento_pagamento")
 }
 

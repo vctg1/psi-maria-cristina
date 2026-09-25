@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth/guard';
 import { formatoDataValido, montarInicio } from '@/lib/agenda/tempo';
-import { CONSULTA_STATUS_COBRAVEL, montarCobranca, obterValorPadraoSessao } from '@/lib/pagamentos/cobranca';
+import { CONSULTA_STATUS_COBRAVEL, SELECT_COBRANCA, montarCobranca, obterValorPadraoSessao } from '@/lib/pagamentos/cobranca';
 import type { ConsultaCobrancaDto } from '@/types/pagamento';
 import type { Modalidade } from '@/types/agenda';
 import type { ConsultaStatus } from '@/types';
@@ -44,9 +44,9 @@ export async function GET(request: NextRequest) {
           inicio: true,
           status: true,
           modalidade: true,
-          valor: true,
-          pagamentoId: true,
-          pagamento: { select: { id: true, status: true, metodo: true, recebidoEm: true, pagoEm: true } },
+          // reusa o select canônico de cobrança (valor, pagamentoId, pagamento) — evita divergir
+          // de `montarCobranca` quando o modelo de pagamento muda
+          ...SELECT_COBRANCA,
           paciente: { select: { id: true, nome: true } },
         },
         orderBy: { inicio: 'asc' },

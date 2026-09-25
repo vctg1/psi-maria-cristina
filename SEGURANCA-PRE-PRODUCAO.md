@@ -12,9 +12,9 @@ Este arquivo é a **fonte única de verdade** sobre dívida de segurança pré-p
 
 Gravidade: **CRÍTICO** = exposição ou manipulação direta de dado de paciente/dinheiro, ou exigência legal · **ALTO** = facilita ataque ou compromete segredo/infra · **MÉDIO** = defesa em profundidade, higiene, superfície reduzida.
 
-Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), `2af0aed` (Fase 2 · pacientes), `835fb22` (Fase 3 · agenda), pendente (Fase 4 · área do paciente e alertas, a commitar), pendente (Documentos clínicos, a commitar).
+Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), `2af0aed` (Fase 2 · pacientes), `835fb22` (Fase 3 · agenda), pendente (Fase 4 · área do paciente e alertas, a commitar), pendente (Documentos clínicos, a commitar), `86ba8a2` (Fase 5a · pagamento manual), pendente (Fase 5b · pagamento online, a commitar).
 
-Última atualização: 2026-09-21 (após Documentos clínicos e edição de e-mail pelo paciente).
+Última atualização: 2026-09-25 (após Fase 5b · pagamento online).
 
 ---
 
@@ -22,30 +22,28 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 
 | Gravidade | Abertos | Aceitos | Resolvidos |
 |---|---|---|---|
-| CRÍTICO | 4 | 0 | 3 |
-| ALTO | 8 | 0 | 4 |
-| MÉDIO | 11 | 6 | 8 |
+| CRÍTICO | 1 | 0 | 6 |
+| ALTO | 5 | 0 | 7 |
+| MÉDIO | 11 | 6 | 14 |
 
 ---
 
 ## CRÍTICOS — bloqueiam produção sem exceção
 
-### C1 · IDOR nas rotas de pagamento — ABERTO
-- **Risco:** `consultaId` vem do body/query e é usado sem verificar se a consulta pertence ao paciente logado. Qualquer paciente autenticado vê/manipula a cobrança de outro (gera PIX, consulta status, marca pago).
-- **Onde:** `src/app/api/pagamento/route.ts` POST; `src/app/api/pagamento-checkout/route.ts` POST (`consultaId` linha ~37), GET (`?consultaId=`), PUT (linha ~203); `src/app/api/pagamento-direto/route.ts` POST.
-- **Mitigação atual:** desde a Fase 1 exigem login (`requireAuth`), mas não checam dono.
-- **Fase:** 5 (reescrita do pagamento com `Pagamento` 1:1 e `auth.pacienteId === consulta.pacienteId`).
+### R-C5 · IDOR nas rotas de pagamento (era C1) — RESOLVIDO (Fase 5b)
+- **Era:** `consultaId` vinha do body/query e era usado sem verificar dono; qualquer paciente autenticado gerava PIX, consultava status ou marcava pago a cobrança de outro (`api/pagamento`, `api/pagamento-checkout` POST/GET/PUT, `api/pagamento-direto`).
+- **Resolução:** as quatro rotas legadas foram **removidas** (`api/pagamento/route.ts`, `api/pagamento-checkout/route.ts`, `api/pagamento-direto/route.ts`, `api/mercadopago/route.ts`), junto com `src/components/CheckoutTransparente.tsx` e `src/lib/pagamentos/valor-padrao.ts`. `grep -rn "pagamento-checkout|pagamento-direto|CheckoutTransparente" src/` → só duas linhas comentadas no legado `src/app/area-restrita/page.tsx:42,785`. A única rota de pagamento que aceita id do cliente é agora `GET /api/pagamentos/[id]/cobranca`, com autorização explícita: `requireAuth` (401 anônimo) → `findUnique` só de metadados → 404 se inexistente, `origem !== 'online'` ou sem consultas (`src/app/api/pagamentos/[id]/cobranca/route.ts:38-40`) → `donoConfere = auth.papel === 'psicologa' || consultas.some(c => c.pacienteId === auth.pacienteId)` (:42-43) → **mesmo 404 genérico** quando não é dono (:45), sem vazar existência; nenhuma chamada ao gateway antes da autorização. Todas as demais rotas de pagamento são `requireAuth(request,'psicologa')`; o paciente lê o status só via `paciente/me/consultas:13-41`, que força `pacienteId: auth.pacienteId`. Confirmado pelo revisor (auditoria Fase 5b, eixo a). E2E contra build de produção: dono → 200, outro paciente → 404, anônimo → 401, paciente em `POST /api/pagamentos/online` → 403.
 
-### C2 · Cliente se declara pago — ABERTO
-- **Risco:** `PUT /api/pagamento-checkout` recebe `{ paymentId, consultaId }` do cliente, faz `payment.get(paymentId)` e, se `approved`, marca a consulta como `pago` — **sem conferir `external_reference === consultaId`**. Um `paymentId` aprovado de qualquer outra transação (inclusive de R$ 1) marca qualquer consulta como paga. O POST também marca `pago` a partir do próprio fluxo, e o `agendamento` legado gravava `pagamento` no JSON.
-- **Onde:** `src/app/api/pagamento-checkout/route.ts` linhas ~96 e ~212–220.
-- **Fase:** 5 (fonte de verdade = webhook com `x-signature` + `payment.get` + `external_reference`; reconciliação idempotente — PROPOSTA §4).
+### R-C6 · Cliente se declara pago (era C2) — RESOLVIDO (Fase 5b) — verificação no Asaas pendente
+- **Era:** `PUT /api/pagamento-checkout` recebia `{ paymentId, consultaId }` do cliente e marcava a consulta como paga se o `payment.get` dissesse `approved`, sem conferir `external_reference` — um `paymentId` aprovado de R$ 1, de qualquer transação, quitava qualquer consulta; a escrita ainda ia para `src/data/consultas.json`.
+- **Resolução:** a rota foi removida. Hoje **nenhuma** rota aceita `paymentId` ou `status` vindo do cliente. O único ponto que grava status é `aplicarStatusExterno` (`src/lib/pagamentos/conciliacao.ts:20`), chamado (i) pelos dois webhooks e (ii) pela reconciliação — sempre com um `StatusExterno` produzido por `adapter.consultarStatus`, isto é, `payment.get` (MP) ou `GET /payments/{id}` (Asaas). O corpo do webhook **nunca** é fonte de verdade: no MP (`src/app/api/webhooks/mercadopago/route.ts:28-37`) o Pagamento próprio é resolvido por `Pagamento.pagamentoExternoId @unique` ou pelo `external_reference` devolvido **pelo MP**, e evento sem correspondência responde `200` sem gravar; no Asaas (`webhooks/asaas/route.ts:25-39`) o Pagamento é resolvido pelo `referenciaExterna` que **nós** gravamos e o `externalReference` do evento é conferido antes de qualquer escrita. `conciliacao.ts:66-74` recusa confirmar quando `valorPago < Pagamento.valor`. Confirmado pelo revisor (auditoria Fase 5b, eixo b).
+- **Verificado com dados reais (2026-09-25):** pagamento PIX real criado no sandbox do MP com `external_reference` = nosso `pagamentoId`; webhook assinado com a **chave secreta real do painel** entregue via túnel público → 200, e o servidor **consultou o MP** e gravou `pagamentoExternoId: 1352644281` + `statusExterno: "pending"` (não confiou no corpo). Webhook com segredo errado → 401; evento de pagamento que não é nosso → 200 **sem gravar**; reentrega do mesmo evento → `duplicado: true` com **1 único** `EventoPagamento`. Núcleo de conciliação 7/7, incluindo "R$ 1 numa cobrança de R$ 200 não confirma".
+- **Verificação pendente (não bloqueia o status, bloqueia o go-live):** um pagamento **aprovado** ponta a ponta (o sandbox desta conta recusa cartão com `excludes_by_rule` e o checkout hospedado não abre — configuração da conta de teste, não do código) e o fluxo **Asaas** inteiro, sem credenciais até aqui. Ver checklist da Fase 6.
 
-### C3 · Valor da cobrança vem do cliente — ABERTO *(novo nesta varredura)*
-- **Risco:** `valor` é lido do body (`const { valor = 150.00 } = body`) e enviado ao MercadoPago como `transaction_amount`. O cliente pode pagar R$ 1 e o sistema marca a consulta como paga (combinado com C2).
-- **Onde:** `src/app/api/pagamento-checkout/route.ts` POST linha ~42 (`transaction_amount: valor` em ~56); `src/app/api/pagamento-direto/route.ts` linha ~41 (~67); `src/components/CheckoutTransparente.tsx` linha ~265 envia `valor: 150.00`. O GET PIX usa `150.00` fixo (linha ~162) — afetados: POST cartão e `pagamento-direto`.
-- **Fase:** 5 (valor vem de `Pagamento.valor`, definido pela psicóloga a partir de `Configuracao.valorPadraoSessao`; nunca do body).
-
+### R-C4 · Valor da cobrança vinha do cliente (era C3) — RESOLVIDO (Fase 5a)
+- **Era:** `valor` era lido do body (`const { valor = 150.00 } = body`) e enviado ao MercadoPago como `transaction_amount`; `src/components/CheckoutTransparente.tsx` mandava `valor: 150.00` e exibia R$ 150,00 fixo. Combinado com C2, o cliente pagava R$ 1 e a consulta era marcada como paga.
+- **Resolução:** o valor passou a ser **sempre** derivado do banco. `Configuracao.valorPadraoSessao` é a fonte única (`src/lib/pagamentos/valor-padrao.ts`, `src/lib/pagamentos/cobranca.ts:13-17`) e as quatro rotas que falam com o MP a consultam no servidor: `src/app/api/pagamento/route.ts:21`, `src/app/api/pagamento-checkout/route.ts:44` (POST cartão) e `:162` (GET PIX), `src/app/api/pagamento-direto/route.ts:43`. O body não participa mais do cálculo; `grep -rn "150" src/app/api/pagamento* src/components/CheckoutTransparente.tsx` → zero. No cliente, `CheckoutTransparente` deixou de enviar `valor` e apenas **lê** `data.valor` para exibição/parcelas. No fluxo manual, o valor default é a soma de `Consulta.valor ?? Configuracao.valorPadraoSessao` calculada dentro da transação (`src/app/api/pagamentos/manual/route.ts:126-131`); um `valor` de pacote/desconto só é aceito no body porque a rota é `requireAuth(request, 'psicologa')` (`:31`), validado por `valorValido` (`:15-17`, teto `PAGAMENTO_VALOR_MAX`). `PATCH /api/consultas/[id]/valor` (também `'psicologa'`, `:22`) é o único caminho para preço por consulta e recusa consulta já paga (409, `:46-48`). Confirmado pelo revisor (auditoria Fase 5a, eixos a/b/e). E2E de produção 25/25. Commit `86ba8a2`.
+- **Ressalva para a Fase 5b:** o valor enviado ao gateway deve continuar vindo do banco, e passar a usar o **valor efetivo da consulta** (`Consulta.valor ?? valorPadraoSessao`), não o padrão global — ver M25. Nenhum `transaction_amount` pode voltar a derivar do body.
 ### R-C3 · Vazamento de dado pessoal no agendamento público (era C4) — RESOLVIDO (Fase 3)
 - **Era:** `POST /api/agendamento` (público) achava o paciente por email e devolvia `paciente: pacienteExistente` inteiro (nome, telefone, CPF, data de nascimento, responsável) — enumeração + coleta de CPF a partir de um e-mail.
 - **Resolução:** rota reescrita (Prisma). Resposta 201 contém apenas `{ consulta: { id, inicio, status }, novoCadastro }` + cookie de sessão `httpOnly`; 400 devolve só `error`/`campos` (mensagens fixas de validação do próprio input); 409 devolve `{ error, codigo: 'EMAIL_EXISTENTE' }` sem nenhum dado do registro (pré-cheque com `select: { id: true }`). Validação de formato/cadastro/senha ocorre **antes** do pré-cheque de e-mail, então payload inválido nunca revela existência de conta. A distinção 409/201 para e-mail válido é enumeração **aceita** pelo dono (mesmo perfil de M1). Cadastro (Usuario + Paciente) e consulta são criados na mesma transação Serializable. Confirmado pelo revisor (auditoria Fase 3, eixo a). Commit `835fb22`.
@@ -87,20 +85,23 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Ação:** revogar/rotacionar no painel do MP (obrigatório); reescrever histórico (`git filter-repo`) é opcional se o repositório for privado — decisão do dono.
 - **Fase:** antes do deploy (Fase 6).
 
-### A4 · Webhook do MercadoPago inexistente / sem assinatura — ABERTO
-- **Risco:** `notification_url` aponta para `/api/pagamento/webhook`, que não existe; o esboço `PUT /api/pagamento` não valida `x-signature` e só faz `console.log`. Sem webhook confiável, a confirmação depende do cliente (C2).
-- **Onde:** `src/app/api/pagamento/route.ts` linhas ~50 e ~86–101; `src/app/api/mercadopago/route.ts` (stub 501, destino previsto).
-- **Fase:** 5 (webhook `POST` com HMAC-SHA256 de `x-signature`/`x-request-id`, `payment.get`, `external_reference`, idempotência por `mpNotificationId`).
+### R-A5 · Webhook de pagamento sem assinatura (era A4) — RESOLVIDO (Fase 5b) — Asaas não exercitado
+- **Era:** `notification_url` apontava para `/api/pagamento/webhook`, inexistente; o esboço `PUT /api/pagamento` não validava `x-signature` e só fazia `console.log`.
+- **Resolução:** dois webhooks `POST` dedicados, ambos `export const dynamic = 'force-dynamic'`, que validam autenticidade **antes de qualquer leitura de banco ou chamada ao gateway**:
+  - MercadoPago (`src/lib/pagamentos/gateways/mercadopago.ts:106-148`): exige `x-signature`, `x-request-id` e `data.id`; monta `id:${data.id};request-id:${x-request-id};ts:${ts};`, HMAC-SHA256 com `MP_WEBHOOK_SECRET`, compara com `crypto.timingSafeEqual` após conferir comprimento e rejeita `ts` fora de ±10 min (anti-replay). `MP_WEBHOOK_SECRET` ausente → `null` → **401, fail-closed**.
+  - Asaas (`src/lib/pagamentos/gateways/asaas.ts:123-144`): header `asaas-access-token` comparado com `timingSafeEqual` + comprimento; token ausente → 401, mesmo comportamento fail-closed.
+  Depois da validação, ambos buscam o status **real** no gateway e delegam a `aplicarStatusExterno`, idempotente e transacional. `notification_url`/`callback` apontam para `/api/webhooks/{mercadopago,asaas}`, montados por `baseUrlPublica()` (sem fallback — ver R-M12). Confirmado pelo revisor (auditoria Fase 5b, eixo c).
+- **Verificado com dados reais (2026-09-25):** com a chave secreta real do painel e túnel público, assinatura válida → 200 e status buscado no MP; assinatura inválida → 401; sem assinatura → 401; replay com `ts` de 1 h → 401.
+- **Verificação pendente:** webhook do **Asaas** só revisado por código (sem credenciais). Registrar os dois webhooks nos painéis e repetir na Fase 6.
+- **Ressalvas LOW:** I18 (chave de dedupe do MP) e I19 (`data.id` lido só da query string).
 
-### A5 · Dados de cartão trafegam pelo servidor (PCI) — ABERTO
-- **Risco:** `pagamento-direto` recebe número, CVV e validade do cartão em texto e os envia ao MP — o servidor entra no escopo PCI-DSS. Não há chamador ativo (código morto), mas a rota existe e está exposta (exige login desde a Fase 1).
-- **Onde:** `src/app/api/pagamento-direto/route.ts` linhas ~79–88.
-- **Fase:** 5 — remover a rota (decisão P2 do plano: Checkout Pro substitui tudo isso).
+### R-A6 · Dados de cartão trafegam pelo servidor (PCI) (era A5) — RESOLVIDO (Fase 5b)
+- **Era:** `src/app/api/pagamento-direto/route.ts` recebia número, CVV e validade em texto e os enviava ao MP, colocando o servidor no escopo PCI-DSS.
+- **Resolução:** a rota foi **removida**, assim como `src/components/CheckoutTransparente.tsx`, que tokenizava cartão no navegador. O modelo 5b é **exclusivamente hospedado**: geramos uma preference (Checkout Pro) ou um link do Asaas e o paciente digita os dados **no domínio do gateway**. Nenhum PAN/CVV/token entra na aplicação: `grep -rn "cardNumber|securityCode|card_number|cvv|token" src/app/api src/lib/pagamentos` → zero. O único campo de pagamento online que chega ao paciente é `cobranca.linkCheckout` (`src/lib/pagamentos/cobranca.ts:85`). Confirmado pelo revisor (auditoria Fase 5b, eixos a/f).
 
-### A6 · Erro bruto do MercadoPago ecoado ao cliente — ABERTO
-- **Risco:** `details: error.cause || error.message` devolve ao navegador a resposta de erro do MP, que pode conter dados do `payer` (CPF, email) e detalhes internos.
-- **Onde:** `src/app/api/pagamento-checkout/route.ts` linha ~133; `src/app/api/pagamento-direto/route.ts` linha ~151.
-- **Fase:** 5 (resposta só com `error` genérico + `statusDetail` mapeado).
+### R-A7 · Erro bruto do MercadoPago ecoado ao cliente (era A6) — RESOLVIDO (Fase 5b)
+- **Era:** `details: error.cause || error.message` devolvia ao navegador a resposta de erro do MP, que pode conter `payer` (CPF, e-mail) e detalhes internos.
+- **Resolução:** as duas rotas não existem mais. Toda falha de gateway em `POST /api/pagamentos/online` responde `502 { error: 'Não foi possível gerar a cobrança agora' }` (`src/app/api/pagamentos/online/route.ts:206-216`), com `console.error` de mensagem fixa; os demais `catch` respondem `{ error: 'Erro interno do servidor' }`. Os webhooks nunca ecoam nada do gateway. E2E: gateway sem credencial → **502 genérico**, sem revelar o nome da env.
 
 ### A7 · `DOCUMENTOS_DIR` fora do backup — ABERTO *(novo · Documentos clínicos)*
 - **Risco:** os binários dos documentos clínicos ficam **fora do PostgreSQL** (só metadados na tabela `documento`). `pg_dump` não os cobre: perda do disco/crash do VPS destrói todos os documentos clínicos, deixando registros apontando para arquivos inexistentes (download responde 404, `download/route.ts` linha ~51). Dado de saúde sem cópia = violação de disponibilidade/integridade (LGPD art. 46).
@@ -154,15 +155,13 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Era:** `PUT /api/consultas/[id]` gravava qualquer valor truthy em `observacoes` no JSON.
 - **Resolução:** rota reescrita como `PATCH`; `observacoes` exige `typeof === 'string'` e `≤ 1000`, `motivo ≤ 200`, `relatorio ≤ 5000`, `motivoCancelamento ≤ 300`; `null` explícito limpa o campo. Mesmos limites em `POST /api/consultas` e `POST /api/agendamento`. Confirmado pelo revisor. Commit `835fb22`.
 
-### M6 · PII em query string — ABERTO
-- **Risco:** `GET /api/pagamento-checkout?consultaId=&email=&nome=` coloca email e nome do paciente na URL (logs de servidor/proxy).
-- **Onde:** `src/app/api/pagamento-checkout/route.ts` GET; chamador em `src/components/CheckoutTransparente.tsx` linha ~101.
-- **Fase:** 5 (dados vêm do `Pagamento`/sessão, não da URL).
+### R-M9 · PII em query string (era M6) — RESOLVIDO (Fase 5b)
+- **Era:** `GET /api/pagamento-checkout?consultaId=&email=&nome=` colocava e-mail e nome do paciente na URL (logs de servidor/proxy).
+- **Resolução:** rota e componente removidos. Nas rotas novas, os dados do pagador vêm do banco dentro da transação (`src/app/api/pagamentos/online/route.ts:98,134,176`), nunca da URL. As únicas query strings do fluxo carregam o **nosso** `pagamentoId` opaco (`/pagamento/{sucesso,pendente,falha}?p=<uuid>` e `?data.id=` do MP), que sozinho não autoriza nada (R-C5). M3 (token de acesso na URL) continua ACEITO e é item distinto.
 
-### M7 · Objeto bruto do MP devolvido ao cliente — ABERTO
-- **Risco:** `payment: response` expõe ao navegador o payload completo do MP (`payer.identification`, `card.first_six_digits`/`last_four_digits`, ids internos).
-- **Onde:** `src/app/api/pagamento-checkout/route.ts` linha ~106.
-- **Fase:** 5.
+### R-M10 · Objeto bruto do MP devolvido ao cliente (era M7) — RESOLVIDO (Fase 5b)
+- **Era:** `payment: response` expunha ao navegador o payload completo do MP (`payer.identification`, `card.first_six_digits`/`last_four_digits`, ids internos).
+- **Resolução:** a resposta ao cliente é o `CobrancaOnlineDto` montado campo a campo (`pagamentos/online/route.ts:189-203`, `pagamentos/[id]/cobranca/route.ts:69-83`): `pagamentoId, gateway, status, valor, linkCheckout, expiraEm, pagoEm, criadoEm, consultas[]`. **Não** inclui `referenciaExterna`, `pagamentoExternoId`, `statusExterno` nem objeto do gateway. O payload dos webhooks é sanitizado antes de virar `EventoPagamento.payload`: MP `{type, action, dataId}`, Asaas `{event, paymentId, status}` — sem `payer`, `card` ou `identification` (verificado no banco após o webhook real). E2E: resposta da geração de cobrança sem ids de gateway.
 
 ### M8 · Cabeçalhos de segurança HTTP ausentes — ABERTO
 - **Risco:** `next.config.ts` não define `headers()` — sem `Strict-Transport-Security`, `Content-Security-Policy`, `X-Frame-Options`/`frame-ancestors`, `Referrer-Policy`, `X-Content-Type-Options`. O SDK JS do MP e o iframe do Google Maps exigem CSP explícita.
@@ -174,12 +173,9 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `next.config.ts` linhas 7 e 12.
 - **Fase:** 6 — remover as duas flags antes do primeiro deploy do sistema novo.
 
-### M10 · Persistência em JSON no servidor de produção — ABERTO (restrito a pagamento)
-- **Risco:** rotas legadas de pagamento ainda leem/escrevem `src/data/consultas.json` com `fs` — sem transação, em serverless não persiste, escrita concorrente corrompe. Além disso, o `consultas.json` legado **não tem mais relação com a tabela `consulta` do Prisma**: qualquer "marcar como pago" ali não reflete no banco real.
-- **Onde:** `src/app/api/pagamento-checkout/route.ts`, `src/app/api/pagamento-direto/route.ts`.
-- **Fase 3:** migrados para Prisma: `agendamento`, `consultas` (+ `[id]`, `/confirmar`, `/encerrar`, `/cancelar`), `disponibilidade`, `horarios` (+ `[id]`), `excecoes` (+ `[id]`). `area-restrita/route.ts` removido. Já em Prisma desde Fases 1–2: auth, pacientes. Nenhum arquivo fora de `pagamento-checkout`/`pagamento-direto` importa `fs` ou `src/data`.
-- **Fase 4:** sem alteração. Rotas novas (`paciente/me`, `paciente/me/consultas`, `alertas`, `alertas/[id]`) e `src/lib/agenda/alertas.ts` usam só Prisma; grep de `fs`/`src/data` nos arquivos da fase: zero. Persistência em JSON continua restrita a `pagamento-checkout`/`pagamento-direto`.
-- **Fase:** 5 (modelo `Pagamento` no Prisma; remoção de `src/data/*.json`). Segue **ABERTO** até lá — é bloqueante para produção porque as rotas de pagamento estão ativas (com `requireAuth`) e gravam em arquivo.
+### R-M11 · Persistência em JSON no servidor de produção (era M10) — RESOLVIDO (Fase 5b)
+- **Era:** `pagamento-checkout` e `pagamento-direto` liam/escreviam `src/data/consultas.json` com `fs`, fora de transação e sem relação com a tabela `consulta` do Prisma.
+- **Resolução:** as duas rotas foram removidas. `grep -rn "from 'fs'|node:fs|src/data" src/` → apenas `src/lib/documentos/armazenamento.ts:3-4` (documentos clínicos, por design). Todo o fluxo de pagamento é Prisma/PostgreSQL. **Higiene restante (não bloqueante):** `src/data/*.json` continuam commitados sem consumidor — apagar do repositório (linha no checklist da Fase 6).
 
 ### M11 · CSRF — ACEITO com mitigação estrutural
 - **Risco:** API baseada em cookie de sessão. Mitigação: `sameSite=lax` (bloqueia envio do cookie em POST cross-site), rotas mutáveis aceitam só `application/json` (formulário HTML cross-site não envia JSON). Sem token CSRF dedicado.
@@ -187,10 +183,9 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Reavaliar** se algum endpoint passar a aceitar `form-urlencoded` ou se `sameSite` mudar.
 
 - **Nota Documentos clínicos:** `POST /api/documentos` aceita `multipart/form-data` (um `<form>` cross-site consegue enviar) — o gatilho de reavaliação disparou. A mitigação restante é `sameSite=lax` (bloqueia o cookie em POST cross-site em todos os navegadores atuais); PATCH/DELETE seguem só JSON. Permanece ACEITO. Hardening barato e recomendado: no POST de upload, responder 403 se `Sec-Fetch-Site: cross-site` ou `Origin` presente e diferente da própria origem.
-### M12 · Fallback `http://localhost:3000` para `NEXT_PUBLIC_URL` — ABERTO
-- **Risco:** se a env faltar em produção, `back_urls`/`notification_url` do MP e o `link` de primeiro acesso apontam para localhost (falha funcional, e o webhook nunca chega — reforça C2/A4).
-- **Onde:** `src/app/api/pagamento/route.ts` linhas ~44–50. (`agendamento/route.ts` não usa mais `NEXT_PUBLIC_URL` desde a Fase 3; `token-acesso` já falha com 500 se ausente — padrão correto.)
-- **Fase:** 5 — falhar explicitamente como em `token-acesso`.
+### R-M12 · Fallback `http://localhost:3000` para `NEXT_PUBLIC_URL` (era M12) — RESOLVIDO (Fase 5b)
+- **Era:** se a env faltasse, `back_urls`/`notification_url` apontavam para localhost e o webhook nunca chegava.
+- **Resolução:** `baseUrlPublica()` (`src/lib/pagamentos/gateways/config.ts:15-27`) usa `envObrigatoria('NEXT_PUBLIC_URL')`, valida com `new URL()` e, em `NODE_ENV=production`, **exige https** — qualquer desvio lança `ErroConfiguracaoGateway`, que vira 502 genérico (fail-closed). `grep -rn "localhost:3000" src/` → zero.
 
 ### R-M7 · Chamada interna agendamento → pagamento quebrada pela guarda (era M13) — RESOLVIDO (Fase 3)
 - **Era:** `POST /api/agendamento` fazia `fetch` server-to-server para `/api/pagamento` sem sessão; recebia 401 engolido pelo `catch`.
@@ -243,6 +238,53 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 
 - **Mitigação (2026-09-21, Fase 4):** item (1) implementado. `PATCH /api/paciente/me` exige `senhaAtual` sempre que `email` vier no body (`src/app/api/paciente/me/route.ts:56-62`), rejeita cadastro sem `usuarioId`/`senhaHash` (linhas 71-83), faz `bcrypt.compare` contra `Usuario.senhaHash` (linha 83) e responde 401 genérico "Senha atual incorreta" (linhas 85-88); unicidade de e-mail só é verificada APÓS a senha conferir (linhas 91-100), evitando oráculo de e-mail sem posse da senha. Validação de forma em `validarPacienteEdicaoPropria` (`src/lib/validacao/paciente.ts:410-416`); UI em `PacienteForm` (`exigirSenhaAtualSeEmailMudar`, campo "Senha atual" só aparece se o e-mail divergir) e `src/app/area-paciente/dados/page.tsx:62-67`. Na mesma entrega: `PATCH /api/auth/senha` (`src/app/api/auth/senha/route.ts`) permite ao usuário trocar a própria senha com `senhaAtual` + `novaSenha` (`validarForcaSenha`, hash custo 12), UI em `src/components/area-paciente/AlterarSenhaForm.tsx`. Cobertura E2E 18/18.
 - **Residual:** cookie roubado + senha adivinhada (ver nota em A1) ainda troca o e-mail; itens (2) aviso ao endereço antigo e (3) invalidação de sessões anteriores (M14/`sessaoVersao`, também ao trocar e-mail e senha) seguem ABERTOS. Enquanto (3) não existir, trocar a senha em `/api/auth/senha` NÃO derruba a sessão do atacante.
+### M22 · Migration 1:N sem backfill e com coluna NOT NULL sem default — ABERTO *(novo na Fase 5a)*
+- **Risco:** `prisma/migrations/20260921233948_pagamento_1n_manual/migration.sql` faz `ALTER TABLE "pagamento" DROP COLUMN "consulta_id"` e `ADD COLUMN "origem" ... NOT NULL` **sem default e sem backfill**. Em um banco com linhas em `pagamento`, `prisma migrate deploy` **aborta**; e se a coluna ganhar um default só para destravar, o vínculo pagamento→consulta anterior é perdido, fazendo consultas já quitadas reaparecerem em "em aberto" — risco de cobrar duas vezes.
+- **Onde:** `prisma/migrations/20260921233948_pagamento_1n_manual/migration.sql` linhas 5, 34-36, 44-47.
+- **Mitigação atual:** `pagamento` está vazia em desenvolvimento.
+- **Fase:** 6 (deploy) — antes do primeiro `migrate deploy` em produção, confirmar `SELECT count(*) FROM pagamento` = 0; se houver linhas, escrever migration de backfill (`UPDATE consulta SET pagamento_id = p.id FROM pagamento p WHERE p.consulta_id = consulta.id;` + `origem` nas linhas existentes) antes do `DROP COLUMN`.
+
+### M23 · Estorno valida o estado fora da transação — ABERTO *(novo na Fase 5a)*
+- **Risco:** `POST /api/pagamentos/[id]/estornar` lê `origem`/`status` com um `findUnique` fora da transação e só depois abre a transação (sem `Serializable`). Dois estornos simultâneos passam ambos pela guarda: os dois respondem 200, `estornadoEm` é sobrescrito e a observação de estorno pode ser duplicada ou perdida. Impacto é de trilha de auditoria, não de dinheiro (as consultas ficam desvinculadas em ambos os casos).
+- **Onde:** `src/app/api/pagamentos/[id]/estornar/route.ts` linhas 37-46 e 52-59.
+- **Fase:** 5b — `tx.pagamento.updateMany({ where: { id, origem: 'manual', status: 'pago' }, ... })` dentro da transação, 409 quando `count === 0`, `Serializable` + P2034, como em `pagamentos/manual`.
+
+### R-M13 · `PATCH /api/consultas/[id]/valor` — checagem de "já paga" fora de transação (era M24) — RESOLVIDO (Fase 5b)
+- **Era:** `findUnique` fora de transação e `update` sem repetir a condição; um `POST /api/pagamentos/manual` concorrente fechava o pagamento entre as duas queries.
+- **Resolução:** `src/app/api/consultas/[id]/valor/route.ts:42-55` passou a `updateMany({ where: { id, pagamentoId: null }, data: { valor } })`; `count === 0` distingue inexistente (404) de já cobrada (409) com um `findUnique` depois do fato. A condição é atômica no banco — não há mais janela entre checar e gravar.
+
+### R-M14 · Fluxo online cobrava o valor padrão e ignorava consulta já paga (era M25) — RESOLVIDO (Fase 5b)
+- **Era:** as rotas do MP usavam só `Configuracao.valorPadraoSessao`, sem ler `Consulta.valor` nem checar `Consulta.pagamentoId`.
+- **Resolução:** `POST /api/pagamentos/online` calcula, **dentro de transação Serializable**, `soma(Consulta.valor ?? Configuracao.valorPadraoSessao)` (`:127-132`), grava o valor cobrado em `Pagamento.valor` (:141) e é esse valor que vai ao gateway (:172-177). Consulta já cobrada/paga → 409 `JA_PAGA` (`:112-115`, reforçado por `updateMany({ where: { pagamentoId: null } })` com `count` conferido e P2034); cancelada/não compareceu → 409 `NAO_COBRAVEL`; consultas de pacientes diferentes → 400. O body **não** tem campo `valor`. E2E: body com `valor: 1` ignorado, cobrança gerada com R$ 150 (valor personalizado da consulta).
+
+### M26 · Cobrança online não paga prende a consulta — ABERTO *(novo na Fase 5b)*
+- **Risco:** uma consulta com cobrança online `pendente`/`expirado` fica com `Consulta.pagamentoId != null` indefinidamente e não tem saída: some de `GET /api/pagamentos/em-aberto` (filtro `pagamentoId: null`), `POST /api/pagamentos/manual` e `POST /api/pagamentos/online` respondem 409 `JA_PAGA`, e `POST /api/pagamentos/[id]/estornar` recusa por `origem !== 'manual' || status !== 'pago'`. Não existe rota para cancelar/expirar cobrança online. Consequência prática: paciente que não pagou o link e depois pagou em dinheiro **não pode ser registrado**, e a consulta desaparece do Financeiro — receita perdida e estado inconsistente, não manipulação pelo cliente.
+- **Onde:** `src/app/api/pagamentos/online/route.ts:112-115`; `src/app/api/pagamentos/[id]/estornar/route.ts:44-46`; `src/app/api/pagamentos/em-aberto/route.ts:36-37`.
+- **Fase:** 5b/6 — `POST /api/pagamentos/[id]/cancelar` (psicóloga) para `origem: 'online'` e `status in ('pendente','expirado','falhou')`, com `updateMany` condicional + `consulta.updateMany({ pagamentoId: null })` na mesma transação Serializable; e/ou listar cobranças online não pagas na tela "em aberto" com badge própria.
+
+### M27 · Janela "cobrança viva com Pagamento marcado `falhou`" — ABERTO *(novo na Fase 5b)*
+- **Risco:** se `gerarCobranca` lançar **depois** de o gateway já ter criado a cobrança (timeout na resposta) ou se o `update` seguinte falhar, o catch marca o Pagamento como `falhou` e **desvincula as consultas** (`src/app/api/pagamentos/online/route.ts:206-216`), mas o link continua válido no gateway com `external_reference` = nosso `pagamentoId`. Se o paciente pagar esse link, o webhook resolve o Pagamento e `aplicarStatusExterno` promove `falhou → pago` (o guarda só bloqueia a saída de `pago`) **sem nenhuma consulta vinculada**: dinheiro recebido, consulta continua "em aberto" e pode ser cobrada de novo.
+- **Onde:** `src/app/api/pagamentos/online/route.ts:172-216`; `src/lib/pagamentos/conciliacao.ts:76-86`.
+- **Mitigação atual:** o evento fica registrado em `EventoPagamento`, permitindo conciliação manual; a janela exige falha de rede/banco exatamente entre a criação no gateway e a gravação.
+- **Fase:** 5b/6 — recusar a transição para `pago` quando o Pagamento está `falhou`/`cancelado` e sem consultas vinculadas (gravar o evento e alertar, em vez de confirmar); e/ou só marcar `falhou` quando `referenciaExterna` continuar nula.
+
+### INFORMATIVOS (LOW, não contam no Resumo) — Fase 5b
+- **I18 · Dedupe do MP por `x-request-id`** (`src/lib/pagamentos/gateways/mercadopago.ts:143`): o MP tende a emitir um novo `x-request-id` a cada reentrega, então o dedupe por `EventoPagamento.notificacaoExternaId @unique` cobre o reenvio idêntico (testado), não necessariamente a reentrega real. Sem risco de dupla confirmação (`pago` terminal + `updateMany` condicional); o efeito é linha extra em `EventoPagamento`. Melhoria: usar `data.id + action`.
+- **I19 · `data.id` lido só da query string** (`gateways/mercadopago.ts:115`): notificação que traga o id apenas no corpo é rejeitada com 401 e depende da reconciliação. Disponibilidade, não segurança.
+- **I20 · P2002 genérico tratado como "duplicado"** (`src/lib/pagamentos/conciliacao.ts:111-115`): colisão real de `Pagamento.pagamentoExternoId` seria silenciada como reentrega. Distinguir por `error.meta.target`.
+- **I21 · `buscarReferenciaPropria` não afirma a invariante de origem** (`src/app/api/webhooks/mercadopago/route.ts:74`): resolve o Pagamento por `external_reference` sem filtrar `origem: 'online'`/`gateway: 'mercadopago'`. Não explorável hoje; filtro barato.
+- **I22 · Reconciliação sob demanda disparável pelo paciente:** o dono de uma cobrança pode forçar consulta ao gateway a cada 60 s (`conciliacao.ts:120,140-144`). Amplificação limitada ao próprio pagamento.
+- **I23 · Webhooks públicos sem rate limit próprio:** mitigado por a validação de assinatura/token ser a primeira operação, antes de banco ou gateway — flood inválido custa só HMAC. Limite no proxy junto com A1.
+- **I24 · `sandbox_init_point` com credencial de teste** (`gateways/mercadopago.ts:66-72`): com `MP_ACCESS_TOKEN` começando em `TEST-`, o link devolvido é o de sandbox; em produção (`APP_USR-`) é sempre `init_point`. A escolha deriva da credencial, nunca de input.
+
+### INFORMATIVOS (LOW, não contam no Resumo) — Fase 5a
+- **I12 · Pagamento `pendente` ligado à consulta é ambíguo — RESOLVIDO (Fase 5b):** `CobrancaConsulta.situacao` ganhou o estado `aguardando` (`src/types/pagamento.ts`), definido em `montarCobranca` como "tem `Pagamento` `origem: 'online'` com `status: 'pendente'`" (`src/lib/pagamentos/cobranca.ts:68-85`), com `linkCheckout` exposto **apenas** nesse estado; UI mostra "Aguardando pagamento" + botão Pagar. Ressalva nova: M26. *(texto original abaixo)*  `montarCobranca` só considera `status === 'pago'` (`src/lib/pagamentos/cobranca.ts:59-68`), enquanto `GET /api/pagamentos/em-aberto` filtra `pagamentoId: null` e `POST /api/pagamentos/manual` recusa qualquer `pagamentoId != null` com `JA_PAGA`. Uma consulta com pagamento online **pendente** some da lista de em aberto, continua exibindo "em aberto" e não aceita registro manual. Definir a semântica na 5b.
+- **I13 · `cobranca.pagamentoId` e `valorPersonalizado` chegam ao paciente** (`src/lib/agenda/consultas.ts:106-125`). Nenhuma rota permite ao paciente usar esse id; omitir no DTO do paciente é higiene de superfície.
+- **I14 · Fallback silencioso para R$ 200 e função duplicada:** `obterValorPadraoSessao` existe em `src/lib/pagamentos/valor-padrao.ts:6` e `src/lib/pagamentos/cobranca.ts:13`, ambas devolvendo 200 se `Configuracao(id=1)` não existir. Unificar e responder 500 (ausência de configuração é erro de operação).
+- **I15 · P2034 mapeado como `JA_PAGA`** (`src/app/api/pagamentos/manual/route.ts:183-185`): falha de serialização por contenção devolve mensagem incorreta.
+- **I16 · `recebidoEm` com dois formatos:** documentado como `YYYY-MM-DD` mas cai para `pagoEm.toISOString()` quando nulo (`src/lib/pagamentos/cobranca.ts:74-75`).
+- **I17 · `onDelete: SetNull` em `Consulta.pagamentoId`** (`prisma/schema.prisma:318`): apagar um `Pagamento` desvincularia as consultas silenciosamente. Invariante a registrar: pagamento nunca é deletado, só estornado.
+
 ### INFORMATIVOS (LOW, não contam no Resumo) — Área do paciente
 - **I11 · Loop de redirecionamento login ↔ layouts por `next` de outro papel — RESOLVIDO (2026-09-21):** `next` só é honrado se pertencer à área do papel autenticado (`nextCabeNoPapel`/`destinoFinal`, `src/app/login/page.tsx:32-42`), sempre depois de `destinoSeguro` — R-M4 (open redirect) não regride. `LayoutPaciente`/`LayoutPsicologa` mandam papel errado para a própria área (nunca para `/login`) e, deslogado, para `/login?next=<encodeURIComponent(pathname)>`. Relevância: só disponibilidade (o loop era DoS acidental no navegador); nenhuma exposição de dados. Cobertura E2E 6/6.
 
@@ -295,6 +337,53 @@ Relação com itens existentes: C5 (nota: exclusão deve apagar `Documento` + ar
 
 ---
 
+## Pagamento (Fase 5a) — modelo e controles
+
+A Fase 5a implantou **apenas o pagamento MANUAL** (a psicóloga registra o que recebeu por PIX, dinheiro, maquininha ou outro) e a fundação de modelo para o fluxo online da 5b. O relacionamento `Pagamento ↔ Consulta` deixou de ser **1:1** (`Pagamento.consultaId @unique`) e passou a **1:N** por FK do lado da consulta (`Consulta.pagamentoId`, `onDelete: SetNull`, migration `20260921233948_pagamento_1n_manual`): **um** pagamento cobre **uma ou várias** consultas (pacote/quitação), e a FK continua garantindo no banco que uma consulta tem **no máximo um** pagamento. Novos elementos: enums `OrigemPagamento { manual, online }`, `GatewayPagamento { mercadopago, asaas }`, `MetodoPagamento` + `dinheiro`/`maquininha`, `PagamentoStatus` + `estornado`; `Consulta.valor Decimal?`; `Pagamento.recebidoEm @db.Date` e `estornadoEm`; `Configuracao.gatewayPadrao`. Rotas novas, **todas** `requireAuth(request, 'psicologa')`: `POST /api/pagamentos/manual`, `POST /api/pagamentos/[id]/estornar`, `GET /api/pagamentos`, `GET /api/pagamentos/em-aberto`, `GET /api/configuracao`, `PATCH /api/consultas/[id]/valor`. O paciente **só lê** o status (`cobranca` embutida no DTO das próprias consultas). Auditado em 2026-09-25 (`code-reviewer-security`), com E2E Playwright 25/25 contra **build de produção**. Commit `86ba8a2`.
+
+**Idempotência na aplicação:** o `@unique` da relação 1:1 era o que impedia dois pagamentos para a mesma consulta. Com 1:N essa garantia passou a ser da aplicação: o registro manual roda em transação **Serializable** e atualiza as consultas com `updateMany({ where: { id: { in: consultaIds }, pagamentoId: null } })`, exigindo `count === consultaIds.length`; se qualquer consulta já tiver sido paga por uma requisição concorrente, a transação é revertida e a resposta é `409 JA_PAGA` (P2034 idem). A FK `Consulta.pagamentoId` permanece como rede de segurança no banco.
+
+| Controle | Status | Evidência |
+|---|---|---|
+| (a) Nenhum valor de cobrança vem do cliente | **CONFIRMADO** | `Configuracao.valorPadraoSessao` como fonte única (`src/lib/pagamentos/valor-padrao.ts`, `cobranca.ts:13-17`), consultada por `api/pagamento/route.ts:21`, `pagamento-checkout/route.ts:44` e `:162`, `pagamento-direto/route.ts:43`; no manual, default = soma de `Consulta.valor ?? padrão` **dentro** da transação (`pagamentos/manual/route.ts:126-131`). `valor` no body só existe em rotas `'psicologa'`, com teto `PAGAMENTO_VALOR_MAX`. `grep "150"`: zero. Fecha C3 (→ R-C4). Ressalva: M25. |
+| (b) Marcar pago é exclusivo da psicóloga | **CONFIRMADO** | `requireAuth(request, 'psicologa')` em `pagamentos/manual:31`, `pagamentos/[id]/estornar:16`, `pagamentos/route.ts:14`, `em-aberto:15`, `consultas/[id]/valor:22`, `configuracao:9`. Papel resolvido no banco a cada request (`src/lib/auth/guard.ts:16-27`). E2E: paciente recebe 403 nas seis rotas. |
+| (c) Paciente vê só o status das próprias consultas | **CONFIRMADO** | `paciente/me/consultas:13-41` e `consultas/route.ts:53-66` forçam `pacienteId: auth.pacienteId` (o `?pacienteId=` só existe no ramo psicóloga). `SELECT_COBRANCA` (`cobranca.ts:20-32`) traz do `Pagamento` só `id, status, metodo, recebidoEm, pagoEm` — sem `geradoPorId`, `mp*`, `linkCobranca`, `observacao`. Ressalva LOW: I13. |
+| (d) 1:N não abriu brecha de pagar duas vezes | **CONFIRMADO com ressalvas** | `pagamentos/manual/route.ts:101,159` (Serializable), `:148-155` (`updateMany` com `pagamentoId: null` + `count` conferido → 409 JA_PAGA), `:183-185` (P2034). FK `Consulta.pagamentoId` como rede de segurança. Estorno devolve as consultas a "em aberto". Ressalvas: M22, M23, M24, I12, I17. |
+| (e) Sem mass assignment | **CONFIRMADO** | `data` montado campo a campo com `geradoPorId: auth.usuarioId` da sessão (`manual:135-146`); zero spread de body; validação campo a campo com limites (50 consultas, teto de valor, `observacao` ≤ 500, `motivo` ≤ 300); listagens com `take` 200/500; `catch` genérico; nenhum `console.*`. |
+
+**Fuso (America/Sao_Paulo):** `recebidoEm` é `@db.Date` gravado como `T00:00:00.000Z` e relido com getters UTC — round-trip estável; `pagoEm` usa offset fixo `-03:00`; "data não futura" compara com o dia local.
+
+**Relação com itens existentes:** R-C4 fecha C3. C1, C2 e A4 **não foram tocados** pela 5a e seguem ABERTOS para a Fase 5b, junto com A5, A6, M6, M7, M10 e M12. Novos: M22, M23, M24, M25 e os informativos I12-I17.
+
+---
+
+## Pagamento online (Fase 5b) — gateways, webhook e conciliação
+
+A Fase 5b substituiu **todo** o pagamento online legado por um modelo de **checkout hospedado** (MercadoPago Checkout Pro e link de pagamento Asaas): a aplicação nunca vê dados de cartão, nunca recebe status do cliente e nunca calcula valor a partir do body. Foram **removidos** `src/app/api/pagamento/route.ts`, `pagamento-checkout/route.ts`, `pagamento-direto/route.ts`, `mercadopago/route.ts`, `src/components/CheckoutTransparente.tsx` e `src/lib/pagamentos/valor-padrao.ts` — o que fecha C1, C2, A4, A5, A6, M6, M7, M10 e M12.
+
+**Arquitetura de adaptadores.** `src/lib/pagamentos/gateways/tipos.ts` define a interface `GatewayPagamentoAdapter` (`gerarCobranca`, `consultarStatus`, `validarWebhook`) e os tipos normalizados `StatusExterno`/`CobrancaCriada`/`EventoWebhook`; `mercadopago.ts` e `asaas.ts` implementam; `index.ts` resolve pelo enum `GatewayPagamento`. Todos começam com `import 'server-only'`. `config.ts` centraliza a leitura de env: `envObrigatoria()` **nunca** faz fallback e `baseUrlPublica()` exige `NEXT_PUBLIC_URL` válida (https em produção). O gateway efetivo vem de `Configuracao.gatewayPadrao`, sobrescrito opcionalmente pelo body — é o **único** parâmetro de pagamento que o cliente influencia, e só a psicóloga pode enviá-lo.
+
+**Modelo** (migration `20260925120000_pagamento_online_gateways`): os campos `mp*` deram lugar a genéricos — `gateway`, `referenciaExterna @unique` (id da COBRANÇA), `pagamentoExternoId @unique` (id do PAGAMENTO aprovado; âncora de idempotência), `statusExterno`, `statusExternoDetalhe`, `linkCheckout`, `expiraEm`, `ultimaReconciliacaoEm`, com índice `(status, ultimaReconciliacaoEm)`. `EventoPagamento` ganhou `gateway` e `notificacaoExternaId @unique` (dedupe) e guarda payload **sanitizado**.
+
+**Fluxo.** (1) Psicóloga seleciona consultas em aberto do mesmo paciente e chama `POST /api/pagamentos/online`. (2) Em transação **Serializable**: valida existência, mesmo paciente, status cobrável e `pagamentoId: null`; calcula `soma(Consulta.valor ?? Configuracao.valorPadraoSessao)`; cria o `Pagamento` e vincula as consultas com `updateMany` condicional. (3) **Fora** da transação chama o gateway; em falha, o Pagamento vira `falhou`, as consultas são desvinculadas e a resposta é `502` genérico (ressalva: M27). (4) O paciente recebe o link (WhatsApp pela psicóloga ou botão "Pagar" na área dele) e paga **no domínio do gateway**. (5) O gateway notifica `POST /api/webhooks/{mercadopago,asaas}`: assinatura validada → status **buscado no gateway** → `aplicarStatusExterno`. (6) Como rede de segurança, `GET /api/pagamentos/[id]/cobranca` reconcilia sob demanda (no máximo 1×/60 s por pagamento).
+
+**Idempotência e concorrência.** `aplicarStatusExterno` roda em transação Serializable: dedupe por `notificacaoExternaId`; `pago` é **terminal**; escrita por `updateMany({ where: { id, status: { not: 'pago' } } })` com `count === 0` interpretado como concorrência benigna; `P2002` → duplicado; `P2034` tratado nas rotas. Valor menor que o devido nunca confirma.
+
+| Eixo | Status | Evidência |
+|---|---|---|
+| (a) IDOR — id do cliente só com dono conferido | **CONFIRMADO** | `pagamentos/[id]/cobranca/route.ts:13-46` (401 anônimo → 404 idêntico para inexistente/não-online/não-dono); demais rotas `'psicologa'`; rotas legadas removidas (grep zero). Fecha C1 (→ R-C5). |
+| (b) Status só por webhook validado + `external_reference` | **CONFIRMADO** | Nenhuma rota aceita `paymentId`/`status` do cliente; `webhooks/mercadopago/route.ts:28-37`, `webhooks/asaas/route.ts:25-39`; `conciliacao.ts:66-74` recusa subpagamento. Fecha C2 (→ R-C6). |
+| (c) Autenticidade do webhook antes de gravar | **CONFIRMADO (Asaas só por código)** | HMAC-SHA256 + `timingSafeEqual` + janela ±10 min (`gateways/mercadopago.ts:106-148`); `asaas-access-token` timing-safe (`gateways/asaas.ts:123-144`); segredo ausente → 401 fail-closed. Fecha A4 (→ R-A5). |
+| (d) Valor sempre do banco, gravado em `Pagamento.valor` | **CONFIRMADO** | `pagamentos/online/route.ts:127-141` em transação Serializable; body sem campo `valor`; já cobrada → 409. Fecha M25 (→ R-M14), mantém R-C4. |
+| (e) Idempotência (reentrega, concorrência, terminalidade) | **CONFIRMADO com ressalvas** | `conciliacao.ts:29-38, 46-62, 76-89, 111-115`. Ressalvas: I18, I20. |
+| (f) Segredos e vazamento | **CONFIRMADO** | Credenciais só em `src/lib/pagamentos/gateways/*` e `api/webhooks/*`; zero `NEXT_PUBLIC_*` de credencial; DTO sem ids de gateway; payload sanitizado; 502 genérico; `console.error` sem ids. Fecha A5, A6, M6, M7, M12. |
+
+**Cobertura de teste (2026-09-25).** E2E 22/22 contra **build de produção** com `MP_ACCESS_TOKEN` de teste real (preference efetivamente criada) e 7/7 no núcleo de conciliação. **Com dados reais do MercadoPago**, via túnel público e a chave secreta do painel: pagamento PIX real criado no sandbox com `external_reference` = nosso `pagamentoId`; webhook assinado → 200 e status buscado no MP (`pagamentoExternoId` e `statusExterno` gravados); segredo errado → 401; evento alheio → 200 sem gravar; reentrega → `duplicado` com 1 único evento. **Não exercitado:** pagamento **aprovado** ponta a ponta (o sandbox desta conta recusa cartão com `excludes_by_rule` e o checkout hospedado não abre — configuração da conta de teste) e **o Asaas inteiro** (sem credenciais). Por isso R-C6 e R-A5 registram verificação pendente, e o checklist da Fase 6 exige repetir o teste com os dois gateways antes de habilitá-los para paciente real.
+
+**Relação com itens existentes:** fechados nesta fase C1 (→ R-C5), C2 (→ R-C6), A4 (→ R-A5), A5 (→ R-A6), A6 (→ R-A7), M6 (→ R-M9), M7 (→ R-M10), M10 (→ R-M11), M12 (→ R-M12), M24 (→ R-M13), M25 (→ R-M14), I12. Seguem ABERTOS e **não foram tocados**: M23, M22, A1/A2/A3. Novos: M26, M27, I18-I24.
+
+---
+
 ## Verificação de deploy (Fase 6) — checklist operacional
 
 Complementa os itens acima; marcar cada linha no dia do deploy:
@@ -302,12 +391,21 @@ Complementa os itens acima; marcar cada linha no dia do deploy:
 - [ ] Nenhum CRÍTICO/ALTO ABERTO neste arquivo.
 - [ ] `NODE_ENV=production`; HTTPS com redirecionamento; HSTS (M8).
 - [ ] Envs de produção distintas das de dev (A2); `.env*` fora do repo; `PSICOLOGA_SENHA_HASH` gerado com senha forte.
-- [ ] Credenciais MP de produção; as de teste rotacionadas (A3); `MP_WEBHOOK_SECRET` configurado e URL do webhook registrada no painel do MP (A4).
+- [ ] Credenciais de **produção** dos dois gateways: `MP_ACCESS_TOKEN` (`APP_USR-…`) e `ASAAS_API_KEY` + `ASAAS_API_URL=https://api.asaas.com/v3`; credenciais de teste rotacionadas/revogadas (A3).
+- [ ] `MP_WEBHOOK_SECRET` (painel MP → Webhooks → chave secreta) e `ASAAS_WEBHOOK_TOKEN` configurados — sem eles o webhook responde 401 a **tudo** (fail-closed, R-A5).
+- [ ] URLs de webhook registradas nos dois painéis: `https://<domínio>/api/webhooks/mercadopago` e `https://<domínio>/api/webhooks/asaas` (só eventos de pagamento).
+- [ ] `NEXT_PUBLIC_URL` com o **https real** do domínio (sem barra final): em produção a geração de cobrança falha se faltar ou não for https (R-M12).
+- [ ] Teste ponta a ponta **com pagamento real de baixo valor em cada gateway**: cobrança gerada → paga no checkout hospedado → webhook aceito → `Pagamento.status = 'pago'` → consulta sai de "aguardando".
+- [ ] Reentrega manual do mesmo evento pelo painel do gateway não duplica confirmação nem evento.
+- [ ] Proxy com limite de taxa em `/api/webhooks/*` (I23).
+- [ ] `src/data/*.json` removidos do repositório (sem consumidor desde a Fase 5b — R-M11).
+- [ ] Procedimento documentado para cobrança online não paga enquanto M26 estiver aberto (como liberar a consulta para registro manual).
 - [ ] PostgreSQL do VPS: acesso só local ou por rede privada, TLS se remoto, usuário da aplicação sem superuser, backups automáticos testados (restauração).
 - [ ] `next.config.ts` sem `ignoreBuildErrors`/`ignoreDuringBuilds` (M9); `tsc` e `lint` limpos.
 - [ ] `src/data/*.json` sem dado real (`consultas.json`, `notificacoes.json` fictícios ou vazios).
 - [ ] Rota de anonimização LGPD existente e testada (C5).
 - [ ] Rate limiting ativo no login (A1).
+- [ ] `pagamento` vazia antes do `migrate deploy`, ou migration de backfill de `consulta.pagamento_id` aplicada (M22).
 - [ ] `DOCUMENTOS_DIR` com caminho absoluto, fora da web root e do repositório; nenhum alias/location do proxy apontando para ela (A8).
 - [ ] `DOCUMENTOS_DIR` com `chown` do usuário do app e `chmod 700`; disco/volume criptografado (A8).
 - [ ] `DOCUMENTOS_DIR` incluída no backup criptografado, na mesma janela do `pg_dump` (A7).

@@ -478,3 +478,51 @@ a { text-underline-offset: 0.15em; }
   color: var(--pmc-terracota);
   margin-bottom: 0.5rem;
 }
+
+/* ===== CALENDÁRIO DE AGENDAMENTO ===== */
+.pmc-dia {
+  border-radius: var(--pmc-raio-sm);
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+/* Versões sem `.btn`: usadas pelas bolinhas da legenda. */
+.pmc-dia--livre {
+  background: var(--pmc-terracota-suave);
+  border: 1px solid var(--pmc-terracota);
+  color: var(--pmc-terracota-escura);
+  font-weight: var(--pmc-peso-medio);
+  cursor: pointer;
+}
+.pmc-dia--vazio {
+  background: transparent;
+  border: 1px solid var(--pmc-bege);
+  color: var(--pmc-texto-2);
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Nos botões do calendário, o variant do Bootstrap define `--bs-btn-*` e vence as regras acima
+   (inclusive `:disabled`, que tem fundo próprio). Redefinimos as variáveis com `.btn.` para que o
+   dia livre salte aos olhos e o indisponível fique claramente inerte. */
+.btn.pmc-dia--livre {
+  --bs-btn-bg: var(--pmc-terracota-suave);
+  --bs-btn-border-color: var(--pmc-terracota);
+  --bs-btn-color: var(--pmc-terracota-escura);
+  --bs-btn-hover-bg: var(--pmc-terracota);
+  --bs-btn-hover-border-color: var(--pmc-terracota);
+  --bs-btn-hover-color: #fff;
+  --bs-btn-active-bg: var(--pmc-terracota-escura);
+  --bs-btn-active-border-color: var(--pmc-terracota-escura);
+  --bs-btn-active-color: #fff;
+  font-weight: var(--pmc-peso-medio);
+}
+.btn.pmc-dia--vazio,
+.btn.pmc-dia--vazio:disabled {
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-color: var(--pmc-texto-2);
+  --bs-btn-disabled-bg: transparent;
+  --bs-btn-disabled-border-color: transparent;
+  --bs-btn-disabled-color: var(--pmc-texto-2);
+  --bs-btn-disabled-opacity: 0.45;
+  font-weight: var(--pmc-peso-normal);
+}

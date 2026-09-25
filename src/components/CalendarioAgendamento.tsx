@@ -244,16 +244,12 @@ export default function CalendarioAgendamento({
                     <td key={index} className="p-1">
                       <Button
                         size="sm"
-                        variant={
-                          item.data === selectedDate
-                            ? 'primary'
-                            : item.disponivel && item.mesAtual
-                              ? 'outline-primary'
-                              : 'outline-secondary'
-                        }
+                        variant={item.data === selectedDate ? 'primary' : undefined}
                         onClick={() => handleDateClick(item)}
                         disabled={!item.disponivel || !item.mesAtual || item.passado}
-                        className={`w-100 px-0 ${!item.mesAtual ? 'opacity-50' : ''}`}
+                        className={`w-100 px-0 pmc-dia ${
+                          item.data === selectedDate ? '' : item.disponivel && item.mesAtual ? 'pmc-dia--livre' : 'pmc-dia--vazio'
+                        } ${!item.mesAtual ? 'opacity-50' : ''}`}
                       >
                         {item.dia}
                       </Button>
@@ -301,16 +297,16 @@ export default function CalendarioAgendamento({
       {/* Legenda */}
       <div className="d-flex flex-wrap gap-3 mt-3 pt-3 border-top">
         <div className="d-flex align-items-center gap-2">
+          <span className="rounded-circle pmc-dia--livre" style={{ width: '10px', height: '10px' }} />
+          <span className="pmc-texto-2 small">Disponível</span>
+        </div>
+        <div className="d-flex align-items-center gap-2">
+          <span className="rounded-circle pmc-dia--vazio" style={{ width: '10px', height: '10px' }} />
+          <span className="pmc-texto-2 small">Indisponível</span>
+        </div>
+        <div className="d-flex align-items-center gap-2">
           <span className="rounded-circle bg-primary" style={{ width: '10px', height: '10px' }} />
-          <span className="text-secondary small">Disponível</span>
-        </div>
-        <div className="d-flex align-items-center gap-2">
-          <span className="rounded-circle bg-secondary" style={{ width: '10px', height: '10px' }} />
-          <span className="text-secondary small">Indisponível</span>
-        </div>
-        <div className="d-flex align-items-center gap-2">
-          <span className="rounded-circle border border-primary" style={{ width: '10px', height: '10px' }} />
-          <span className="text-secondary small">Selecionado</span>
+          <span className="pmc-texto-2 small">Selecionado</span>
         </div>
       </div>
     </div>
