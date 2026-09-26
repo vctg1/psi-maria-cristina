@@ -40,6 +40,8 @@ export type ConsultaDto = {
   /** Fase 6: preenchido quando a psicóloga agendou pedindo confirmação ao paciente e ele ainda
    *  não confirmou (status `agendada`). null = fluxo normal (visitante → psicóloga confirma). */
   confirmacaoSolicitadaEm: string | null;
+  /** Link da videochamada (consulta online). Visível à psicóloga e ao próprio paciente. */
+  linkReuniao: string | null;
   paciente: PacienteNaConsulta;
   /** Fase 5a: status de cobrança (valor efetivo, pago/em aberto). Presente para psicóloga e paciente. */
   cobranca: CobrancaConsulta;
@@ -114,3 +116,11 @@ export type AgendamentoResposta = {
 };
 
 export type ErroApi = { error: string; codigo?: string; campos?: Record<string, string> };
+
+/** Body de PATCH /api/consultas/[id]/link-reuniao (psicóloga). `link: null` remove o link. */
+export type LinkReuniaoEntrada = { link: string | null; enviarEmail?: boolean };
+/** Resposta: a consulta atualizada e se o e-mail saiu (false quando o paciente não tem e-mail). */
+export type LinkReuniaoResposta = { consulta: ConsultaDto; emailEnviado: boolean };
+
+/** Provedores aceitos para o link da videochamada (validação no servidor e dica na tela). */
+export const PROVEDORES_REUNIAO = ['meet.google.com', 'zoom.us', 'teams.microsoft.com', 'teams.live.com'] as const;

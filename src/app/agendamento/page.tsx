@@ -28,11 +28,12 @@ const passos = [
 ];
 
 const opcoesMotivo = [
-  'Dificuldade de Aprendizagem',
-  'Terapia Infantil',
-  'Orientação para pais',
   'Ansiedade',
-  'Depressão',
+  'Estresse e esgotamento',
+  'Terapia infantil',
+  'Adolescência',
+  'Orientação para pais',
+  'Autoconhecimento',
   'Outro',
 ];
 

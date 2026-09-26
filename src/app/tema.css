@@ -529,3 +529,167 @@ img[src*="maria-cristina-logo.png"] { mix-blend-mode: multiply; }
   --bs-btn-disabled-opacity: 0.45;
   font-weight: var(--pmc-peso-normal);
 }
+
+/* ============================================================================
+   HOME · MÉTODO E CONSULTÓRIO
+   ========================================================================== */
+
+/* rótulo dos dois títulos abaixo do lead do hero */
+.pmc-titulos {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pmc-e-2);
+  font-size: var(--pmc-t-sm);
+  color: var(--pmc-texto-2);
+  font-weight: var(--pmc-peso-medio);
+}
+.pmc-titulos i { color: var(--pmc-terracota); font-size: 1.1rem; }
+
+/* faixa-manifesto: foto de fundo com véu para garantir contraste AA */
+.pmc-faixa-manifesto {
+  position: relative;
+  padding-block: var(--pmc-e-9);
+  isolation: isolate;
+}
+.pmc-faixa-manifesto__fundo {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+.pmc-faixa-manifesto__fundo img { object-fit: cover; }
+.pmc-faixa-manifesto::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: color-mix(in srgb, var(--pmc-terra-escura) 78%, transparent);
+}
+.pmc-faixa-manifesto__citacao {
+  font-family: var(--pmc-fonte-display);
+  color: var(--pmc-texto-inv);
+  font-size: clamp(var(--pmc-t-xl), 1.4rem + 1.4vw, var(--pmc-t-2xl));
+  line-height: var(--pmc-altura-titulo);
+  text-wrap: balance;
+  max-width: 46ch;
+  margin-inline: auto;
+  text-align: center;
+}
+.pmc-faixa-manifesto__assinatura {
+  display: block;
+  margin-top: var(--pmc-e-5);
+  color: var(--pmc-terracota-suave);
+  font-size: var(--pmc-t-sm);
+  letter-spacing: var(--pmc-rastreio-rotulo);
+  text-transform: uppercase;
+  font-weight: var(--pmc-peso-medio);
+}
+
+/* cartão de citação do TCC */
+.pmc-cartao-citacao {
+  border-left: 4px solid var(--pmc-terracota);
+  background: #fff;
+  border-radius: var(--pmc-raio-md);
+  padding: var(--pmc-e-5);
+  box-shadow: var(--pmc-sombra-sm);
+}
+.pmc-cartao-citacao p {
+  font-family: var(--pmc-fonte-display);
+  font-style: italic;
+  color: var(--pmc-texto);
+  margin-bottom: var(--pmc-e-2);
+}
+.pmc-cartao-citacao span {
+  color: var(--pmc-texto-2);
+  font-size: var(--pmc-t-sm);
+}
+
+/* lista de pontos com marcador de check */
+.pmc-lista-check { list-style: none; padding-left: 0; margin: 0; }
+.pmc-lista-check li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pmc-e-3);
+  margin-bottom: var(--pmc-e-4);
+}
+.pmc-lista-check li:last-child { margin-bottom: 0; }
+.pmc-lista-check i {
+  color: var(--pmc-salvia-escura);
+  font-size: 1.1rem;
+  margin-top: 0.2rem;
+  flex: none;
+}
+
+/* linha do tempo "como é a consulta": horizontal no md+, vertical no mobile */
+.pmc-linha-tempo {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pmc-e-6);
+}
+.pmc-linha-tempo__item {
+  position: relative;
+  flex: 1;
+  padding-left: var(--pmc-e-7);
+}
+.pmc-linha-tempo__numero {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--pmc-raio-organico);
+  background: var(--pmc-terracota-suave);
+  color: var(--pmc-terracota-escura);
+  display: grid;
+  place-items: center;
+  font-family: var(--pmc-fonte-display);
+  font-weight: var(--pmc-peso-titulo);
+}
+@media (min-width: 768px) {
+  .pmc-linha-tempo {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--pmc-e-5);
+  }
+  .pmc-linha-tempo__item {
+    padding-left: 0;
+    padding-top: var(--pmc-e-8);
+    text-align: center;
+  }
+  .pmc-linha-tempo__numero {
+    left: 50%;
+    transform: translateX(-50%);
+    top: 0;
+  }
+}
+
+/* galeria do consultório: proporção uniforme entre fotos de tamanhos diferentes */
+.pmc-galeria-foto {
+  border-radius: var(--pmc-raio-lg);
+  overflow: hidden;
+  box-shadow: var(--pmc-sombra-sm);
+  height: 260px;
+}
+.pmc-galeria-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pmc-galeria-foto--baixo img { object-position: center bottom; }
+.pmc-galeria-legenda {
+  margin-top: var(--pmc-e-3);
+  text-align: center;
+  color: var(--pmc-texto-2);
+  font-weight: var(--pmc-peso-medio);
+}
+
+/* cards "para quem" e "como eu trabalho" */
+.pmc-cartao-metodo {
+  height: 100%;
+  padding: var(--pmc-e-5);
+  border-radius: var(--pmc-raio-lg);
+  background: #fff;
+  box-shadow: var(--pmc-sombra-sm);
+}
+.pmc-cartao-metodo h3 { font-size: var(--pmc-t-lg); }
+
+/* ===== HOME · DESTAQUE PRINCIPAL ===== */
+/* O destaque fica logo abaixo do cabeçalho: usa menos respiro no topo que as demais seções, e o
+   retrato (4:5) tem largura limitada para não empurrar o texto para baixo ao centralizar. */
+.pmc-secao--hero { padding-top: clamp(1.25rem, 3.5vw, 2.75rem); }
+.pmc-secao--hero .pmc-blob { max-width: 440px; margin-inline: auto; }

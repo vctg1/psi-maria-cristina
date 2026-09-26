@@ -8,23 +8,116 @@ import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
 import SiteHeader from '@/components/SiteHeader';
 
-const especialidades = [
+const areasAtuacao = [
   'Terapia Cognitivo-Comportamental',
+  'Psicanálise',
   'Psicoterapia Infantil',
   'Psicoterapia do Adolescente',
-  'Terapia Familiar',
   'Transtornos de Ansiedade',
-  'Depressão',
-  'Dificuldades de Aprendizagem',
+  'Estresse e esgotamento',
+  'Autoconhecimento',
 ];
 
-function OndaBaixo({ cor }: { cor: string }) {
+const metodo = [
+  {
+    icone: 'bi-chat-heart',
+    titulo: 'Escuta sem julgamento',
+    texto:
+      'A sessão é um espaço seguro para falar livremente, no seu ritmo, sobre o que pesa e o que importa.',
+  },
+  {
+    icone: 'bi-search-heart',
+    titulo: 'Compreender a raiz',
+    texto:
+      'Muitas das nossas reações acontecem sem que a gente perceba. Entender esses mecanismos ajuda a enxergar por que certas situações nos afetam tanto.',
+  },
+  {
+    icone: 'bi-tools',
+    titulo: 'Recursos para o dia a dia',
+    texto:
+      'Com a terapia cognitivo-comportamental, construímos estratégias práticas para lidar com a ansiedade, o estresse e os pensamentos que paralisam.',
+  },
+  {
+    icone: 'bi-flower1',
+    titulo: 'Transformar tensão em crescimento',
+    texto:
+      'A energia do estresse pode ser direcionada para o que faz sentido: trabalho, estudos, criação, relações. É o que a psicanálise chama de sublimação.',
+  },
+];
+
+const pontosTcc = [
+  'O estresse não é só cansaço: ele também mexe com a forma como sentimos e nos relacionamos.',
+  'Nossas defesas nos protegem, mas, quando usadas em excesso, podem nos afastar do que precisamos resolver.',
+  'Entender o que se passa por dentro abre caminho para respostas mais conscientes e para o crescimento pessoal.',
+];
+
+const etapasConsulta = [
+  {
+    titulo: 'Agendamento',
+    texto: 'Escolha um horário pelo site ou fale pelo WhatsApp.',
+  },
+  {
+    titulo: 'Primeiro encontro',
+    texto:
+      'Um momento de acolhimento para entender o que te trouxe e o que você espera da terapia.',
+  },
+  {
+    titulo: 'Caminho combinado',
+    texto: 'Juntos, definimos a frequência e os objetivos do acompanhamento.',
+  },
+  {
+    titulo: 'Sessões',
+    texto:
+      'Encontros de cerca de 50 minutos, presenciais em Planaltina-DF ou online.',
+  },
+];
+
+const galeriaConsultorio = [
+  {
+    src: '/site/consultorio-poltrona.webp',
+    alt: 'Poltrona de atendimento junto à janela do consultório',
+    legenda: 'Sala de atendimento',
+    classeExtra: '',
+  },
+  {
+    src: '/site/consultorio-poltrona-larga.webp',
+    alt: 'Detalhe da poltrona de atendimento com planta e orquídea',
+    legenda: 'Um lugar para respirar',
+    classeExtra: '',
+  },
+  {
+    src: '/site/consultorio-infantil.webp',
+    alt: 'Canto lúdico preparado para o atendimento infantil',
+    legenda: 'Espaço para as crianças',
+    classeExtra: 'pmc-galeria-foto--baixo',
+  },
+];
+
+const paraQuem = [
+  {
+    icone: 'bi-balloon-heart',
+    titulo: 'Crianças',
+    texto: 'Um espaço lúdico para expressar sentimentos e orientar os pais.',
+  },
+  {
+    icone: 'bi-person-arms-up',
+    titulo: 'Adolescentes',
+    texto: 'Escuta para as mudanças, pressões e descobertas dessa fase.',
+  },
+  {
+    icone: 'bi-person-heart',
+    titulo: 'Adultos',
+    texto: 'Ansiedade, estresse, esgotamento e autoconhecimento.',
+  },
+];
+
+function OndaBaixo({ corCima, corBaixo }: { corCima: string; corBaixo: string }) {
   return (
-    <div className="pmc-onda" aria-hidden="true">
+    <div className="pmc-onda" style={{ background: corCima }} aria-hidden="true">
       <svg viewBox="0 0 1440 64" preserveAspectRatio="none">
         <path
           d="M0,32 C240,64 480,0 720,16 C960,32 1200,64 1440,32 L1440,64 L0,64 Z"
-          fill={cor}
+          fill={corBaixo}
         />
       </svg>
     </div>
@@ -37,17 +130,27 @@ export default function Home() {
       <SiteHeader />
 
       {/* Hero */}
-      <section className="pmc-secao">
+      <section className="pmc-secao pmc-secao--hero">
         <Container className="pmc-container">
           <Row className="align-items-center g-5">
             <Col md={7} className="order-2 order-md-1">
               <span className="pmc-rotulo">Psicologia clínica · Planaltina-DF e online</span>
               <h1 className="mt-3">Um lugar para respirar, entender e recomeçar.</h1>
               <p className="lead">
-                Atendimento psicológico para crianças, adolescentes e adultos, com terapia
-                cognitivo-comportamental e psicoterapia familiar — presencial em Planaltina-DF
+                Atendimento psicológico para crianças, adolescentes e adultos, integrando a
+                terapia cognitivo-comportamental — presencial em Planaltina-DF
                 ou online, no seu tempo.
               </p>
+              <div className="mt-3">
+                <p className="pmc-titulos mb-1">
+                  <i className="bi bi-patch-check" />
+                  Especialista em Psicologia Clínica
+                </p>
+                <p className="pmc-titulos mb-0">
+                  <i className="bi bi-patch-check" />
+                  Especialista em Docência do Ensino Superior
+                </p>
+              </div>
               <div className="d-flex flex-wrap gap-3 mt-4">
                 <Link href="/agendamento">
                   <Button variant="primary" size="lg">Agendar consulta</Button>
@@ -70,10 +173,10 @@ export default function Home() {
                 <div className="pmc-mancha pmc-mancha--salvia pmc-mancha--hero" />
                 <div className="pmc-blob pmc-acima">
                   <Image
-                    src="/CristinaLivro.jpeg"
-                    alt="Psicóloga Maria Cristina sorrindo, segurando um livro"
-                    width={480}
-                    height={560}
+                    src="/site/cristina-retrato-hero.webp"
+                    alt="Psicóloga Maria Cristina, de braços cruzados, sorrindo"
+                    width={900}
+                    height={1125}
                     style={{ width: '100%', height: 'auto' }}
                     priority
                   />
@@ -84,87 +187,219 @@ export default function Home() {
         </Container>
       </section>
 
-      <OndaBaixo cor="var(--pmc-areia)" />
+      {/* Faixa-manifesto */}
+      <section className="pmc-faixa-manifesto">
+        <div className="pmc-faixa-manifesto__fundo">
+          <Image
+            src="/site/consultorio-desfoque.webp"
+            alt=""
+            fill
+            sizes="100vw"
+            style={{ objectFit: 'cover' }}
+          />
+        </div>
+        <Container className="pmc-container">
+          <p className="pmc-faixa-manifesto__citacao">
+            &ldquo;Um espaço seguro para falar livremente, compreender o que você sente e
+            transformar tensão em crescimento.&rdquo;
+          </p>
+          <span className="pmc-faixa-manifesto__assinatura text-center d-block">
+            Maria Cristina
+          </span>
+        </Container>
+      </section>
 
-      {/* Sobre */}
+      {/* Sobre / formação */}
       <section className="pmc-secao pmc-secao--areia">
         <Container className="pmc-container">
           <Row className="align-items-center g-5">
-            <Col md={7}>
-              <span className="pmc-rotulo">Sobre a psicóloga</span>
-              <h2 className="mt-3">Sobre a Psicóloga</h2>
-              <p>
-                Psicóloga clínica com experiência no atendimento de crianças,
-                adolescentes e adultos. Terapia cognitivo-comportamental e psicoterapia familiar.
-              </p>
-              <div className="d-flex flex-wrap gap-2 mt-4">
-                {especialidades.map((especialidade) => (
-                  <span key={especialidade} className="pmc-chip">
-                    {especialidade}
-                  </span>
-                ))}
-              </div>
-            </Col>
-            <Col md={5} className="d-none d-md-block">
+            <Col md={5}>
               <div className="pmc-blob">
                 <Image
-                  src="/CristinaVestido.jpeg"
-                  alt="Psicóloga Maria Cristina em pé, sorrindo"
-                  width={400}
-                  height={480}
+                  src="/site/cristina-leitura.webp"
+                  alt="Maria Cristina lendo em uma biblioteca"
+                  width={775}
+                  height={1040}
                   style={{ width: '100%', height: 'auto' }}
                 />
               </div>
+            </Col>
+            <Col md={7}>
+              <span className="pmc-rotulo">Quem vai te acompanhar</span>
+              <h2 className="mt-3">Maria Cristina Cassiano de Oliveira</h2>
+              <p>
+                Psicóloga formada pelas Faculdades Integradas IESGO, especialista em Psicologia
+                Clínica e em Docência do Ensino Superior. Atendo crianças, adolescentes e
+                adultos, unindo duas formas de olhar para o sofrimento: a terapia
+                cognitivo-comportamental, que oferece recursos práticos para o dia a dia, e a
+                psicologia social, que ajuda a entender de onde vêm os padrões que se repetem.
+              </p>
+              <div className="d-flex flex-wrap gap-2 mt-4">
+                {areasAtuacao.map((area) => (
+                  <span key={area} className="pmc-chip">
+                    {area}
+                  </span>
+                ))}
+              </div>
+              <p className="pmc-texto-2 mt-3 mb-0">
+                <a
+                  href="https://www.instagram.com/psimariacristina_/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Instagram da psicóloga Maria Cristina (@psimariacristina_)"
+                >
+                  <i className="bi bi-instagram me-2" />
+                  Acompanhe no Instagram: @psimariacristina_
+                </a>
+              </p>
             </Col>
           </Row>
         </Container>
       </section>
 
-      <OndaBaixo cor="var(--pmc-fundo)" />
+      <OndaBaixo corCima="var(--pmc-areia)" corBaixo="var(--pmc-fundo)" />
 
-      {/* Como funciona */}
+      {/* Como eu trabalho */}
       <section className="pmc-secao">
         <Container className="pmc-container text-center">
-          <h2>Como Funciona</h2>
-          <Row className="g-4 mt-2">
-            <Col md={4}>
-              <div className="pmc-icone mx-auto mb-3">
-                <i className="bi bi-calendar-check" />
+          <span className="pmc-rotulo">Método</span>
+          <h2 className="mt-3">Como eu trabalho</h2>
+          <p className="lead mx-auto">
+            Cada pessoa chega com uma história. O cuidado começa por escutá-la.
+          </p>
+          <Row className="g-4 mt-2 text-start">
+            {metodo.map((item) => (
+              <Col md={6} lg={3} key={item.titulo}>
+                <div className="pmc-cartao-metodo">
+                  <div className="pmc-icone mb-3">
+                    <i className={item.icone} />
+                  </div>
+                  <h3>{item.titulo}</h3>
+                  <p className="mb-0">{item.texto}</p>
+                </div>
+              </Col>
+            ))}
+          </Row>
+        </Container>
+      </section>
+
+      <OndaBaixo corCima="var(--pmc-fundo)" corBaixo="var(--pmc-areia)" />
+
+      {/* Destaque do TCC */}
+      <section className="pmc-secao pmc-secao--areia">
+        <Container className="pmc-container">
+          <Row className="align-items-center g-5">
+            <Col lg={6}>
+              <div className="pmc-blob">
+                <Image
+                  src="/site/consultorio-ambiente.webp"
+                  alt="Ambiente do consultório com poltrona e luz natural da janela"
+                  width={900}
+                  height={1000}
+                  style={{ width: '100%', height: 'auto' }}
+                />
               </div>
-              <span className="pmc-rotulo">Passo 1</span>
-              <h3>Agendamento Online</h3>
-              <p className="mx-auto">
-                Escolha o dia e horário disponível que melhor se adequa à sua rotina.
-              </p>
             </Col>
-            <Col md={4}>
-              <div className="pmc-icone mx-auto mb-3">
-                <i className="bi bi-check2-circle" />
-              </div>
-              <span className="pmc-rotulo">Passo 2</span>
-              <h3>Confirmação</h3>
-              <p className="mx-auto">
-                Você recebe a confirmação e pode acompanhar tudo na sua área.
+            <Col lg={6}>
+              <span className="pmc-rotulo">Pesquisa</span>
+              <h2 className="mt-3">Estresse: do alívio à compreensão</h2>
+              <p>
+                No trabalho de conclusão de curso, Maria Cristina estudou como a mente se
+                defende do estresse e como essa energia pode ser transformada em algo
+                construtivo.
               </p>
-            </Col>
-            <Col md={4}>
-              <div className="pmc-icone mx-auto mb-3">
-                <i className="bi bi-camera-video" />
+              <div className="pmc-cartao-citacao mb-4">
+                <p>
+                  &ldquo;Uma análise da sublimação como mecanismo de defesa inconsciente para
+                  lidar com situações de estresse&rdquo;
+                </p>
+                <span>Faculdades Integradas IESGO · 2024</span>
               </div>
-              <span className="pmc-rotulo">Passo 3</span>
-              <h3>Consulta Online / Presencial</h3>
-              <p className="mx-auto">
-                Participe da consulta no horário agendado via Google Meet.<br /> OU <br />
-                Compareça ao consultório para atendimento presencial.
-              </p>
+              <ul className="pmc-lista-check">
+                {pontosTcc.map((ponto) => (
+                  <li key={ponto}>
+                    <i className="bi bi-check-circle-fill" />
+                    <span>{ponto}</span>
+                  </li>
+                ))}
+              </ul>
             </Col>
           </Row>
+        </Container>
+      </section>
+
+      <OndaBaixo corCima="var(--pmc-areia)" corBaixo="var(--pmc-fundo)" />
+
+      {/* Como é a consulta */}
+      <section className="pmc-secao">
+        <Container className="pmc-container text-center">
+          <span className="pmc-rotulo">Passo a passo</span>
+          <h2 className="mt-3">Como é a consulta</h2>
+          <div className="pmc-linha-tempo mt-5 text-start">
+            {etapasConsulta.map((etapa, indice) => (
+              <div className="pmc-linha-tempo__item" key={etapa.titulo}>
+                <span className="pmc-linha-tempo__numero">{indice + 1}</span>
+                <h3>{etapa.titulo}</h3>
+                <p className="mb-0">{etapa.texto}</p>
+              </div>
+            ))}
+          </div>
           <Link href="/agendamento">
             <Button variant="primary" size="lg" className="mt-5">
               <i className="bi bi-calendar-plus me-2" />
-              Agendar Consulta
+              Agendar consulta
             </Button>
           </Link>
+        </Container>
+      </section>
+
+      <OndaBaixo corCima="var(--pmc-fundo)" corBaixo="var(--pmc-areia)" />
+
+      {/* O consultório */}
+      <section className="pmc-secao pmc-secao--areia">
+        <Container className="pmc-container text-center">
+          <span className="pmc-rotulo">Onde acontece</span>
+          <h2 className="mt-3">Um ambiente pensado para o cuidado</h2>
+          <p className="lead mx-auto">
+            Luz natural, silêncio e conforto para que você se sinta à vontade desde o primeiro
+            minuto.
+          </p>
+          <Row className="g-4 mt-2">
+            {galeriaConsultorio.map((foto) => (
+              <Col md={4} key={foto.src}>
+                <div className={`pmc-galeria-foto ${foto.classeExtra}`.trim()}>
+                  <Image src={foto.src} alt={foto.alt} width={900} height={600} />
+                </div>
+                <p className="pmc-galeria-legenda">{foto.legenda}</p>
+              </Col>
+            ))}
+          </Row>
+          <p className="pmc-texto-2 mt-3 mb-0">
+            O atendimento online acontece com o mesmo cuidado, de onde você estiver.
+          </p>
+        </Container>
+      </section>
+
+      <OndaBaixo corCima="var(--pmc-areia)" corBaixo="var(--pmc-fundo)" />
+
+      {/* Para quem */}
+      <section className="pmc-secao">
+        <Container className="pmc-container text-center">
+          <span className="pmc-rotulo">Atendimento</span>
+          <h2 className="mt-3 mb-4">Para quem é</h2>
+          <Row className="g-4 text-start">
+            {paraQuem.map((item) => (
+              <Col md={4} key={item.titulo}>
+                <div className="pmc-cartao-metodo text-center h-100">
+                  <div className="pmc-icone pmc-icone--salvia mx-auto mb-3">
+                    <i className={item.icone} />
+                  </div>
+                  <h3>{item.titulo}</h3>
+                  <p className="mb-0">{item.texto}</p>
+                </div>
+              </Col>
+            ))}
+          </Row>
         </Container>
       </section>
 
@@ -183,8 +418,22 @@ export default function Home() {
                   <i className="bi bi-envelope me-2" />
                   <a href="mailto:mariacriscassia02@gmail.com">mariacriscassia02@gmail.com</a>
                 </p>
+                <p className="mb-3">
+                  <i className="bi bi-instagram me-2" />
+                  <a
+                    href="https://www.instagram.com/psimariacristina_/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Instagram da psicóloga Maria Cristina (@psimariacristina_)"
+                  >
+                    @psimariacristina_
+                  </a>
+                </p>
               </address>
-              <p className="mb-0">Atendimento online • Crianças, Adolescentes e Adultos</p>
+              <p className="mb-0">
+                Atendimento presencial em Planaltina-DF e online • Crianças, adolescentes e
+                adultos
+              </p>
             </Col>
             <Col md={7}>
               <div className="pmc-mapa ratio ratio-4x3">
@@ -206,7 +455,7 @@ export default function Home() {
               </a>
             </Col>
           </Row>
-          <p className="text-center mt-5 mb-0">
+          <p className="text-center mx-auto mt-5 mb-0">
             © {new Date().getFullYear()} Psicóloga Maria Cristina - Todos os direitos reservados
           </p>
         </Container>

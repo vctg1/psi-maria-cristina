@@ -361,6 +361,9 @@ model Consulta {
   /// Token de confirmação ATIVO desta consulta (FK do lado da consulta: no máximo um por consulta;
   /// um token pode cobrir as N consultas de um lote). Regerar o link troca o token.
   tokenConfirmacaoId String?        @map("token_confirmacao_id")
+  /// Link da videochamada (Google Meet etc.) para consulta online, informado pela psicóloga e
+  /// enviado ao paciente por e-mail. Só aceita https de provedores conhecidos (validação na rota).
+  linkReuniao        String?        @map("link_reuniao") @db.VarChar(300)
 
   criadaEm           DateTime       @default(now()) @map("criada_em") @db.Timestamptz(3)
   atualizadaEm       DateTime       @updatedAt @map("atualizada_em") @db.Timestamptz(3)

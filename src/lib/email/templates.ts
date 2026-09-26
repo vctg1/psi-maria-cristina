@@ -111,7 +111,8 @@ export function layoutBase(params: {
             </tr>
             <tr>
               <td style="padding: 20px 32px; background-color: ${COR_FUNDO}; color: #8A7D73; font-size: 12px; text-align: center;">
-                Maria Cristina · Psicóloga Clínica
+                Maria Cristina · Psicóloga Clínica<br />
+                <a href="https://www.instagram.com/psimariacristina_/" style="color: #8A7D73; text-decoration: underline;">Instagram: @psimariacristina_</a>
               </td>
             </tr>
           </table>
@@ -257,6 +258,25 @@ export function emailAlteracaoEmailAcesso(params: { nome: string; emailNovoMasca
     `,
   });
   const texto = `${saudacao(params.nome)}\n\nO e-mail usado para acessar sua conta foi alterado para ${params.emailNovoMascarado}.\n\nSe foi você quem fez essa alteração, não precisa fazer nada.\nSe não foi você, sua conta pode ter sido acessada por outra pessoa: avise o responsável técnico do site imediatamente.`;
+  return { assunto, html, texto };
+}
+
+export function emailLinkReuniao(params: { nome: string; inicio: Date; link: string }): ConteudoEmail {
+  const nome = escaparHtml(saudacao(params.nome));
+  const dataFormatada = formatarDataHoraBr(params.inicio);
+  const link = validarLinkAbsoluto(params.link);
+  const assunto = 'Link da sua consulta online';
+  const html = layoutBase({
+    titulo: 'Sua consulta online',
+    corpoHtml: `
+      <p>${nome}</p>
+      <p>Sua consulta online está marcada para <strong>${escaparHtml(dataFormatada)}</strong>.</p>
+      <p>Na hora marcada, é só clicar no botão abaixo para entrar na sala.</p>
+      <p>Este link é só seu — não compartilhe.</p>
+    `,
+    botao: { texto: 'Entrar na consulta', url: link },
+  });
+  const texto = `${saudacao(params.nome)}\n\nSua consulta online está marcada para ${dataFormatada}.\n\nNa hora marcada, é só acessar o link abaixo para entrar na sala:\n${params.link}\n\nEste link é só seu — não compartilhe.`;
   return { assunto, html, texto };
 }
 

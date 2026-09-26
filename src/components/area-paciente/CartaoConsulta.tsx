@@ -112,6 +112,8 @@ export default function CartaoConsulta({
 
   const futura = new Date(consulta.inicio).getTime() > Date.now();
   const mostrarBotoesCalendario = consulta.status === 'confirmada' && futura;
+  const consultaFuturaAtiva = futura && (consulta.status === 'agendada' || consulta.status === 'confirmada');
+  const mostrarLinkReuniao = consultaFuturaAtiva && consulta.modalidade === 'online';
 
   const baixarIcs = () => {
     const evento = eventoConsultaPaciente({
@@ -170,6 +172,25 @@ export default function CartaoConsulta({
               )}
             </div>
           </div>
+
+          {mostrarLinkReuniao && (
+            <div className="mt-3">
+              {consulta.linkReuniao ? (
+                <a
+                  id={`botao-entrar-consulta-online-${consulta.id}`}
+                  className="btn btn-primary btn-sm"
+                  href={consulta.linkReuniao}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <i className="bi bi-camera-video me-2" />
+                  Entrar na consulta online
+                </a>
+              ) : (
+                <p className="mb-0 pmc-texto-2 small">O link da sala será enviado pela psicóloga.</p>
+              )}
+            </div>
+          )}
 
           {mostrarBotoesCalendario && (
             <div className="mt-3 d-flex flex-wrap gap-2">

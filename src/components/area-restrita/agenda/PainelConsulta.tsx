@@ -8,7 +8,7 @@ import Alert from 'react-bootstrap/Alert';
 import Modal from 'react-bootstrap/Modal';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
-import type { ConsultaDto, LinkConfirmacaoResposta, Modalidade } from '@/types/agenda';
+import type { ConsultaDto, LinkConfirmacaoResposta, LinkReuniaoResposta, Modalidade } from '@/types/agenda';
 import type { CobrancaOnlineDto, PagamentoDto } from '@/types/pagamento';
 import { GATEWAY_LABEL, METODO_LABEL } from '@/types/pagamento';
 import { useNotificacao } from '@/components/NotificacaoProvider';
@@ -66,6 +66,11 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
   const [gerandoLinkConfirmacao, setGerandoLinkConfirmacao] = useState(false);
   const [linkConfirmacao, setLinkConfirmacao] = useState<LinkConfirmacaoResposta | null>(null);
 
+  const [linkReuniaoInput, setLinkReuniaoInput] = useState('');
+  const [salvandoLinkReuniao, setSalvandoLinkReuniao] = useState(false);
+  const [erroLinkReuniao, setErroLinkReuniao] = useState<string | null>(null);
+  const [avisoLinkReuniao, setAvisoLinkReuniao] = useState(false);
+
   useEffect(() => {
     setAtual(consulta);
     setModalidade(consulta?.modalidade ?? 'presencial');
@@ -84,6 +89,9 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
     setErroStatusOnline(null);
     setGatewayCobrancaOnline(null);
     setLinkConfirmacao(null);
+    setLinkReuniaoInput(consulta?.linkReuniao ?? '');
+    setErroLinkReuniao(null);
+    setAvisoLinkReuniao(false);
   }, [consulta]);
 
   useEffect(() => {
@@ -331,6 +339,43 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
     }
   };
 
+  const salvarLinkReuniao = async (link: string | null, enviarEmail: boolean) => {
+    setSalvandoLinkReuniao(true);
+    setErroLinkReuniao(null);
+    setAvisoLinkReuniao(false);
+    try {
+      const response = await fetch(`/api/consultas/${atual.id}/link-reuniao`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ link, enviarEmail }),
+      });
+      const dados = await response.json().catch(() => null);
+      if (!response.ok) {
+        setErroLinkReuniao(dados?.error ?? 'Não foi possível salvar o link.');
+        return;
+      }
+      const resposta = dados as LinkReuniaoResposta;
+      setAtual(resposta.consulta);
+      setLinkReuniaoInput(resposta.consulta.linkReuniao ?? '');
+      if (link === null) {
+        mostrarNotificacao({ tipo: 'sucesso', titulo: 'Link removido' });
+      } else if (enviarEmail) {
+        if (resposta.emailEnviado) {
+          mostrarNotificacao({ tipo: 'sucesso', titulo: 'Link enviado para o e-mail do paciente.' });
+        } else {
+          setAvisoLinkReuniao(true);
+        }
+      } else {
+        mostrarNotificacao({ tipo: 'sucesso', titulo: 'Link salvo' });
+      }
+      onAtualizado();
+    } catch {
+      setErroLinkReuniao('Não foi possível salvar o link.');
+    } finally {
+      setSalvandoLinkReuniao(false);
+    }
+  };
+
   const baixarIcs = () => {
     const evento = eventoConsultaPsicologa({
       id: atual.id,
@@ -521,6 +566,112 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
               {salvando ? 'Salvando...' : 'Salvar alterações'}
             </Button>
           </div>
+
+          {(modalidade === 'online' || atual.linkReuniao) &&
+            atual.status !== 'cancelada' &&
+            atual.status !== 'realizada' &&
+            atual.status !== 'nao_compareceu' && (
+              <div className="mb-4">
+                <span className="pmc-rotulo d-block mb-2">Consulta online</span>
+                {erroLinkReuniao && <Alert variant="danger">{erroLinkReuniao}</Alert>}
+                <Form.Group className="mb-2" controlId="painelLinkReuniao">
+                  <Form.Control
+                    type="url"
+                    placeholder="https://meet.google.com/..."
+                    value={linkReuniaoInput}
+                    onChange={(e) => setLinkReuniaoInput(e.target.value)}
+                    isInvalid={!!erroLinkReuniao}
+                  />
+                  <Form.Text className="pmc-texto-2">
+                    Cole o link do Google Meet (ou Zoom/Teams) da sessão.
+                  </Form.Text>
+                </Form.Group>
+                <div className="d-flex flex-wrap gap-2 mb-2">
+                  <Button
+                    id="botao-enviar-link-reuniao"
+                    variant="primary"
+                    size="sm"
+                    disabled={salvandoLinkReuniao || !linkReuniaoInput.trim()}
+                    onClick={() => salvarLinkReuniao(linkReuniaoInput.trim(), true)}
+                  >
+                    {salvandoLinkReuniao ? 'Salvando...' : 'Salvar e enviar por e-mail'}
+                  </Button>
+                  <Button
+                    id="botao-salvar-link-reuniao"
+                    variant="outline-secondary"
+                    size="sm"
+                    disabled={salvandoLinkReuniao || !linkReuniaoInput.trim()}
+                    onClick={() => salvarLinkReuniao(linkReuniaoInput.trim(), false)}
+                  >
+                    {salvandoLinkReuniao ? 'Salvando...' : 'Só salvar'}
+                  </Button>
+                </div>
+
+                {avisoLinkReuniao && (
+                  <Alert variant="warning">
+                    <p className="mb-2">
+                      O paciente não tem e-mail cadastrado (ou o envio falhou). Envie pelo WhatsApp:
+                    </p>
+                    <Button
+                      id="botao-whatsapp-link-reuniao"
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={() => {
+                        const digitos = atual.paciente.telefone.replace(/\D/g, '');
+                        const comDdi = digitos.startsWith('55') ? digitos : `55${digitos}`;
+                        const primeiroNome = atual.paciente.nome.split(' ')[0];
+                        const mensagem = `Olá, ${primeiroNome}! Este é o link da sua consulta online de ${formatarData(
+                          atual.inicio,
+                          { day: '2-digit', month: '2-digit' }
+                        )} às ${formatarHora(atual.inicio)}: ${atual.linkReuniao ?? ''}`;
+                        window.open(`https://wa.me/${comDdi}?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
+                      }}
+                    >
+                      <i className="bi bi-whatsapp me-1" />
+                      Enviar por WhatsApp
+                    </Button>
+                  </Alert>
+                )}
+
+                {atual.linkReuniao && (
+                  <div className="d-flex flex-wrap gap-2">
+                    <Button
+                      id="botao-copiar-link-reuniao"
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(atual.linkReuniao ?? '');
+                          mostrarNotificacao({ tipo: 'sucesso', titulo: 'Link copiado' });
+                        } catch {
+                          mostrarNotificacao({ tipo: 'erro', titulo: 'Não foi possível copiar o link' });
+                        }
+                      }}
+                    >
+                      Copiar link
+                    </Button>
+                    <a
+                      id="link-abrir-sala-reuniao"
+                      className="btn btn-outline-secondary btn-sm"
+                      href={atual.linkReuniao}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Abrir sala
+                    </a>
+                    <Button
+                      id="botao-remover-link-reuniao"
+                      variant="outline-danger"
+                      size="sm"
+                      disabled={salvandoLinkReuniao}
+                      onClick={() => salvarLinkReuniao(null, false)}
+                    >
+                      Remover link
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
 
           <span className="pmc-rotulo d-block mb-2">Cobrança</span>
           <div className="mb-4">

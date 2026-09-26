@@ -21,20 +21,23 @@ const corpo = Nunito_Sans({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://cristinapsi.online"),
   title: "Maria Cristina Psicóloga",
-  description: "Consultório de Psicologia - Atendimento Online e Presencial",
+  description:
+    "Psicóloga clínica em Planaltina-DF e online. Terapia cognitivo-comportamental para crianças, adolescentes e adultos.",
   icons: {
     icon: "/favicon.ico",
     apple: "/apple-touch-icon.png",
   },
   openGraph: {
     title: "Maria Cristina Psicóloga",
-    description: "Consultório de Psicologia - Atendimento Online e Presencial",
-    url: "https://psi-maria-cristina.vercel.app",
+    description:
+      "Psicóloga clínica em Planaltina-DF e online. Terapia cognitivo-comportamental para crianças, adolescentes e adultos.",
+    url: "/",
     siteName: "Maria Cristina Psicóloga",
     images: [
       {
-        url: "https://psi-maria-cristina.vercel.app/CristinaVestido.jpeg",
+        url: "/CristinaVestido.jpeg",
         width: 1200,
         height: 630,
         alt: "Maria Cristina Psicóloga",
@@ -46,8 +49,9 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Maria Cristina Psicóloga",
-    description: "Consultório de Psicologia - Atendimento Online e Presencial",
-    images: ["https://psi-maria-cristina.vercel.app/CristinaVestido.jpeg"],
+    description:
+      "Psicóloga clínica em Planaltina-DF e online. Terapia cognitivo-comportamental para crianças, adolescentes e adultos.",
+    images: ["/CristinaVestido.jpeg"],
   },
 };
 

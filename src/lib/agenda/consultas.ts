@@ -30,6 +30,7 @@ export const SELECT_CONSULTA_COM_PACIENTE = {
   motivoCancelamento: true,
   criadaEm: true,
   confirmacaoSolicitadaEm: true,
+  linkReuniao: true,
   pacienteId: true,
   paciente: { select: { id: true, nome: true, telefone: true, usuarioId: true } },
   ...SELECT_COBRANCA,
@@ -109,6 +110,7 @@ export function paraConsultaDto(c: ConsultaComPaciente, valorPadrao: number): Co
     motivoCancelamento: c.motivoCancelamento,
     criadaEm: c.criadaEm.toISOString(),
     confirmacaoSolicitadaEm: c.confirmacaoSolicitadaEm ? c.confirmacaoSolicitadaEm.toISOString() : null,
+    linkReuniao: c.linkReuniao,
     paciente: {
       id: c.paciente.id,
       nome: c.paciente.nome,
@@ -136,6 +138,7 @@ export function paraConsultaDtoPaciente(c: ConsultaComPaciente, valorPadrao: num
     motivoCancelamento: dto.motivoCancelamento,
     criadaEm: dto.criadaEm,
     confirmacaoSolicitadaEm: dto.confirmacaoSolicitadaEm,
+    linkReuniao: dto.linkReuniao,
     paciente: { id: c.paciente.id, nome: c.paciente.nome },
     cobranca: dto.cobranca,
   };
