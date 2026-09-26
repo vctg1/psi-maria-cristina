@@ -363,7 +363,7 @@ a { text-underline-offset: 0.15em; }
 .pmc-header { padding-top: 10px; padding-bottom: 10px; }
 .pmc-header .navbar-brand { display: inline-flex; align-items: center; gap: 12px; padding: 0; line-height: 1.2; }
 .pmc-header .navbar-brand img { height: 78px; width: auto; }
-.pmc-logo-crp { color: var(--pmc-texto); font-size: 0.95rem; font-weight: 700; white-space: nowrap; }
+.pmc-logo-crp { color: var(--pmc-texto); font-size: 1.15rem; font-weight: 700; white-space: nowrap; }
 
 /* menu lateral (só no mobile): cobre parte da tela, abrindo pela direita.
    Acima de md o Bootstrap desmonta o offcanvas e os itens ficam inline. */
@@ -381,7 +381,7 @@ a { text-underline-offset: 0.15em; }
   /* cabeçalho compacto no mobile para não roubar a tela ao rolar */
   .pmc-header { padding-top: 8px; padding-bottom: 8px; }
   .pmc-header .navbar-brand img { height: 56px; }
-  .pmc-logo-crp { font-size: 0.82rem; }
+  .pmc-logo-crp { font-size: 1rem; }
 }
 
 /* ============================================================================
