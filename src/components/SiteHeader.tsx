@@ -17,7 +17,7 @@ export default function SiteHeader() {
       <Container className="pmc-container">
         <Navbar.Brand as={Link} href="/">
           <Image
-            src="/maria-cristina-logo.png"
+            src="/maria-cristina-logo.png?v=original-20260926"
             alt="Psicóloga Maria Cristina"
             width={80}
             height={100}

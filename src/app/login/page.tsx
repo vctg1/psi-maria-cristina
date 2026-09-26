@@ -74,7 +74,7 @@ export default function LoginPage() {
       <Card className="pmc-auth-card pmc-acima">
         <Card.Body>
           <Image
-            src="/maria-cristina-logo.png"
+            src="/maria-cristina-logo.png?v=original-20260926"
             alt="Psicóloga Maria Cristina"
             width={72}
             height={72}
