@@ -8,9 +8,24 @@ ENV_FILE="$PROJECT_DIR/.env"
 cd "$APP_DIR"
 export PATH="/root/.nvm/versions/node/v24.18.1/bin:$PATH"
 
-set -a
-source "$ENV_FILE"
-set +a
+# Read dotenv values literally. Password hashes and tokens may contain '$',
+# which Bash would expand if the file were sourced.
+while IFS= read -r line || [[ -n "$line" ]]; do
+  line="${line%$'\r'}"
+  [[ -z "$line" || "$line" == \#* ]] && continue
+  [[ "$line" == *=* ]] || continue
+  key="${line%%=*}"
+  [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+  value="${line#*=}"
+  if [[ ${#value} -ge 2 ]]; then
+    first="${value:0:1}"
+    last="${value: -1}"
+    if [[ ( "$first" == '"' && "$last" == '"' ) || ( "$first" == "'" && "$last" == "'" ) ]]; then
+      value="${value:1:${#value}-2}"
+    fi
+  fi
+  export "$key=$value"
+done < "$ENV_FILE"
 export NODE_ENV=production
 export PSI_APP_DIR="$APP_DIR"
 : "${DATABASE_URL:?DATABASE_URL must be set in $ENV_FILE}"
