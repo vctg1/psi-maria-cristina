@@ -187,19 +187,23 @@ export default function Home() {
               <p className="mb-0">Atendimento online • Crianças, Adolescentes e Adultos</p>
             </Col>
             <Col md={7}>
-              <div className="pmc-mapa d-flex flex-column align-items-center justify-content-center text-center p-4 h-100" style={{ background: 'var(--pmc-areia)', color: 'var(--pmc-texto)' }}>
-                <i className="bi bi-geo-alt-fill fs-1" aria-hidden="true" />
-                <h3 className="h4 mt-2">Consultório em Planaltina</h3>
-                <p>Setor Tradicional, Lote 11, Planaltina-DF, 73330-078</p>
-                <a
-                  href="https://maps.app.goo.gl/H6k7QzPuavFjRjZN7?g_st=aw"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-primary"
-                >
-                  Abrir no Google Maps
-                </a>
+              <div className="pmc-mapa ratio ratio-4x3">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3842.449675972523!2d-47.6590154!3d-15.621024900000002!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x935a13a8f1cb33b3%3A0x563cfb76e7e84007!2sPsic%C3%B3loga%20Maria%20Cristina!5e0!3m2!1spt-BR!2sbr!4v1790455178240!5m2!1spt-BR!2sbr"
+                  title="Localização do consultório da psicóloga Maria Cristina"
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
               </div>
+              <a
+                href="https://maps.app.goo.gl/H6k7QzPuavFjRjZN7?g_st=aw"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="d-inline-block mt-3"
+              >
+                Abrir no Google Maps
+              </a>
             </Col>
           </Row>
           <p className="text-center mt-5 mb-0">
