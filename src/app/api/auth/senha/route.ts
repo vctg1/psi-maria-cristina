@@ -67,7 +67,7 @@ export async function PATCH(request: NextRequest) {
     if (!senhaConfere) {
       return NextResponse.json(
         { error: 'Senha atual incorreta', campos: { senhaAtual: 'Senha atual incorreta' } },
-        { status: 401 },
+        { status: 400 },
       );
     }
 

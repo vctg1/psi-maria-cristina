@@ -24,6 +24,19 @@ export type AlertaLembrete = {
   };
 };
 
-export type Alerta = AlertaCancelamento | AlertaLembrete;
+/** Fase 6 · Bloco 5: visitante agendou pelo site (Notificacao tipo `novo_agendamento`). */
+export type AlertaNovoAgendamento = {
+  tipo: 'novo_agendamento';
+  id: string; // notificacao.id
+  titulo: string;
+  mensagem: string;
+  criadaEm: string;
+  consulta: { id: string; inicio: string; pacienteNome: string; pacienteTelefone: string } | null;
+};
 
-export type AlertasResposta = { alertas: Alerta[]; totais: { cancelamentos: number; lembretes: number } };
+export type Alerta = AlertaCancelamento | AlertaLembrete | AlertaNovoAgendamento;
+
+export type AlertasResposta = {
+  alertas: Alerta[];
+  totais: { cancelamentos: number; lembretes: number; novosAgendamentos: number };
+};

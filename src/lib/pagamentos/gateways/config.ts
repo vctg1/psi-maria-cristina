@@ -1,5 +1,6 @@
 import 'server-only';
 import { ErroConfiguracaoGateway } from './tipos';
+import { baseUrlPublica as baseUrlPublicaCentral, ErroConfiguracaoUrlPublica } from '@/lib/url-publica';
 
 /** Lê uma env obrigatória; lança `ErroConfiguracaoGateway` (nunca fallback) se ausente/vazia. */
 export function envObrigatoria(nome: string): string {
@@ -11,17 +12,15 @@ export function envObrigatoria(nome: string): string {
 }
 
 /** URL pública base da aplicação, usada em back_urls/notification_url/callback dos gateways.
- *  Sem fallback localhost: falha explícita se `NEXT_PUBLIC_URL` faltar. Em produção exige https. */
+ *  Implementação centralizada em `@/lib/url-publica`; aqui só adaptamos o tipo de erro
+ *  para manter o contrato existente dos gateways (`ErroConfiguracaoGateway`). */
 export function baseUrlPublica(): string {
-  const url = envObrigatoria('NEXT_PUBLIC_URL');
-  let normalizada: URL;
   try {
-    normalizada = new URL(url);
-  } catch {
-    throw new ErroConfiguracaoGateway('NEXT_PUBLIC_URL');
+    return baseUrlPublicaCentral();
+  } catch (erro) {
+    if (erro instanceof ErroConfiguracaoUrlPublica) {
+      throw new ErroConfiguracaoGateway('NEXT_PUBLIC_URL');
+    }
+    throw erro;
   }
-  if (process.env.NODE_ENV === 'production' && normalizada.protocol !== 'https:') {
-    throw new ErroConfiguracaoGateway('NEXT_PUBLIC_URL');
-  }
-  return url.replace(/\/+$/, '');
 }

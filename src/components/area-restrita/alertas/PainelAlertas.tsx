@@ -31,9 +31,10 @@ export default function PainelAlertas({ modo, aoFechar, aoTotalMudar }: PainelAl
   const { mostrarNotificacao } = useNotificacao();
 
   const [alertas, setAlertas] = useState<Alerta[]>([]);
-  const [totais, setTotais] = useState<{ cancelamentos: number; lembretes: number }>({
+  const [totais, setTotais] = useState<{ cancelamentos: number; lembretes: number; novosAgendamentos: number }>({
     cancelamentos: 0,
     lembretes: 0,
+    novosAgendamentos: 0,
   });
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export default function PainelAlertas({ modo, aoFechar, aoTotalMudar }: PainelAl
       const resposta = dados as AlertasResposta;
       setAlertas(resposta.alertas);
       setTotais(resposta.totais);
-      aoTotalMudar?.(resposta.totais.cancelamentos + resposta.totais.lembretes);
+      aoTotalMudar?.(resposta.totais.cancelamentos + resposta.totais.lembretes + resposta.totais.novosAgendamentos);
     } catch {
       setErro('Não foi possível carregar os alertas.');
     } finally {
@@ -69,9 +70,14 @@ export default function PainelAlertas({ modo, aoFechar, aoTotalMudar }: PainelAl
   const removerDaLista = (alerta: Alerta) => {
     setAlertas((prev) => prev.filter((item) => !(item.tipo === alerta.tipo && item.id === alerta.id)));
     setTotais((prev) => {
-      const chave = alerta.tipo === 'lembrete' ? 'lembretes' : 'cancelamentos';
+      const chave =
+        alerta.tipo === 'lembrete'
+          ? 'lembretes'
+          : alerta.tipo === 'novo_agendamento'
+            ? 'novosAgendamentos'
+            : 'cancelamentos';
       const novo = { ...prev, [chave]: Math.max(0, prev[chave] - 1) };
-      aoTotalMudar?.(novo.cancelamentos + novo.lembretes);
+      aoTotalMudar?.(novo.cancelamentos + novo.lembretes + novo.novosAgendamentos);
       return novo;
     });
   };
@@ -105,8 +111,8 @@ export default function PainelAlertas({ modo, aoFechar, aoTotalMudar }: PainelAl
     tratarAlerta(alerta, 'Este lembrete já foi tratado.');
   };
 
-  const marcarComoVisto = (alerta: Extract<Alerta, { tipo: 'cancelamento' }>) => {
-    tratarAlerta(alerta, 'Este cancelamento já foi tratado.');
+  const marcarComoVisto = (alerta: Extract<Alerta, { tipo: 'cancelamento' | 'novo_agendamento' }>) => {
+    tratarAlerta(alerta, alerta.tipo === 'novo_agendamento' ? 'Este agendamento já foi tratado.' : 'Este cancelamento já foi tratado.');
   };
 
   const verNaAgenda = (consulta: { inicio: string }) => {
@@ -125,7 +131,8 @@ export default function PainelAlertas({ modo, aoFechar, aoTotalMudar }: PainelAl
               <span className="pmc-rotulo">Alertas</span>
               <p className="pmc-texto-2 pmc-t-sm mb-0 mt-1">
                 {totais.lembretes} lembrete{totais.lembretes === 1 ? '' : 's'} para amanhã · {totais.cancelamentos} cancelamento
-                {totais.cancelamentos === 1 ? '' : 's'}
+                {totais.cancelamentos === 1 ? '' : 's'} · {totais.novosAgendamentos} novo
+                {totais.novosAgendamentos === 1 ? '' : 's'} agendamento{totais.novosAgendamentos === 1 ? '' : 's'}
               </p>
             </div>
             <Button
@@ -160,7 +167,8 @@ export default function PainelAlertas({ modo, aoFechar, aoTotalMudar }: PainelAl
       <span className="pmc-rotulo">Alertas</span>
       <p className="pmc-texto-2 pmc-t-sm mt-1">
         {totais.lembretes} lembrete{totais.lembretes === 1 ? '' : 's'} para amanhã · {totais.cancelamentos} cancelamento
-        {totais.cancelamentos === 1 ? '' : 's'}
+        {totais.cancelamentos === 1 ? '' : 's'} · {totais.novosAgendamentos} novo
+        {totais.novosAgendamentos === 1 ? '' : 's'} agendamento{totais.novosAgendamentos === 1 ? '' : 's'}
       </p>
 
       {erro && <Alert variant="danger">{erro}</Alert>}
@@ -191,7 +199,7 @@ export default function PainelAlertas({ modo, aoFechar, aoTotalMudar }: PainelAl
 type ListaAlertasProps = {
   alertas: Alerta[];
   onEnviarLembrete: (alerta: Extract<Alerta, { tipo: 'lembrete' }>) => void;
-  onMarcarVisto: (alerta: Extract<Alerta, { tipo: 'cancelamento' }>) => void;
+  onMarcarVisto: (alerta: Extract<Alerta, { tipo: 'cancelamento' | 'novo_agendamento' }>) => void;
   onVerNaAgenda: (consulta: { inicio: string }) => void;
 };
 
@@ -219,6 +227,37 @@ function ListaAlertas({ alertas, onEnviarLembrete, onMarcarVisto, onVerNaAgenda 
                   <i className="bi bi-whatsapp me-1" />
                   Enviar lembrete
                 </Button>
+              </div>
+            </Card.Body>
+          </Card>
+        ) : alerta.tipo === 'novo_agendamento' ? (
+          <Card key={`novo_agendamento-${alerta.id}`}>
+            <Card.Body className="d-flex gap-3">
+              <div className="pmc-icone pmc-icone--salvia flex-shrink-0">
+                <i className="bi bi-calendar-plus" />
+              </div>
+              <div className="flex-grow-1">
+                <p className="pmc-peso-medio mb-1">{alerta.titulo}</p>
+                <p className="pmc-texto-2 pmc-t-sm mb-1">{alerta.mensagem}</p>
+                <p className="pmc-texto-2 pmc-t-sm mb-2">
+                  {formatarData(alerta.criadaEm, {
+                    day: '2-digit',
+                    month: '2-digit',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
+                </p>
+                <div className="d-flex gap-2 flex-wrap">
+                  <Button variant="outline-secondary" size="sm" onClick={() => onMarcarVisto(alerta)}>
+                    Marcar como visto
+                  </Button>
+                  {alerta.consulta && (
+                    <Button variant="outline-secondary" size="sm" onClick={() => onVerNaAgenda(alerta.consulta!)}>
+                      Ver na agenda
+                    </Button>
+                  )}
+                </div>
               </div>
             </Card.Body>
           </Card>

@@ -189,7 +189,11 @@ function AgendaPageConteudo() {
                               </div>
                               <div className="pmc-t-sm">{consulta.paciente.nome}</div>
                               <div className="mt-1 d-flex align-items-center flex-wrap gap-1">
-                                <span className={STATUS_CLASSE[consulta.status]}>{STATUS_LABEL[consulta.status]}</span>
+                                <span className={STATUS_CLASSE[consulta.status]}>
+                                  {consulta.status === 'agendada' && consulta.confirmacaoSolicitadaEm
+                                    ? 'Aguarda paciente'
+                                    : STATUS_LABEL[consulta.status]}
+                                </span>
                                 {!consulta.paciente.temLogin && (
                                   <span className="pmc-badge-neutro">sem acesso</span>
                                 )}

@@ -8,7 +8,7 @@ import Alert from 'react-bootstrap/Alert';
 import Modal from 'react-bootstrap/Modal';
 import Row from 'react-bootstrap/Row';
 import Col from 'react-bootstrap/Col';
-import type { ConsultaDto, Modalidade } from '@/types/agenda';
+import type { ConsultaDto, LinkConfirmacaoResposta, Modalidade } from '@/types/agenda';
 import type { CobrancaOnlineDto, PagamentoDto } from '@/types/pagamento';
 import { GATEWAY_LABEL, METODO_LABEL } from '@/types/pagamento';
 import { useNotificacao } from '@/components/NotificacaoProvider';
@@ -16,6 +16,7 @@ import { formatarData, formatarHora } from './formatos';
 import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
 import ModalRegistrarPagamento from '@/components/area-restrita/financeiro/ModalRegistrarPagamento';
 import ModalCobrancaOnline from '@/components/area-restrita/financeiro/ModalCobrancaOnline';
+import { eventoConsultaPsicologa, gerarIcs, linkGoogleCalendar } from '@/lib/calendario';
 
 type PainelConsultaProps = {
   consulta: ConsultaDto | null;
@@ -62,6 +63,8 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
   const [atualizandoStatusOnline, setAtualizandoStatusOnline] = useState(false);
   const [erroStatusOnline, setErroStatusOnline] = useState<string | null>(null);
   const [gatewayCobrancaOnline, setGatewayCobrancaOnline] = useState<CobrancaOnlineDto['gateway'] | null>(null);
+  const [gerandoLinkConfirmacao, setGerandoLinkConfirmacao] = useState(false);
+  const [linkConfirmacao, setLinkConfirmacao] = useState<LinkConfirmacaoResposta | null>(null);
 
   useEffect(() => {
     setAtual(consulta);
@@ -80,6 +83,7 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
     setModalCobrancaOnlineAberto(false);
     setErroStatusOnline(null);
     setGatewayCobrancaOnline(null);
+    setLinkConfirmacao(null);
   }, [consulta]);
 
   useEffect(() => {
@@ -306,6 +310,46 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
     onAtualizado();
   };
 
+  const gerarNovoLinkConfirmacao = async () => {
+    setGerandoLinkConfirmacao(true);
+    try {
+      const response = await fetch(`/api/consultas/${atual.id}/link-confirmacao`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enviarEmail: true }),
+      });
+      const dados = await response.json().catch(() => null);
+      if (!response.ok) {
+        mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: dados?.error ?? 'Não foi possível gerar o link.' });
+        return;
+      }
+      setLinkConfirmacao(dados as LinkConfirmacaoResposta);
+    } catch {
+      mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: 'Não foi possível gerar o link.' });
+    } finally {
+      setGerandoLinkConfirmacao(false);
+    }
+  };
+
+  const baixarIcs = () => {
+    const evento = eventoConsultaPsicologa({
+      id: atual.id,
+      inicio: new Date(atual.inicio),
+      modalidade: atual.modalidade,
+      pacienteNome: atual.paciente.nome,
+    });
+    const conteudo = gerarIcs(evento);
+    const blob = new Blob([conteudo], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'consulta.ics';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   const desfazerPagamento = async () => {
     if (!atual.cobranca.pagamentoId) return;
     setEstornando(true);
@@ -351,6 +395,93 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
             </span>
             {!atual.paciente.temLogin && <span className="pmc-badge-neutro ms-2">Sem acesso</span>}
           </div>
+
+          {atual.status === 'agendada' && atual.confirmacaoSolicitadaEm && (
+            <div className="mb-3">
+              <span className="pmc-badge-aviso d-inline-block mb-2">Aguardando confirmação do paciente</span>
+              {linkConfirmacao ? (
+                <div>
+                  <Form.Control
+                    id="painelLinkConfirmacao"
+                    readOnly
+                    value={linkConfirmacao.link}
+                    className="mb-2"
+                  />
+                  <div className="d-flex flex-wrap gap-2">
+                    <Button
+                      id="botao-copiar-link-confirmacao-painel"
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(linkConfirmacao.link);
+                          mostrarNotificacao({ tipo: 'sucesso', titulo: 'Link copiado' });
+                        } catch {
+                          mostrarNotificacao({ tipo: 'erro', titulo: 'Não foi possível copiar o link' });
+                        }
+                      }}
+                    >
+                      Copiar
+                    </Button>
+                    <Button
+                      id="botao-whatsapp-link-confirmacao-painel"
+                      variant="outline-secondary"
+                      size="sm"
+                      onClick={() => {
+                        const digitos = atual.paciente.telefone.replace(/\D/g, '');
+                        const comDdi = digitos.startsWith('55') ? digitos : `55${digitos}`;
+                        const mensagem = `Olá, ${atual.paciente.nome}! Confirme sua consulta pelo link: ${linkConfirmacao.link}`;
+                        window.open(`https://wa.me/${comDdi}?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
+                      }}
+                    >
+                      <i className="bi bi-whatsapp me-1" />
+                      WhatsApp
+                    </Button>
+                  </div>
+                  {linkConfirmacao.emailEnviado && (
+                    <p className="pmc-texto-2 pmc-t-sm mt-2 mb-0">Também enviamos por e-mail.</p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <Button
+                    id="botao-gerar-novo-link-confirmacao"
+                    variant="outline-primary"
+                    size="sm"
+                    disabled={gerandoLinkConfirmacao}
+                    onClick={gerarNovoLinkConfirmacao}
+                  >
+                    {gerandoLinkConfirmacao ? 'Gerando...' : 'Gerar novo link de confirmação'}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {atual.status === 'confirmada' && (
+            <div className="mb-3 d-flex flex-wrap gap-2">
+              <a
+                id="botao-google-calendar-psicologa"
+                className="btn btn-outline-secondary btn-sm"
+                target="_blank"
+                rel="noopener noreferrer"
+                href={linkGoogleCalendar(
+                  eventoConsultaPsicologa({
+                    id: atual.id,
+                    inicio: new Date(atual.inicio),
+                    modalidade: atual.modalidade,
+                    pacienteNome: atual.paciente.nome,
+                  })
+                )}
+              >
+                <i className="bi bi-calendar-plus me-1" />
+                Adicionar ao Google Calendar
+              </a>
+              <Button id="botao-baixar-ics-psicologa" variant="outline-secondary" size="sm" onClick={baixarIcs}>
+                Baixar .ics
+              </Button>
+            </div>
+          )}
 
           {erro && <Alert variant="danger">{erro}</Alert>}
 

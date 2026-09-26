@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { autenticar } from '@/lib/auth/guard';
@@ -8,6 +8,7 @@ import { hashSenha, validarForcaSenha } from '@/lib/auth/senha';
 import { validarPacienteEntrada } from '@/lib/validacao/paciente';
 import { formatoDataValido, formatoHoraValido, montarInicio } from '@/lib/agenda/tempo';
 import { criarConsultaComTrava, HorarioIndisponivel } from '@/lib/agenda/consultas';
+import { avisarNovoAgendamento } from '@/lib/agenda/avisos';
 import { verificarLivreNaTransacao } from '@/lib/agenda/disponibilidade';
 import type { AgendamentoEntrada, AgendamentoResposta, Modalidade } from '@/types/agenda';
 
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
           consulta: { id: consulta.id, inicio: consulta.inicio.toISOString(), status: consulta.status },
           novoCadastro: false,
         };
+        after(() => avisarNovoAgendamento(consulta.id));
         return NextResponse.json(resposta, { status: 201 });
       } catch (error) {
         if (error instanceof HorarioIndisponivel) {
@@ -186,6 +188,7 @@ export async function POST(request: NextRequest) {
       };
       const response = NextResponse.json(resposta, { status: 201 });
       response.cookies.set(cookieSessao(token));
+      after(() => avisarNovoAgendamento(resultadoTx.consulta.id));
       return response;
     } catch (error) {
       if (error instanceof HorarioIndisponivel) {

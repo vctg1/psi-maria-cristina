@@ -29,6 +29,7 @@ export const SELECT_CONSULTA_COM_PACIENTE = {
   canceladaPor: true,
   motivoCancelamento: true,
   criadaEm: true,
+  confirmacaoSolicitadaEm: true,
   pacienteId: true,
   paciente: { select: { id: true, nome: true, telefone: true, usuarioId: true } },
   ...SELECT_COBRANCA,
@@ -44,6 +45,11 @@ type NovaConsulta = {
   observacoes?: string | null;
   criadaPor: 'paciente' | 'psicologa';
   valor?: Prisma.Decimal | number | null;
+  /** Fase 6 · Bloco 4: default mantém o comportamento anterior (`agendada`, sem os campos
+   *  de confirmação). `POST /api/agendamento` (público) nunca deve passar estes três campos. */
+  status?: 'agendada' | 'confirmada';
+  confirmadaEm?: Date;
+  confirmacaoSolicitadaEm?: Date;
 };
 
 /** Cria a consulta revalidando a disponibilidade dentro de uma transação serializável. */
@@ -62,7 +68,9 @@ export async function criarConsultaComTrava(dados: NovaConsulta): Promise<Consul
             motivo: dados.motivo ?? null,
             observacoes: dados.observacoes ?? null,
             criadaPor: dados.criadaPor,
-            status: 'agendada',
+            status: dados.status ?? 'agendada',
+            confirmadaEm: dados.confirmadaEm ?? null,
+            confirmacaoSolicitadaEm: dados.confirmacaoSolicitadaEm ?? null,
             valor:
               dados.valor === undefined || dados.valor === null
                 ? null
@@ -100,6 +108,7 @@ export function paraConsultaDto(c: ConsultaComPaciente, valorPadrao: number): Co
     canceladaPor: c.canceladaPor,
     motivoCancelamento: c.motivoCancelamento,
     criadaEm: c.criadaEm.toISOString(),
+    confirmacaoSolicitadaEm: c.confirmacaoSolicitadaEm ? c.confirmacaoSolicitadaEm.toISOString() : null,
     paciente: {
       id: c.paciente.id,
       nome: c.paciente.nome,
@@ -126,6 +135,7 @@ export function paraConsultaDtoPaciente(c: ConsultaComPaciente, valorPadrao: num
     canceladaPor: dto.canceladaPor,
     motivoCancelamento: dto.motivoCancelamento,
     criadaEm: dto.criadaEm,
+    confirmacaoSolicitadaEm: dto.confirmacaoSolicitadaEm,
     paciente: { id: c.paciente.id, nome: c.paciente.nome },
     cobranca: dto.cobranca,
   };

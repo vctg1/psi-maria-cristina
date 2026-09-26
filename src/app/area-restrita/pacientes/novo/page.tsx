@@ -6,6 +6,7 @@ import Card from 'react-bootstrap/Card';
 import Alert from 'react-bootstrap/Alert';
 import Modal from 'react-bootstrap/Modal';
 import Button from 'react-bootstrap/Button';
+import Form from 'react-bootstrap/Form';
 import LayoutPsicologa from '@/components/area-restrita/LayoutPsicologa';
 import PacienteForm, { type PacienteFormValores } from '@/components/area-restrita/PacienteForm';
 import type { PacienteDetalhe } from '@/types/paciente';
@@ -28,7 +29,9 @@ export default function NovoPacientePage() {
   const [errosServidor, setErrosServidor] = useState<Record<string, string> | undefined>(undefined);
   const [pacienteCriado, setPacienteCriado] = useState<PacienteDetalhe | null>(null);
   const [linkGerado, setLinkGerado] = useState<string | null>(null);
+  const [emailEnviado, setEmailEnviado] = useState(false);
   const [gerandoLink, setGerandoLink] = useState(false);
+  const [enviarPorEmail, setEnviarPorEmail] = useState(true);
 
   const handleSubmit = async (dados: PacienteFormValores) => {
     setEnviando(true);
@@ -64,7 +67,11 @@ export default function NovoPacientePage() {
       const response = await fetch('/api/auth/token-acesso', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuarioId: pacienteCriado.usuarioId, finalidade: 'primeiro_acesso' }),
+        body: JSON.stringify({
+          usuarioId: pacienteCriado.usuarioId,
+          finalidade: 'primeiro_acesso',
+          enviarPorEmail: !!pacienteCriado.email && enviarPorEmail,
+        }),
       });
       const dados = await response.json().catch(() => null);
       if (!response.ok) {
@@ -76,6 +83,7 @@ export default function NovoPacientePage() {
         return;
       }
       setLinkGerado(dados.link);
+      setEmailEnviado(!!dados.emailEnviado);
     } catch {
       mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: 'Não foi possível gerar o link.' });
     } finally {
@@ -123,7 +131,20 @@ export default function NovoPacientePage() {
               depois, na página do paciente.
             </p>
           )}
+          {!linkGerado && pacienteCriado?.temLogin && pacienteCriado.email && (
+            <Form.Check
+              type="checkbox"
+              id="novo-paciente-enviar-por-email"
+              className="mb-3"
+              label="Enviar também por e-mail"
+              checked={enviarPorEmail}
+              onChange={(e) => setEnviarPorEmail(e.target.checked)}
+            />
+          )}
           {linkGerado && <p className="text-break">{linkGerado}</p>}
+          {linkGerado && emailEnviado && pacienteCriado?.email && (
+            <p className="pmc-texto-2 pmc-t-sm mb-0">E-mail enviado para {pacienteCriado.email}.</p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           {!linkGerado && pacienteCriado?.temLogin ? (

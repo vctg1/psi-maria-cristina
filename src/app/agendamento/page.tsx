@@ -19,6 +19,7 @@ import LoginForm from '@/components/LoginForm';
 import SiteHeader from '@/components/SiteHeader';
 import { useAuth } from '@/contexts/AuthContext';
 import type { AgendamentoEntrada, AgendamentoResposta, Modalidade, ErroApi } from '@/types/agenda';
+import { eventoConsultaPaciente, gerarIcs, linkGoogleCalendar } from '@/lib/calendario';
 
 const passos = [
   { numero: 1, rotulo: 'Horário', icone: 'bi-calendar-check' },
@@ -36,10 +37,29 @@ const opcoesMotivo = [
 ];
 
 type ConfirmacaoAgendamento = {
+  id: string;
   data: string;
   hora: string;
   modalidade: Modalidade;
 };
+
+function baixarIcsAgendamento(confirmacao: ConfirmacaoAgendamento) {
+  const evento = eventoConsultaPaciente({
+    id: confirmacao.id,
+    inicio: new Date(confirmacao.data + 'T' + confirmacao.hora + ':00'),
+    modalidade: confirmacao.modalidade,
+  });
+  const conteudo = gerarIcs(evento);
+  const blob = new Blob([conteudo], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'consulta.ics';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 export default function AgendamentoPage() {
   const { usuario, carregando: carregandoAuth, recarregar } = useAuth();
@@ -101,7 +121,7 @@ export default function AgendamentoPage() {
         if (resultado.novoCadastro) {
           await recarregar();
         }
-        setConfirmacao({ data: selectedDate, hora: selectedTime, modalidade });
+        setConfirmacao({ id: resultado.consulta.id, data: selectedDate, hora: selectedTime, modalidade });
         setStep(3);
         return;
       }
@@ -378,7 +398,7 @@ export default function AgendamentoPage() {
                   A psicóloga vai confirmar e você pode acompanhar tudo na sua área.
                 </p>
 
-                <div className="d-flex flex-wrap justify-content-center gap-3">
+                <div className="d-flex flex-wrap justify-content-center gap-3 mb-3">
                   <Link href="/area-paciente" target="_blank" rel="noopener noreferrer">
                     <Button variant="primary">Ir para minha área</Button>
                   </Link>
@@ -389,6 +409,33 @@ export default function AgendamentoPage() {
                     </Button>
                   </a>
                 </div>
+
+                <div className="d-flex flex-wrap justify-content-center gap-2 mb-2">
+                  <a
+                    id="botao-google-calendar-agendamento"
+                    className="btn btn-outline-secondary btn-sm"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    href={linkGoogleCalendar(
+                      eventoConsultaPaciente({
+                        id: confirmacao.id,
+                        inicio: new Date(confirmacao.data + 'T' + confirmacao.hora + ':00'),
+                        modalidade: confirmacao.modalidade,
+                      })
+                    )}
+                  >
+                    Adicionar ao Google Calendar
+                  </a>
+                  <Button
+                    id="botao-baixar-ics-agendamento"
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => baixarIcsAgendamento(confirmacao)}
+                  >
+                    Baixar .ics
+                  </Button>
+                </div>
+                <p className="pmc-texto-2 small mb-0">Sua consulta ainda será confirmada pela psicóloga.</p>
               </Card.Body>
             </Card>
           )}

@@ -45,7 +45,7 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
       const response = await fetch('/api/alertas');
       if (!response.ok) return;
       const dados = (await response.json()) as AlertasResposta;
-      setTotalAlertas(dados.totais.cancelamentos + dados.totais.lembretes);
+      setTotalAlertas(dados.totais.cancelamentos + dados.totais.lembretes + dados.totais.novosAgendamentos);
     } catch {
       // silencioso: a badge só deixa de atualizar, sem impacto no resto da tela
     }
@@ -109,6 +109,13 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
               >
                 Configuração
               </Nav.Link>
+              <Nav.Link
+                as={Link}
+                href="/area-restrita/perfil"
+                active={pathname?.startsWith('/area-restrita/perfil')}
+              >
+                Perfil
+              </Nav.Link>
             </Nav>
             <Nav className="align-items-md-center gap-2">
               <span className="pmc-sino">
@@ -122,9 +129,11 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
                 </Button>
                 {totalAlertas > 0 && <Badge className="pmc-badge-aviso">{totalAlertas}</Badge>}
               </span>
-              <Badge bg="light" text="dark" className="align-self-center">
-                Psicóloga
-              </Badge>
+              <Link href="/area-restrita/perfil" className="text-decoration-none">
+                <Badge bg="light" text="dark" className="align-self-center">
+                  Psicóloga
+                </Badge>
+              </Link>
               <Button variant="outline-secondary" size="sm" onClick={() => logout()}>
                 Sair
               </Button>

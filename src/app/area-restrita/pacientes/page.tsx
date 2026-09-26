@@ -23,7 +23,7 @@ function telefoneComDdi(telefone: string): string {
   return digitos.startsWith('55') ? digitos : `55${digitos}`;
 }
 
-type ModalLink = { nome: string; telefone: string; link: string };
+type ModalLink = { nome: string; telefone: string; email: string | null; link: string; emailEnviado: boolean };
 
 export default function ListaPacientesPage() {
   const router = useRouter();
@@ -69,7 +69,11 @@ export default function ListaPacientesPage() {
       const response = await fetch('/api/auth/token-acesso', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuarioId: paciente.usuarioId, finalidade: 'primeiro_acesso' }),
+        body: JSON.stringify({
+          usuarioId: paciente.usuarioId,
+          finalidade: 'primeiro_acesso',
+          enviarPorEmail: !!paciente.email,
+        }),
       });
       const dados = await response.json().catch(() => null);
       if (!response.ok) {
@@ -80,7 +84,13 @@ export default function ListaPacientesPage() {
         });
         return;
       }
-      setModalLink({ nome: paciente.nome, telefone: paciente.telefone, link: dados.link });
+      setModalLink({
+        nome: paciente.nome,
+        telefone: paciente.telefone,
+        email: paciente.email,
+        link: dados.link,
+        emailEnviado: !!dados.emailEnviado,
+      });
     } catch {
       mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: 'Não foi possível gerar o link.' });
     } finally {
@@ -211,6 +221,9 @@ export default function ListaPacientesPage() {
         </Modal.Header>
         <Modal.Body>
           <Form.Control readOnly value={modalLink?.link ?? ''} />
+          {modalLink?.emailEnviado && modalLink.email && (
+            <p className="pmc-texto-2 pmc-t-sm mt-2 mb-0">E-mail enviado para {modalLink.email}.</p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={copiarLink}>

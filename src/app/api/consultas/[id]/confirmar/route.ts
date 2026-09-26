@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@/generated/prisma/client';
 import { requireAuth } from '@/lib/auth/guard';
 import { SELECT_CONSULTA_COM_PACIENTE, paraConsultaDto } from '@/lib/agenda/consultas';
 import { podeTransitar } from '@/lib/agenda/transicoes';
 import { obterValorPadraoSessao } from '@/lib/pagamentos/cobranca';
+import { enviarConfirmacaoAoPaciente } from '@/lib/agenda/avisos';
 import type { ConsultaStatus } from '@/types';
 
 type Contexto = { params: Promise<{ id: string }> };
@@ -25,11 +26,17 @@ export async function POST(request: NextRequest, { params }: Contexto) {
       return NextResponse.json({ error: `Não é possível confirmar uma consulta com status "${existente.status}"` }, { status: 409 });
     }
 
-    const atualizado = await prisma.consulta.update({
-      where: { id },
+    const { count } = await prisma.consulta.updateMany({
+      where: { id, status: 'agendada' },
       data: { status: 'confirmada', confirmadaEm: new Date() },
-      select: SELECT_CONSULTA_COM_PACIENTE,
     });
+    if (count === 0) {
+      return NextResponse.json({ error: `Não é possível confirmar uma consulta com status "${existente.status}"` }, { status: 409 });
+    }
+
+    const atualizado = await prisma.consulta.findUniqueOrThrow({ where: { id }, select: SELECT_CONSULTA_COM_PACIENTE });
+
+    after(() => enviarConfirmacaoAoPaciente(id));
 
     const valorPadrao = await obterValorPadraoSessao();
     return NextResponse.json(paraConsultaDto(atualizado, valorPadrao));

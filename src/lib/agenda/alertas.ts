@@ -1,7 +1,7 @@
 import 'server-only';
 import { prisma } from '@/lib/prisma';
 import { montarInicio, partesLocais } from './tempo';
-import type { Alerta, AlertasResposta } from '@/types/alertas';
+import type { Alerta, AlertaCancelamento, AlertaNovoAgendamento, AlertasResposta } from '@/types/alertas';
 import type { Modalidade } from '@/types/agenda';
 
 /** Monta a lista de alertas da psicóloga: lembretes de véspera (derivados, sem job) +
@@ -57,25 +57,44 @@ export async function listarAlertas(): Promise<AlertasResposta> {
     },
   }));
 
-  const cancelamentos: Alerta[] = notificacoesNaoLidas.map((n) => ({
-    tipo: 'cancelamento',
-    id: n.id,
-    titulo: n.titulo,
-    mensagem: n.mensagem,
-    criadaEm: n.criadaEm.toISOString(),
-    consulta: n.consulta
+  const cancelamentos: AlertaCancelamento[] = [];
+  const novosAgendamentos: AlertaNovoAgendamento[] = [];
+
+  for (const n of notificacoesNaoLidas) {
+    const consulta = n.consulta
       ? {
           id: n.consulta.id,
           inicio: n.consulta.inicio.toISOString(),
           pacienteNome: n.consulta.paciente.nome,
           pacienteTelefone: n.consulta.paciente.telefone,
         }
-      : null,
-  }));
+      : null;
+
+    if (n.tipo === 'novo_agendamento') {
+      novosAgendamentos.push({
+        tipo: 'novo_agendamento',
+        id: n.id,
+        titulo: n.titulo,
+        mensagem: n.mensagem,
+        criadaEm: n.criadaEm.toISOString(),
+        consulta,
+      });
+    } else if (n.tipo === 'cancelamento') {
+      cancelamentos.push({
+        tipo: 'cancelamento',
+        id: n.id,
+        titulo: n.titulo,
+        mensagem: n.mensagem,
+        criadaEm: n.criadaEm.toISOString(),
+        consulta,
+      });
+    }
+    // outros tipos (ex.: pagamento_recebido) não têm alerta próprio ainda — ignorados aqui.
+  }
 
   return {
-    alertas: [...lembretes, ...cancelamentos],
-    totais: { cancelamentos: cancelamentos.length, lembretes: lembretes.length },
+    alertas: [...lembretes, ...cancelamentos, ...novosAgendamentos],
+    totais: { cancelamentos: cancelamentos.length, lembretes: lembretes.length, novosAgendamentos: novosAgendamentos.length },
   };
 }
 

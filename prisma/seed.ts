@@ -86,15 +86,50 @@ async function seedPsicologa() {
 
   const emailNormalizado = email.trim().toLowerCase();
 
-  const existia = await prisma.usuario.findUnique({ where: { email: emailNormalizado } });
-
-  await prisma.usuario.upsert({
+  // O e-mail de login da psicóloga pode ser trocado pela tela de Perfil (PATCH /api/perfil), sem
+  // passar pelo seed. Por isso o seed NUNCA usa esse e-mail para decidir "criar vs. atualizar":
+  // ele só atualiza o hash de uma psicóloga que já tenha exatamente esse e-mail hoje, e só cria
+  // uma psicóloga do zero quando não existe NENHUMA ainda.
+  const usuarioComEsseEmail = await prisma.usuario.findUnique({
     where: { email: emailNormalizado },
-    create: { email: emailNormalizado, senhaHash, papel: Papel.psicologa },
-    update: { senhaHash, papel: Papel.psicologa },
+    select: { id: true, papel: true },
   });
 
-  console.log(`Psicóloga: usuário ${existia ? "atualizado" : "criado"}.`);
+  if (usuarioComEsseEmail) {
+    if (usuarioComEsseEmail.papel !== Papel.psicologa) {
+      // PSICOLOGA_EMAIL aponta para uma conta de paciente — nunca converte o papel de alguém.
+      console.warn(
+        "Psicóloga: PSICOLOGA_EMAIL pertence a um usuário que não é psicóloga — nada foi alterado."
+      );
+      return;
+    }
+
+    await prisma.usuario.update({
+      where: { id: usuarioComEsseEmail.id },
+      data: { senhaHash },
+    });
+    console.log("Psicóloga: usuário atualizado.");
+    return;
+  }
+
+  const existeAlgumaPsicologa = await prisma.usuario.findFirst({
+    where: { papel: Papel.psicologa },
+    select: { id: true },
+  });
+
+  if (existeAlgumaPsicologa) {
+    // Já existe psicóloga, mas com outro e-mail — provavelmente ela trocou o login pelo Perfil.
+    // O seed não cria uma segunda conta nem mexe na existente.
+    console.warn(
+      "Psicóloga: já existe psicóloga cadastrada; o e-mail de login é alterado pelo Perfil — nada foi criado."
+    );
+    return;
+  }
+
+  await prisma.usuario.create({
+    data: { email: emailNormalizado, senhaHash, papel: Papel.psicologa },
+  });
+  console.log("Psicóloga: usuário criado.");
 }
 
 async function seedConfiguracao() {

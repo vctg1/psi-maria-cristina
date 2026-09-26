@@ -12,6 +12,10 @@ import {
   HorarioIndisponivel,
 } from '@/lib/agenda/consultas';
 import { obterValorPadraoSessao } from '@/lib/pagamentos/cobranca';
+import { gerarTokenBruto, hashToken } from '@/lib/auth/token';
+import { urlAbsoluta } from '@/lib/url-publica';
+import { enviarEmail } from '@/lib/email/enviar';
+import { emailPedidoConfirmacao } from '@/lib/email/templates';
 import { CONSULTA_STATUS, type ConsultaStatus } from '@/types';
 import { PAGAMENTO_VALOR_MAX } from '@/types/pagamento';
 import type { Modalidade, NovaConsultaEntrada, ResultadoLote } from '@/types/agenda';
@@ -157,6 +161,13 @@ export async function POST(request: NextRequest) {
       }
       valor = obj.valor;
     }
+    let pedirConfirmacao = false;
+    if (obj.pedirConfirmacao !== undefined) {
+      if (typeof obj.pedirConfirmacao !== 'boolean') {
+        return NextResponse.json({ error: 'pedirConfirmacao deve ser booleano' }, { status: 400 });
+      }
+      pedirConfirmacao = obj.pedirConfirmacao;
+    }
 
     let pacienteId: string;
     if (temPacienteId) {
@@ -189,6 +200,11 @@ export async function POST(request: NextRequest) {
     const puladas: ResultadoLote['puladas'] = [];
     const valorPadrao = await obterValorPadraoSessao();
 
+    // Fase 6 · Bloco 4: `pedirConfirmacao` false/ausente = registro de atendimento já combinado
+    // (por telefone, presencialmente etc.) — nasce `confirmada` direto, sem pedir aceite ao
+    // paciente. `pedirConfirmacao` true = oferta — nasce `agendada` e só vira `confirmada`
+    // quando o paciente usar o link de confirmação (ou a psicóloga confirmar manualmente).
+    const agora = new Date();
     for (let i = 0; i < quantidade; i++) {
       const dataOcorrencia = somarDias(obj.data, i * 7);
       const inicio = montarInicio(dataOcorrencia, hora);
@@ -201,6 +217,9 @@ export async function POST(request: NextRequest) {
           observacoes,
           criadaPor: 'psicologa',
           valor,
+          status: pedirConfirmacao ? 'agendada' : 'confirmada',
+          confirmadaEm: pedirConfirmacao ? undefined : agora,
+          confirmacaoSolicitadaEm: pedirConfirmacao ? agora : undefined,
         });
         criadas.push(paraConsultaDto(consulta, valorPadrao));
       } catch (error) {
@@ -213,6 +232,45 @@ export async function POST(request: NextRequest) {
     }
 
     const resposta: ResultadoLote = { criadas, puladas };
+
+    if (pedirConfirmacao && criadas.length > 0) {
+      const tokenBruto = gerarTokenBruto();
+      const primeiraOcorrencia = new Date(criadas[0].inicio);
+      const tokenConfirmacao = await prisma.tokenConfirmacao.create({
+        data: { tokenHash: hashToken(tokenBruto), expiraEm: primeiraOcorrencia },
+        select: { id: true },
+      });
+      await prisma.consulta.updateMany({
+        where: { id: { in: criadas.map((c) => c.id) } },
+        data: { tokenConfirmacaoId: tokenConfirmacao.id },
+      });
+
+      resposta.linkConfirmacao = urlAbsoluta(`/confirmar-consulta?token=${tokenBruto}`);
+
+      const paciente = await prisma.paciente.findUnique({
+        where: { id: pacienteId },
+        select: { nome: true, usuario: { select: { email: true } } },
+      });
+      const emailPaciente = paciente?.usuario?.email;
+      if (emailPaciente) {
+        const conteudo = emailPedidoConfirmacao({
+          nome: paciente!.nome,
+          inicio: primeiraOcorrencia,
+          modalidade: obj.modalidade as string,
+          link: resposta.linkConfirmacao,
+        });
+        const resultadoEnvio = await enviarEmail({
+          para: emailPaciente,
+          assunto: conteudo.assunto,
+          html: conteudo.html,
+          texto: conteudo.texto,
+        });
+        resposta.emailConfirmacaoEnviado = resultadoEnvio.ok;
+      } else {
+        resposta.emailConfirmacaoEnviado = false;
+      }
+    }
+
     return NextResponse.json(resposta, { status: 201 });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {

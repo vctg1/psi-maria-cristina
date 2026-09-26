@@ -12,9 +12,9 @@ Este arquivo é a **fonte única de verdade** sobre dívida de segurança pré-p
 
 Gravidade: **CRÍTICO** = exposição ou manipulação direta de dado de paciente/dinheiro, ou exigência legal · **ALTO** = facilita ataque ou compromete segredo/infra · **MÉDIO** = defesa em profundidade, higiene, superfície reduzida.
 
-Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), `2af0aed` (Fase 2 · pacientes), `835fb22` (Fase 3 · agenda), pendente (Fase 4 · área do paciente e alertas, a commitar), pendente (Documentos clínicos, a commitar), `86ba8a2` (Fase 5a · pagamento manual), pendente (Fase 5b · pagamento online, a commitar).
+Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. Commits de referência: `20cb0e7` (Fase 0), `6fd2c52` (stubs), `00ad07b` (Prisma/migration/seed), `ea5292e` (Fase 1 · auth), `2af0aed` (Fase 2 · pacientes), `835fb22` (Fase 3 · agenda), pendente (Fase 4 · área do paciente e alertas, a commitar), pendente (Documentos clínicos, a commitar), `86ba8a2` (Fase 5a · pagamento manual), `b2fdb0e` (Fase 5b · pagamento online), pendente (Fase 6 · e-mail, senha e confirmação, a commitar).
 
-Última atualização: 2026-09-25 (após Fase 5b · pagamento online).
+Última atualização: 2026-09-26 (após Fase 6 · e-mail, senha e confirmação).
 
 ---
 
@@ -24,7 +24,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 |---|---|---|---|
 | CRÍTICO | 1 | 0 | 6 |
 | ALTO | 5 | 0 | 7 |
-| MÉDIO | 11 | 6 | 14 |
+| MÉDIO | 12 | 6 | 15 |
 
 ---
 
@@ -74,6 +74,8 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Fase:** UI/middleware (Fase 4) — limite por IP+email (janela deslizante) em `middleware.ts` ou tabela de tentativas; lockout temporário após N falhas.
 
 - **Nota Troca de senha/e-mail (2026-09-21):** `PATCH /api/auth/senha` (`src/app/api/auth/senha/route.ts:67`) e `PATCH /api/paciente/me` com `email` (`src/app/api/paciente/me/route.ts:83`) passaram a fazer `bcrypt.compare` da senha atual exigindo apenas sessão válida. Com um cookie roubado (M14), o atacante tem 8 h para adivinhar a senha atual sem limite de tentativas e, acertando, troca senha ou e-mail (sequestro persistente — M21). Cada tentativa custa um bcrypt custo 12 no servidor (também esgota CPU). Incluir estas duas rotas no limitador de A1, com chave `usuarioId`+IP e lockout temporário após N falhas (ex.: 5 em 15 min), e registrar falhas repetidas para auditoria. Melhoria defensiva relacionada: `validarForcaSenha` sem tamanho máximo (bcrypt trunca em 72 bytes) — limitar a 72/128 caracteres.
+- **Nota Fase 6 (2026-09-26):** criada `src/lib/limite-taxa.ts` (tabela `LimiteTaxa`, janela fixa, transação Serializable, conflito → negado, chaves só com SHA-256 de IP/e-mail) e aplicada **somente** a `POST /api/auth/esqueci-senha` (3/h por e-mail + 10/h por IP) e a `GET/POST /api/confirmacao` (30/h por IP). Continuam **sem limite**: `POST /api/auth/login`, `primeiro-acesso`, `redefinir-senha`, `PATCH /api/auth/senha`, `PATCH /api/paciente/me` (com e-mail), `POST /api/agendamento` (que agora também dispara e-mails — M29) e webhooks (I23). O limitador está pronto para ser reutilizado. A1 continua **ABERTO** para a fatia de endurecimento.
+- **Nota Perfil (2026-09-26):** `PATCH /api/perfil` (troca de e-mail de login) já nasceu com limite de tentativas de `senhaAtual` (5/15 min por conta, `src/lib/limite-taxa.ts`). `PATCH /api/auth/senha` e `PATCH /api/paciente/me` continuam sem limite.
 ### A2 · Segredos de produção distintos e fora do repositório — ABERTO
 - **Risco:** reutilizar `JWT_SECRET`, `DATABASE_URL`, `MP_ACCESS_TOKEN`, `MP_WEBHOOK_SECRET` de desenvolvimento em produção, ou commitá-los. Um vazamento local vira comprometimento de produção.
 - **Onde:** `.env.local` (dev, ignorado); VPS (produção, a configurar).
@@ -147,6 +149,7 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `src/app/api/auth/token-acesso/route.ts`.
 - **Mitigação implementada (Fase 2):** `src/app/primeiro-acesso/page.tsx` e `src/app/redefinir-senha/page.tsx` leem o token de `window.location.search` e chamam `history.replaceState` no mesmo efeito, antes de qualquer `fetch`; token só em `useState`, nunca em storage/log. O link ainda trafega pelo WhatsApp e pelo access log do primeiro GET — por isso permanece ACEITO. Confirmado pelo revisor (eixo e). Commit `2af0aed`.
 
+- **Nota Fase 6 (2026-09-26):** dois novos links com token trafegam por e-mail: `/redefinir-senha?token=` (1 h, uso único, emitido só por `esqueci-senha`, sem cópia devolvida a ninguém) e `/confirmar-consulta?token=` (até o início da 1ª consulta, uso único, só confirma o lote amarrado; também copiável pela psicóloga para wa.me). `confirmar-consulta/page.tsx:50-55` remove o token com `replaceState` antes de qualquer fetch, mas o **GET** da API leva o token na query (`/api/confirmacao?token=`), que o access log do Nginx grava (I25). O link de primeiro acesso pode agora ir por e-mail (`enviarPorEmail`). Segue ACEITO.
 ### R-M5 · Mass assignment no PUT de consulta da psicóloga (era M4) — RESOLVIDO (Fase 3)
 - **Era:** `PUT /api/area-restrita` fazia `{ ...consulta, ...updates }` com o body inteiro.
 - **Resolução:** `src/app/api/area-restrita/route.ts` **removido**. Substituto `PATCH /api/consultas/[id]` monta `Prisma.ConsultaUpdateInput` campo a campo (modalidade enum, motivo ≤ 200, observacoes ≤ 1000, relatorio ≤ 5000, `inicio` só via `data`+`hora` validados e revalidados em transação Serializable); `status`, `pacienteId`, `criadaPor`, `id` do body são ignorados. Status muda só em `POST /confirmar|/encerrar|/cancelar`, cada uma passando por `podeTransitar` (`src/lib/agenda/transicoes.ts`). Confirmado pelo revisor (eixo d). Commit `835fb22`.
@@ -199,6 +202,8 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Fase:** 4 — `Usuario.senhaAlteradaEm` (ou `sessaoVersao`) comparado com `iat` do JWT em `autenticar()`; redefinição de senha atualiza o campo. Relaciona-se com Q10 da proposta (JWT puro × tabela `Sessao`).
 
 - **Nota Área do paciente (2026-09-21):** cookie de paciente roubado agora também permite trocar o e-mail de login (ver M21), o que converte o acesso temporário (8 h) em sequestro persistente. Reforça a prioridade da invalidação por `sessaoVersao`.
+- **Nota Fase 6 (2026-09-26):** nada mudou na invalidação. `PATCH /api/auth/senha` e a redefinição por e-mail atualizam só `senhaHash`. O novo "Esqueci minha senha" é o caminho natural da vítima após um comprometimento, mas **não derruba o cookie do atacante** (até 8 h). Reforça `sessaoVersao`/`senhaAlteradaEm` comparado ao `iat` em `autenticar()`.
+- **Nota Perfil (2026-09-26):** a troca do e-mail de login da psicóloga (`PATCH /api/perfil`) também não invalida sessões. Ao implementar `sessaoVersao`/`senhaAlteradaEm`, incrementar também na troca de e-mail em `/api/perfil` e em `/api/paciente/me`.
 ### M15 · JWT sem `iss`/`aud` — ACEITO com dependência de A2
 - **Risco:** token assinado com o mesmo segredo em outro ambiente/aplicação seria aceito. Só é explorável se o `JWT_SECRET` for reutilizado entre ambientes — exatamente o que A2 proíbe.
 - **Onde:** `src/lib/auth/jwt.ts` linhas ~19–30.
@@ -238,6 +243,9 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 
 - **Mitigação (2026-09-21, Fase 4):** item (1) implementado. `PATCH /api/paciente/me` exige `senhaAtual` sempre que `email` vier no body (`src/app/api/paciente/me/route.ts:56-62`), rejeita cadastro sem `usuarioId`/`senhaHash` (linhas 71-83), faz `bcrypt.compare` contra `Usuario.senhaHash` (linha 83) e responde 401 genérico "Senha atual incorreta" (linhas 85-88); unicidade de e-mail só é verificada APÓS a senha conferir (linhas 91-100), evitando oráculo de e-mail sem posse da senha. Validação de forma em `validarPacienteEdicaoPropria` (`src/lib/validacao/paciente.ts:410-416`); UI em `PacienteForm` (`exigirSenhaAtualSeEmailMudar`, campo "Senha atual" só aparece se o e-mail divergir) e `src/app/area-paciente/dados/page.tsx:62-67`. Na mesma entrega: `PATCH /api/auth/senha` (`src/app/api/auth/senha/route.ts`) permite ao usuário trocar a própria senha com `senhaAtual` + `novaSenha` (`validarForcaSenha`, hash custo 12), UI em `src/components/area-paciente/AlterarSenhaForm.tsx`. Cobertura E2E 18/18.
 - **Residual:** cookie roubado + senha adivinhada (ver nota em A1) ainda troca o e-mail; itens (2) aviso ao endereço antigo e (3) invalidação de sessões anteriores (M14/`sessaoVersao`, também ao trocar e-mail e senha) seguem ABERTOS. Enquanto (3) não existir, trocar a senha em `/api/auth/senha` NÃO derruba a sessão do atacante.
+- **Nota Fase 6 (2026-09-26):** com a recuperação por e-mail em autoatendimento, uma troca de e-mail indevida passa a desviar automaticamente todo link futuro de redefinição para o atacante. Como o envio de e-mail já existe (`src/lib/email/enviar.ts`), o item (2) — aviso ao endereço ANTIGO — deixou de ter bloqueio técnico e deve entrar na fatia de endurecimento. O perfil da psicóloga (`PATCH /api/perfil`) **não** permite alterar o e-mail de login.
+- **Nota Perfil da psicóloga (2026-09-26):** `PATCH /api/perfil` passou a permitir que a psicóloga altere o próprio e-mail de login (decisão da titular), já com os itens (1) e (2) para esse papel: exige `senhaAtual` (`bcrypt.compare`) **antes** do pré-check de unicidade (sem senha, a rota não serve de oráculo de existência), com limite de 5 tentativas a cada 15 min por conta (429); unicidade com pré-check + P2002 (409 genérico, sem revelar papel/nome do dono); `Usuario.email` e perfil gravados na mesma transação; aviso ao endereço ANTIGO via `after()` com o novo mascarado (nunca revela a parte local inteira), sem lançar e sem logar endereços. A frase "o perfil da psicóloga não permite alterar o e-mail de login" da nota anterior fica **superada**. **Residual:** (3) invalidação de sessões (M14) — sessões anteriores seguem válidas até expirar (8 h). Para o **paciente** (`/api/paciente/me`), o item (2) continua ABERTO. M21 segue PARCIALMENTE MITIGADO.
+- **Nota Reply-To (2026-09-26):** a env `EMAIL_RESPONDER_PARA` foi removida; o Reply-To de todos os e-mails vem de `PerfilPsicologa.emailRespostas ?? Usuario.email` da psicóloga ativa mais antiga (`src/lib/email/respostas.ts`), editável só por ela, validado na gravação e na leitura (sem espaço/CRLF/`<>`); em falha, o e-mail sai sem Reply-To. Com cookie da psicóloga roubado (M14), o atacante poderia redirecionar para si as respostas dos pacientes — dentro do cenário de M14, sem risco independente.
 ### M22 · Migration 1:N sem backfill e com coluna NOT NULL sem default — ABERTO *(novo na Fase 5a)*
 - **Risco:** `prisma/migrations/20260921233948_pagamento_1n_manual/migration.sql` faz `ALTER TABLE "pagamento" DROP COLUMN "consulta_id"` e `ADD COLUMN "origem" ... NOT NULL` **sem default e sem backfill**. Em um banco com linhas em `pagamento`, `prisma migrate deploy` **aborta**; e se a coluna ganhar um default só para destravar, o vínculo pagamento→consulta anterior é perdido, fazendo consultas já quitadas reaparecerem em "em aberto" — risco de cobrar duas vezes.
 - **Onde:** `prisma/migrations/20260921233948_pagamento_1n_manual/migration.sql` linhas 5, 34-36, 44-47.
@@ -267,6 +275,28 @@ Referências: fases em `PLANO-reconstrucao.md`; modelo em `PROPOSTA-schema.md`. 
 - **Onde:** `src/app/api/pagamentos/online/route.ts:172-216`; `src/lib/pagamentos/conciliacao.ts:76-86`.
 - **Mitigação atual:** o evento fica registrado em `EventoPagamento`, permitindo conciliação manual; a janela exige falha de rede/banco exatamente entre a criação no gateway e a gravação.
 - **Fase:** 5b/6 — recusar a transição para `pago` quando o Pagamento está `falhou`/`cancelado` e sem consultas vinculadas (gravar o evento e alertar, em vez de confirmar); e/ou só marcar `falhou` quando `referenciaExterna` continuar nula.
+
+### R-M15 · Limite por IP contornável e IP em claro em `LimiteTaxa` (era M28) — RESOLVIDO no código (Fase 6, antes do commit)
+- **Era:** `ipDaRequisicao` usava o **1º** item de `X-Forwarded-For`. O Nginx do deploy usa `$proxy_add_x_forwarded_for` (`deploy/nginx-cristinapsi.online.conf:31`, `nginx-preview.conf:32`), que só **acrescenta** o IP real ao valor enviado pelo cliente — então o 1º item era forjável e um `X-Forwarded-For` aleatório por requisição anulava o limite por IP de esqueci-senha e confirmação, criando uma linha nova em `limite_taxa` por requisição. A chave `…:ip:<ip>` guardava o IP em claro (dado pessoal), contrariando o comentário do schema. Encontrado pelo revisor na auditoria da Fase 6.
+- **Resolução:** `ipDaRequisicao` (`src/lib/limite-taxa.ts`) lê primeiro `X-Real-IP` (o Nginx define `$remote_addr`, sobrescrevendo o valor do cliente) e, na falta dele, o **último** item do XFF — nunca o primeiro. Novo `chaveIp(prefixo, request)` grava `sha256(ip)`; `esqueci-senha` e `confirmacao` passaram a usá-lo. Verificado contra build de produção: 35 requisições com XFF aleatório e `X-Real-IP` fixo → 30× 404 e 5× **429**; chaves novas na tabela só com hash (`confirmacao:ip:2ba3fd…`, `recuperacao:email:f98c52…`).
+- **Resta (operacional, Fase 6/deploy):** job de expurgo de `limite_taxa` (linhas > 24 h) e de tokens usados/expirados — sem ele a tabela cresce devagar (agora limitado a IPs reais). Opcional: `proxy_set_header X-Forwarded-For $remote_addr;` no Nginx.
+
+### M29 · Autoagendamento público dispara e-mail para endereço não verificado — PARCIALMENTE MITIGADO (manter ABERTO) *(novo · Fase 6)*
+- **Risco:** `POST /api/agendamento` (público, sem limite — A1) cria a conta e, via `after(avisarNovoAgendamento)`, envia pelo **nosso domínio verificado** um e-mail ao endereço informado, sem prova de posse; cada envio também gera aviso à psicóloga. Um atacante podia usar o campo `nome` (até 120 caracteres) para injetar uma URL que o cliente de e-mail transforma em link — relay de phishing contra terceiros **e contra a psicóloga** — e desgastar a reputação do domínio (bounces/denúncias podem suspender a conta Resend, derrubando também a recuperação de senha). O volume fica limitado pelos slots livres e por 1 cadastro por e-mail.
+- **Mitigação aplicada (Fase 6, antes do commit):** toda saudação dos e-mails usa `primeiroNomeSeguro()` (só o primeiro nome, apenas letras/hífen/apóstrofo, até 30 — qualquer outra coisa vira "Olá!"), e o aviso à psicóloga usa `nomeSemLinks()` (remove tudo que não é letra, espaço, hífen ou apóstrofo). `acesse bit.ly/x` vira "acesse"; `https://x.com` vira saudação neutra. Nenhum dado controlado pelo visitante chega clicável a nenhuma caixa (`src/lib/email/templates.ts`).
+- **Resta:** limite de taxa por IP no autocadastro (junto com A1, agora possível com o limitador corrigido) e avaliar enviar o "pedido recebido" só após a confirmação da psicóloga, ou verificar o e-mail antes.
+- **Onde:** `src/lib/agenda/avisos.ts:92-116`; `src/app/api/agendamento/route.ts` (`after` nos dois ramos); `src/lib/email/templates.ts`.
+
+### INFORMATIVOS (LOW, não contam no Resumo) — Fase 6
+- **I25 · Token de confirmação na query do GET** (`confirmar-consulta/page.tsx:70` → `api/confirmacao/route.ts:53`): o front limpa a URL, mas o GET da API grava o token bruto no access log do Nginx. Passar a leitura para POST/header ou tirar a query do log (M3).
+- **I26 · Token de confirmação usado segue legível** (`api/confirmacao/route.ts:71-79`): com `usadoEm` definido, o GET responde 200 (`ja_confirmada`, primeiro nome + datas) indefinidamente; um token substituído por regeneração ainda mostra consultas do lote que não estavam `agendada`. Limitar a `expiraEm + N dias` e ignorar tokens substituídos.
+- **I27 · Canal residual no esqueci a senha:** a chave de e-mail em `LimiteTaxa` faz insert na 1ª vez e update depois — revela no máximo que alguém pediu recuperação para aquele e-mail na última hora, não a existência da conta. Relacionado: 3 pedidos/h de um terceiro bloqueiam a recuperação daquele e-mail por 1 h (DoS dirigido, aceitável). A diferença 0,22 × 0,09 s medida no E2E foi partida a frio.
+- **I28 · Expiração/atomicidade do link de confirmação:** `link-confirmacao/route.ts:63` usa o início da consulta clicada (não a 1ª do lote), o que pode permitir confirmar retroativamente uma ocorrência passada ainda `agendada`; `api/consultas/route.ts:236-272` cria o token e envia o e-mail fora da transação (500 com consultas já criadas se `NEXT_PUBLIC_URL` falhar; a psicóloga pode regerar o link).
+- **I29 · Log do SDK Resend** (`node_modules/resend/dist/index.mjs:1301-1306`): com `NODE_ENV !== 'production'` imprime `[Resend API Error]` com o JSON de erro do provedor (pode citar o e-mail do dono da conta ou o destinatário malformado); sem chave nem corpo. Em produção fica silencioso — garantir `NODE_ENV=production` no PM2.
+- **I30 · `erro.message` em `avisos.ts:58,118`:** mensagens do Prisma podem incluir argumentos da query. Preferir log só com código/nome do erro.
+- **I31 · Resend como operador de dados:** o aviso à psicóloga leva o nome do paciente e os e-mails ao paciente levam nome e e-mail. Registrar no inventário/contrato LGPD. Nenhum dado clínico sai (motivo, observações e relatório nunca entram em e-mail, .ics ou Google Calendar).
+- **I32 · Recuperação da conta da psicóloga por e-mail:** `esqueci-senha` vale também para `papel: 'psicologa'`; a segurança da conta dela passa a depender da caixa de e-mail (2FA no provedor — checklist).
+- **I33 · `token-acesso` aceita `usuarioId` de qualquer papel** (pré-existente, não introduzido na Fase 6): gera link de primeiro acesso sem verificar se o alvo é paciente. Rota exclusiva da psicóloga; restringir ao papel `paciente` por higiene.
 
 ### INFORMATIVOS (LOW, não contam no Resumo) — Fase 5b
 - **I18 · Dedupe do MP por `x-request-id`** (`src/lib/pagamentos/gateways/mercadopago.ts:143`): o MP tende a emitir um novo `x-request-id` a cada reentrega, então o dedupe por `EventoPagamento.notificacaoExternaId @unique` cobre o reenvio idêntico (testado), não necessariamente a reentrega real. Sem risco de dupla confirmação (`pago` terminal + `updateMany` condicional); o efeito é linha extra em `EventoPagamento`. Melhoria: usar `data.id + action`.
@@ -384,6 +414,25 @@ A Fase 5b substituiu **todo** o pagamento online legado por um modelo de **check
 
 ---
 
+## E-mail, recuperação e confirmação (Fase 6) — controles
+
+**Fluxo.** Envio via Resend (`src/lib/email/{config,enviar,templates}.ts`, todos `server-only`; `enviarEmail` nunca lança e loga só `motivo` + assunto literal). Links absolutos só por `urlAbsoluta` (`src/lib/url-publica.ts`, host exclusivamente de `NEXT_PUBLIC_URL`, https obrigatório em produção). A recuperação de senha em autoatendimento (`POST /api/auth/esqueci-senha`) substituiu o link manual `redefinicao_senha` por wa.me (aposentado em `token-acesso`, que responde 400). A psicóloga pode pedir confirmação ao paciente ao agendar: o link `/confirmar-consulta?token=` confirma o lote sem login. Convite `.ics`/Google Calendar gerado sem dado clínico (`src/lib/calendario.ts`, função pura). Modelo novo (migration `20260926140547_fase6_email_confirmacao`): `PerfilPsicologa` (1:1 com `Usuario`), `TokenConfirmacao` (só hash; amarrado às consultas via `Consulta.tokenConfirmacaoId`), `LimiteTaxa`, e `Consulta.confirmacaoSolicitadaEm`. Auditado em 2026-09-26 (`code-reviewer-security`) com E2E contra build de produção e Resend real (41 verificações clicando nos dois papéis).
+
+| Eixo | Veredito | Evidência |
+|---|---|---|
+| (a) Recuperação não revela existência do e-mail | **CONFIRMADO** | `esqueci-senha/route.ts:83-102`: resposta 200 constante para existente/inexistente/inativa/limite estourado; busca, token e envio só em `after()` (25-69); o limite usa só hash do e-mail + IP (mesmo trabalho nos dois casos). Resíduo sem relação com a existência: I27. E2E: corpo e status idênticos. |
+| (b) Rate limit | **CONFIRMADO** | `src/lib/limite-taxa.ts` (janela fixa, Serializable, P2034/P2002 → negado). esqueci-senha: 3/h por e-mail + 10/h por IP; confirmação: 30/h por IP. IP de `X-Real-IP`/último XFF e só em hash (R-M15). E2E: XFF forjado → 429 após 30. |
+| (c) Troca de senha exige a atual | **CONFIRMADO** | `auth/senha/route.ts:27-72`: força mínima, nova ≠ atual, `bcrypt.compare`, **400** em erro, custo 12. E2E: atual errada → 400; certa → login antigo falha, novo funciona. Não derruba sessões (M14). |
+| (d) Tokens | **CONFIRMADO** | 32 bytes (`auth/token.ts:4-6`); só SHA-256 no banco; uso único por `updateMany` condicional; expiração (redefinição 1 h, primeiro acesso 7 d, confirmação = início da 1ª consulta); anteriores invalidados ao gerar novo; `replaceState` antes do fetch. Ressalvas I25, I26, I28. E2E: 2ª confirmação → 404. |
+| (e) Segredos de e-mail | **CONFIRMADO** | `RESEND_API_KEY`/`EMAIL_REMETENTE` só em `src/lib/email/config.ts` (server-only, sem fallback); `.env.example` vazio; grep limpo em cliente/`NEXT_PUBLIC_*`/respostas. Log do SDK: I29. |
+| (f) Link de confirmação só confirma o próprio lote | **CONFIRMADO** | `confirmacao/route.ts:122-125` (`tokenConfirmacaoId` + `status:'agendada'`); `consultaId` do body ignorado; 404 idêntico; DTO público = primeiro nome + data + modalidade; regerar invalida o anterior. `POST /consultas/[id]/confirmar` (Fase 3) ficou atômico. E2E: token desconhecido → 404, `consultaId` no body ignorado, resposta sem telefone/motivo/nome completo. |
+| (g) Perfil sem mass assignment | **CONFIRMADO** | `api/perfil/route.ts`: `requireAuth('psicologa')`, whitelist `nome/telefone/crp` campo a campo, chave sempre `auth.usuarioId`. E2E: `email/papel/usuarioId/senhaHash` ignorados; body só com campo proibido → 400. |
+| Extras | **CONFIRMADO** | `escaparHtml` em todo dado dinâmico; links só http(s) absolutos; nomes de visitante sem nada clicável (`primeiroNomeSeguro`, `nomeSemLinks` — M29); `.ics`/Google sem motivo/observações e evento da psicóloga só com primeiro nome; `POST /api/agendamento` público não aceita `status`/`valor`/`pedirConfirmacao`; sino recebe `novo_agendamento`. |
+
+**Relação com itens existentes:** A1 (primeira aplicação de limite — segue ABERTO), M3 (links por e-mail — segue ACEITO), M14/M21 (recuperação em autoatendimento aumenta a urgência). Novos: R-M15 (M28, resolvido antes do commit), M29 (parcialmente mitigado), I25-I33.
+
+---
+
 ## Verificação de deploy (Fase 6) — checklist operacional
 
 Complementa os itens acima; marcar cada linha no dia do deploy:
@@ -400,6 +449,16 @@ Complementa os itens acima; marcar cada linha no dia do deploy:
 - [ ] Proxy com limite de taxa em `/api/webhooks/*` (I23).
 - [ ] `src/data/*.json` removidos do repositório (sem consumidor desde a Fase 5b — R-M11).
 - [ ] Procedimento documentado para cobrança online não paga enquanto M26 estiver aberto (como liberar a consulta para registro manual).
+- [ ] Domínio de envio verificado no Resend (SPF, DKIM e, de preferência, DMARC `p=quarantine`) e `EMAIL_REMETENTE` com esse domínio (não `onboarding@resend.dev`, que só entrega ao dono da conta).
+- [ ] `RESEND_API_KEY` de **produção**, restrita a "Sending access" e ao domínio verificado, distinta da de dev (A2); chave de teste revogada.
+- [ ] `NEXT_PUBLIC_URL` com o https real: os links dos e-mails (redefinição, primeiro acesso, confirmação, "Ver agenda") dependem dela; sem ela o envio falha e o "esqueci a senha" fica silencioso.
+- [ ] `NODE_ENV=production` no processo PM2 (além de M8, silencia o log `[Resend API Error]` do SDK — I29).
+- [ ] Access log do Nginx sem query string em `/api/confirmacao`, `/primeiro-acesso`, `/redefinir-senha`, `/confirmar-consulta` (ou retenção curta) — M3/I25.
+- [ ] Job de expurgo de `limite_taxa` (linhas > 24 h) e de `token_confirmacao`/`token_acesso` usados ou expirados (R-M15).
+- [ ] `prisma generate` executado **antes** de `npm run build` em todo deploy (um client dessincronizado do bundle derruba todas as rotas com banco — observado na Fase 6).
+- [ ] Teste real pós-deploy: esqueci a senha → e-mail chega → link abre → login com a nova senha; pedido de confirmação → paciente confirma → e-mail com `.ics` chega; e-mail "Novo agendamento" chega à caixa real da psicóloga.
+- [ ] Caixa de e-mail da psicóloga com 2FA (a recuperação da conta dela passa por e-mail — I32).
+- [ ] Resend registrado como operador no inventário LGPD (I31).
 - [ ] PostgreSQL do VPS: acesso só local ou por rede privada, TLS se remoto, usuário da aplicação sem superuser, backups automáticos testados (restauração).
 - [ ] `next.config.ts` sem `ignoreBuildErrors`/`ignoreDuringBuilds` (M9); `tsc` e `lint` limpos.
 - [ ] `src/data/*.json` sem dado real (`consultas.json`, `notificacoes.json` fictícios ou vazios).

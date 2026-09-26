@@ -174,6 +174,7 @@ model Usuario {
   tokensAcesso      TokenAcesso[]
   pagamentosGerados Pagamento[]   @relation("PagamentoGeradoPor")
   documentosEnviados Documento[]  @relation("DocumentoEnviadoPor")
+  perfilPsicologa    PerfilPsicologa?
 
   @@map("usuario")
 }
@@ -192,6 +193,49 @@ model TokenAcesso {
 
   @@index([usuarioId, finalidade])
   @@map("token_acesso")
+}
+
+/// Fase 6 · Bloco 2: dados de apresentação da psicóloga (1:1 com o Usuario de papel psicologa).
+/// E-mail de login continua em Usuario.email e NÃO é editável por esta tabela.
+model PerfilPsicologa {
+  usuarioId    String   @id @map("usuario_id")
+  nome         String   @db.VarChar(120)
+  telefone     String?  @db.VarChar(20)   // dígitos com DDI; usado em wa.me
+  crp          String?  @db.VarChar(20)   // registro profissional (exibição)
+  /// E-mail que recebe as respostas dos pacientes (Reply-To dos e-mails do sistema). Editável por
+  /// ela no Perfil. null = usa Usuario.email (login). O remetente continua sendo o do domínio próprio.
+  emailRespostas String? @map("email_respostas") @db.VarChar(254)
+  atualizadoEm DateTime @updatedAt @map("atualizado_em") @db.Timestamptz(3)
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@map("perfil_psicologa")
+}
+
+/// Fase 6 · Bloco 4: link de uso único para o PACIENTE confirmar consulta(s) agendadas pela psicóloga.
+/// Guarda só o SHA-256 do token (o bruto só vive no link). Amarrado às consultas via
+/// Consulta.tokenConfirmacaoId — o token só confirma as consultas que apontam para ele.
+/// Não exige login (paciente pode não ter acesso ao site). Expira no início da primeira consulta.
+model TokenConfirmacao {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique @map("token_hash")
+  expiraEm  DateTime  @map("expira_em") @db.Timestamptz(3)
+  usadoEm   DateTime? @map("usado_em") @db.Timestamptz(3)
+  criadoEm  DateTime  @default(now()) @map("criado_em") @db.Timestamptz(3)
+
+  consultas Consulta[]
+
+  @@map("token_confirmacao")
+}
+
+/// Fase 6 · Bloco 3: janela fixa de limite de taxa (ex.: "esqueci a senha" por e-mail e por IP).
+/// `chave` nunca contém dado pessoal em claro — e-mails entram como SHA-256. Reutilizável por A1.
+model LimiteTaxa {
+  chave        String   @id
+  janelaInicio DateTime @map("janela_inicio") @db.Timestamptz(3)
+  contagem     Int
+
+  @@map("limite_taxa")
 }
 
 // ---------------------------------------------------------------- paciente
@@ -310,17 +354,26 @@ model Consulta {
   /// FK aqui (e não tabela de junção) garante no banco que uma consulta tem NO MÁXIMO um pagamento.
   /// null = em aberto. Estorno limpa o campo (SetNull) e mantém o Pagamento como histórico.
   pagamentoId        String?        @map("pagamento_id")
+  /// Fase 6: quando a PSICÓLOGA agenda e marca "pedir confirmação ao paciente", a consulta nasce
+  /// `agendada` com este carimbo; o paciente confirma pelo link (TokenConfirmacao). null = não houve
+  /// pedido (fluxo da Fase 3: visitante agenda → psicóloga confirma).
+  confirmacaoSolicitadaEm DateTime?  @map("confirmacao_solicitada_em") @db.Timestamptz(3)
+  /// Token de confirmação ATIVO desta consulta (FK do lado da consulta: no máximo um por consulta;
+  /// um token pode cobrir as N consultas de um lote). Regerar o link troca o token.
+  tokenConfirmacaoId String?        @map("token_confirmacao_id")
 
   criadaEm           DateTime       @default(now()) @map("criada_em") @db.Timestamptz(3)
   atualizadaEm       DateTime       @updatedAt @map("atualizada_em") @db.Timestamptz(3)
 
   paciente     Paciente      @relation(fields: [pacienteId], references: [id], onDelete: Restrict)
   pagamento    Pagamento?    @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+  tokenConfirmacao TokenConfirmacao? @relation(fields: [tokenConfirmacaoId], references: [id], onDelete: SetNull)
   notificacoes Notificacao[]
 
   @@index([pacienteId, inicio])
   @@index([inicio, status])
   @@index([pagamentoId])
+  @@index([tokenConfirmacaoId])
   @@map("consulta")
 }
 

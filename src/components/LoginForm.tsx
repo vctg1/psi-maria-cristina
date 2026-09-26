@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import type { FormEvent } from 'react';
+import Link from 'next/link';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Alert from 'react-bootstrap/Alert';
@@ -63,6 +64,11 @@ export default function LoginForm({ onSucesso }: LoginFormProps) {
           required
         />
       </Form.Group>
+      <div className="text-end mb-3">
+        <Link href="/esqueci-senha" className="pmc-texto-2 pmc-t-sm">
+          Esqueci minha senha
+        </Link>
+      </div>
       <div className="d-grid">
         <Button type="submit" variant="primary" disabled={enviando}>
           {enviando ? (

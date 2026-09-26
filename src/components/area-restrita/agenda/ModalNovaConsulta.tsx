@@ -12,6 +12,7 @@ import ListGroup from 'react-bootstrap/ListGroup';
 import type { PacienteResumo } from '@/types/paciente';
 import type { Modalidade, NovaConsultaEntrada, ResultadoLote } from '@/types/agenda';
 import { hojeLocalISO, formatarDataCurta, somarDiasISO } from './formatos';
+import { useNotificacao } from '@/components/NotificacaoProvider';
 
 type ModalNovaConsultaProps = {
   show: boolean;
@@ -41,6 +42,7 @@ function formatarTelefone(valor: string): string {
 }
 
 export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado }: ModalNovaConsultaProps) {
+  const { mostrarNotificacao } = useNotificacao();
   const [passo, setPasso] = useState<'paciente' | 'horario'>('paciente');
   const [tipoPaciente, setTipoPaciente] = useState<TipoPaciente>('existente');
 
@@ -64,6 +66,7 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
   const [quantidade, setQuantidade] = useState(1);
   const [valorPadrao, setValorPadrao] = useState<number | null>(null);
   const [valorInput, setValorInput] = useState('');
+  const [pedirConfirmacao, setPedirConfirmacao] = useState(false);
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -88,6 +91,7 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
     setObservacoes('');
     setQuantidade(1);
     setValorInput('');
+    setPedirConfirmacao(false);
     setErro(null);
     setResultado(null);
   }, [show, dataInicial]);
@@ -174,6 +178,7 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
         observacoes: observacoes.trim() || undefined,
         quantidade,
         valor: valorDiferenteDoPadrao ? valorNumerico : undefined,
+        pedirConfirmacao,
       };
       if (tipoPaciente === 'existente' && pacienteSelecionado) {
         entrada.pacienteId = pacienteSelecionado.id;
@@ -225,6 +230,53 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
                   ))}
                 </ul>
               </Alert>
+            )}
+            {resultado.linkConfirmacao && (
+              <div className="mt-3">
+                <span className="pmc-rotulo d-block mb-2">Link de confirmação</span>
+                <Form.Control
+                  id="novaConsultaLinkConfirmacao"
+                  readOnly
+                  value={resultado.linkConfirmacao}
+                  className="mb-2"
+                />
+                <div className="d-flex flex-wrap gap-2">
+                  <Button
+                    id="botao-copiar-link-confirmacao"
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(resultado.linkConfirmacao ?? '');
+                        mostrarNotificacao({ tipo: 'sucesso', titulo: 'Link copiado' });
+                      } catch {
+                        mostrarNotificacao({ tipo: 'erro', titulo: 'Não foi possível copiar o link' });
+                      }
+                    }}
+                  >
+                    Copiar
+                  </Button>
+                  <Button
+                    id="botao-whatsapp-link-confirmacao"
+                    variant="outline-secondary"
+                    size="sm"
+                    onClick={() => {
+                      const nome = pacienteSelecionado?.nome ?? novoNome;
+                      const telefone = pacienteSelecionado?.telefone ?? novoTelefone;
+                      const digitos = apenasDigitos(telefone);
+                      const comDdi = digitos.startsWith('55') ? digitos : `55${digitos}`;
+                      const mensagem = `Olá, ${nome}! Confirme sua consulta pelo link: ${resultado.linkConfirmacao}`;
+                      window.open(`https://wa.me/${comDdi}?text=${encodeURIComponent(mensagem)}`, '_blank', 'noopener,noreferrer');
+                    }}
+                  >
+                    <i className="bi bi-whatsapp me-1" />
+                    Enviar por WhatsApp
+                  </Button>
+                </div>
+                {resultado.emailConfirmacaoEnviado && (
+                  <p className="pmc-texto-2 pmc-t-sm mt-2 mb-0">Também enviamos por e-mail.</p>
+                )}
+              </div>
             )}
           </>
         ) : (
@@ -416,6 +468,19 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
                     </Form.Group>
                   </Col>
                 </Row>
+                <Form.Check
+                  type="switch"
+                  id="novaConsultaPedirConfirmacao"
+                  label="Pedir confirmação ao paciente"
+                  checked={pedirConfirmacao}
+                  onChange={(e) => setPedirConfirmacao(e.target.checked)}
+                  className="mb-2"
+                />
+                <Form.Text className="pmc-texto-2 d-block mb-3">
+                  {pedirConfirmacao
+                    ? 'O paciente recebe um link para confirmar. A consulta fica aguardando até ele confirmar.'
+                    : 'A consulta já entra como confirmada (atendimento combinado).'}
+                </Form.Text>
               </>
             )}
           </>
@@ -424,7 +489,7 @@ export default function ModalNovaConsulta({ show, dataInicial, onHide, onCriado 
       <Modal.Footer>
         {resultado ? (
           <Button variant="primary" onClick={onHide}>
-            Fechar
+            Concluir
           </Button>
         ) : passo === 'paciente' ? (
           <>

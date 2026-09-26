@@ -37,6 +37,9 @@ export type ConsultaDto = {
   canceladaPor: 'paciente' | 'psicologa' | null;
   motivoCancelamento: string | null;
   criadaEm: string;
+  /** Fase 6: preenchido quando a psicóloga agendou pedindo confirmação ao paciente e ele ainda
+   *  não confirmou (status `agendada`). null = fluxo normal (visitante → psicóloga confirma). */
+  confirmacaoSolicitadaEm: string | null;
   paciente: PacienteNaConsulta;
   /** Fase 5a: status de cobrança (valor efetivo, pago/em aberto). Presente para psicóloga e paciente. */
   cobranca: CobrancaConsulta;
@@ -59,6 +62,9 @@ export type NovaConsultaEntrada = {
   modalidade: Modalidade;
   motivo?: string;
   observacoes?: string;
+  /** Fase 6 · Bloco 4: true = nasce `agendada` e o paciente confirma pelo link (e-mail e/ou wa.me);
+   *  false/ausente = registro de atendimento já combinado: nasce `confirmada`. */
+  pedirConfirmacao?: boolean;
   quantidade?: number; // 1..12, default 1. 1 = consulta única; N = N consultas consecutivas.
   valor?: number | null; // aplicado a todas as consultas do lote; null/ausente = valor padrão
 };
@@ -66,6 +72,22 @@ export type NovaConsultaEntrada = {
 export type ResultadoLote = {
   criadas: ConsultaDto[];
   puladas: { data: string; motivo: 'sem_horario' | 'excecao' | 'ocupado' }[];
+  /** Fase 6: link único de confirmação (cobre todas as `criadas`) quando `pedirConfirmacao`.
+   *  Só volta para a psicóloga autenticada, para ela copiar e mandar por wa.me. */
+  linkConfirmacao?: string | null;
+  /** true quando o paciente tem e-mail e o pedido de confirmação foi enviado. */
+  emailConfirmacaoEnviado?: boolean;
+};
+
+/** Resposta de POST /api/consultas/[id]/link-confirmacao (psicóloga): gera um NOVO link e invalida o anterior. */
+export type LinkConfirmacaoResposta = { link: string; expiraEm: string; emailEnviado: boolean };
+
+/** Resposta pública de GET/POST /api/confirmacao (token no body/query, sem login). Só o necessário
+ *  para a tela: nada de id de paciente, nome completo, motivo ou observações. */
+export type ConfirmacaoPublicaDto = {
+  estado: 'pendente' | 'confirmada' | 'ja_confirmada';
+  primeiroNome: string;
+  consultas: { id: string; inicio: string; modalidade: Modalidade | null }[];
 };
 
 export type AgendamentoEntrada = {

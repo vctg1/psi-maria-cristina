@@ -3,8 +3,13 @@ import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth/guard';
 import { gerarTokenBruto, hashToken, EXPIRACAO } from '@/lib/auth/token';
 import { respostaErroAuth } from '@/lib/auth/erros';
+import { urlAbsoluta } from '@/lib/url-publica';
+import { enviarEmail } from '@/lib/email/enviar';
+import { emailPrimeiroAcesso } from '@/lib/email/templates';
 
-const FINALIDADES = ['primeiro_acesso', 'redefinicao_senha'] as const;
+// Único uso aceito nesta rota (autenticada, gerada pela psicóloga). A finalidade
+// "redefinicao_senha" foi aposentada aqui: agora é auto-serviço via POST /api/auth/esqueci-senha.
+const FINALIDADE = 'primeiro_acesso' as const;
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,27 +17,24 @@ export async function POST(request: NextRequest) {
     if ('erro' in r) return r.erro;
 
     const body = await request.json();
-    const { usuarioId, finalidade } = body ?? {};
+    const { usuarioId, finalidade, enviarPorEmail } = body ?? {};
 
-    if (
-      typeof usuarioId !== 'string' ||
-      !usuarioId ||
-      !FINALIDADES.includes(finalidade)
-    ) {
-      return NextResponse.json({ error: 'Dados obrigatórios não fornecidos' }, { status: 400 });
+    if (finalidade !== undefined && finalidade !== FINALIDADE) {
+      return NextResponse.json({ error: 'Use "Esqueci minha senha" na tela de login' }, { status: 400 });
     }
 
-    const baseUrl = process.env.NEXT_PUBLIC_URL;
-    if (!baseUrl) {
-      return NextResponse.json(
-        { error: 'Configuração ausente: NEXT_PUBLIC_URL' },
-        { status: 500 }
-      );
+    if (typeof usuarioId !== 'string' || !usuarioId) {
+      return NextResponse.json({ error: 'Dados obrigatórios não fornecidos' }, { status: 400 });
     }
 
     const usuarioAlvo = await prisma.usuario.findUnique({
       where: { id: usuarioId },
-      select: { id: true, ativo: true },
+      select: {
+        id: true,
+        ativo: true,
+        email: true,
+        paciente: { select: { nome: true } },
+      },
     });
     if (!usuarioAlvo || !usuarioAlvo.ativo) {
       return NextResponse.json({ error: 'Usuário não encontrado' }, { status: 404 });
@@ -40,23 +42,35 @@ export async function POST(request: NextRequest) {
 
     const tokenBruto = gerarTokenBruto();
     const tokenHash = hashToken(tokenBruto);
-    const expiraEm = new Date(Date.now() + EXPIRACAO[finalidade as 'primeiro_acesso' | 'redefinicao_senha']);
+    const expiraEm = new Date(Date.now() + EXPIRACAO[FINALIDADE]);
 
     await prisma.$transaction(async (tx) => {
       await tx.tokenAcesso.updateMany({
-        where: { usuarioId, finalidade, usadoEm: null },
+        where: { usuarioId, finalidade: FINALIDADE, usadoEm: null },
         data: { usadoEm: new Date() },
       });
 
       await tx.tokenAcesso.create({
-        data: { usuarioId, tokenHash, finalidade, expiraEm },
+        data: { usuarioId, tokenHash, finalidade: FINALIDADE, expiraEm },
       });
     });
 
-    const caminho = finalidade === 'primeiro_acesso' ? 'primeiro-acesso' : 'redefinir-senha';
-    const link = `${baseUrl}/${caminho}?token=${tokenBruto}`;
+    const link = urlAbsoluta(`/primeiro-acesso?token=${tokenBruto}`);
 
-    return NextResponse.json({ link, expiraEm }, { status: 201 });
+    let emailEnviado = false;
+    if (enviarPorEmail === true && usuarioAlvo.email) {
+      const nome = usuarioAlvo.paciente?.nome ?? 'olá';
+      const conteudo = emailPrimeiroAcesso({ nome, link });
+      const resultado = await enviarEmail({
+        para: usuarioAlvo.email,
+        assunto: conteudo.assunto,
+        html: conteudo.html,
+        texto: conteudo.texto,
+      });
+      emailEnviado = resultado.ok;
+    }
+
+    return NextResponse.json({ link, expiraEm, emailEnviado }, { status: 201 });
   } catch (error) {
     return respostaErroAuth(error);
   }

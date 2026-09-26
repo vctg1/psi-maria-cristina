@@ -25,7 +25,7 @@ function telefoneComDdi(telefone: string): string {
   return digitos.startsWith('55') ? digitos : `55${digitos}`;
 }
 
-type ModalLink = { link: string; finalidade: 'primeiro_acesso' | 'redefinicao_senha' };
+type ModalLink = { link: string; finalidade: 'primeiro_acesso'; emailEnviado: boolean };
 
 export default function DetalhePacientePage() {
   const params = useParams<{ id: string }>();
@@ -45,6 +45,7 @@ export default function DetalhePacientePage() {
   const [emailAcesso, setEmailAcesso] = useState('');
   const [criandoAcesso, setCriandoAcesso] = useState(false);
   const [erroAcesso, setErroAcesso] = useState<string | null>(null);
+  const [enviarPorEmail, setEnviarPorEmail] = useState(true);
 
   const carregar = useCallback(async () => {
     if (!id) return;
@@ -69,14 +70,18 @@ export default function DetalhePacientePage() {
     carregar();
   }, [carregar]);
 
-  const gerarLink = async (finalidade: 'primeiro_acesso' | 'redefinicao_senha') => {
+  const gerarLink = async () => {
     if (!paciente) return;
     setGerandoLink(true);
     try {
       const response = await fetch('/api/auth/token-acesso', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuarioId: paciente.usuarioId, finalidade }),
+        body: JSON.stringify({
+          usuarioId: paciente.usuarioId,
+          finalidade: 'primeiro_acesso',
+          enviarPorEmail: !!paciente.email && enviarPorEmail,
+        }),
       });
       const dados = await response.json().catch(() => null);
       if (!response.ok) {
@@ -87,7 +92,7 @@ export default function DetalhePacientePage() {
         });
         return;
       }
-      setModalLink({ link: dados.link, finalidade });
+      setModalLink({ link: dados.link, finalidade: 'primeiro_acesso', emailEnviado: !!dados.emailEnviado });
     } catch {
       mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: 'Não foi possível gerar o link.' });
     } finally {
@@ -107,10 +112,7 @@ export default function DetalhePacientePage() {
 
   const enviarWhatsapp = () => {
     if (!modalLink || !paciente) return;
-    const mensagem =
-      modalLink.finalidade === 'primeiro_acesso'
-        ? `Olá ${paciente.nome}, aqui é a Psicóloga Maria Cristina. Seu link de acesso à área do paciente: ${modalLink.link} (válido por 7 dias)`
-        : `Olá ${paciente.nome}, aqui é a Psicóloga Maria Cristina. Aqui está o link para redefinir sua senha: ${modalLink.link} (válido por 1 hora)`;
+    const mensagem = `Olá ${paciente.nome}, aqui é a Psicóloga Maria Cristina. Seu link de acesso à área do paciente: ${modalLink.link} (válido por 7 dias)`;
     window.open(`https://wa.me/${telefoneComDdi(paciente.telefone)}?text=${encodeURIComponent(mensagem)}`, '_blank');
   };
 
@@ -257,13 +259,30 @@ export default function DetalhePacientePage() {
         {paciente.temLogin && (
           <div className="d-flex align-items-center gap-3 flex-wrap">
             {paciente.primeiroAcessoPendente ? (
-              <Button variant="outline-primary" disabled={gerandoLink} onClick={() => gerarLink('primeiro_acesso')}>
-                Gerar/reenviar link de primeiro acesso
-              </Button>
+              <div className="d-flex flex-column gap-1">
+                <Button
+                  id="botao-gerar-link-primeiro-acesso"
+                  variant="outline-primary"
+                  disabled={gerandoLink}
+                  onClick={gerarLink}
+                >
+                  Gerar/reenviar link de primeiro acesso
+                </Button>
+                {paciente.email && (
+                  <Form.Check
+                    type="checkbox"
+                    id="paciente-enviar-por-email"
+                    label="Enviar também por e-mail"
+                    checked={enviarPorEmail}
+                    onChange={(e) => setEnviarPorEmail(e.target.checked)}
+                  />
+                )}
+              </div>
             ) : (
-              <Button variant="outline-primary" disabled={gerandoLink} onClick={() => gerarLink('redefinicao_senha')}>
-                Gerar link de redefinição de senha
-              </Button>
+              <p className="pmc-texto-2 pmc-t-sm mb-0">
+                Se o paciente esquecer a senha, ele mesmo pode redefinir em &ldquo;Esqueci minha senha&rdquo; na tela de
+                login.
+              </p>
             )}
             <Form.Check
               type="switch"
@@ -346,6 +365,9 @@ export default function DetalhePacientePage() {
         </Modal.Header>
         <Modal.Body>
           <Form.Control readOnly value={modalLink?.link ?? ''} />
+          {modalLink?.emailEnviado && paciente.email && (
+            <p className="pmc-texto-2 pmc-t-sm mt-2 mb-0">E-mail enviado para {paciente.email}.</p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={copiarLink}>

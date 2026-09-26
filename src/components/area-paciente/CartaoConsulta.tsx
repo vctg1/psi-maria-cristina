@@ -11,6 +11,7 @@ import type { ConsultaDtoPaciente, ConsultaStatus } from '@/types/agenda';
 import { formatarData, formatarHora } from '@/components/area-restrita/agenda/formatos';
 import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
 import { useNotificacao } from '@/components/NotificacaoProvider';
+import { eventoConsultaPaciente, gerarIcs, linkGoogleCalendar } from '@/lib/calendario';
 
 const WHATSAPP_PSICOLOGA = 'https://wa.me/5561995391540';
 
@@ -109,6 +110,27 @@ export default function CartaoConsulta({
     window.open(`${WHATSAPP_PSICOLOGA}?text=${texto}`, '_blank', 'noopener,noreferrer');
   };
 
+  const futura = new Date(consulta.inicio).getTime() > Date.now();
+  const mostrarBotoesCalendario = consulta.status === 'confirmada' && futura;
+
+  const baixarIcs = () => {
+    const evento = eventoConsultaPaciente({
+      id: consulta.id,
+      inicio: new Date(consulta.inicio),
+      modalidade: consulta.modalidade,
+    });
+    const conteudo = gerarIcs(evento);
+    const blob = new Blob([conteudo], { type: 'text/calendar;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'consulta.ics';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <>
       <Card className="mb-3">
@@ -148,6 +170,29 @@ export default function CartaoConsulta({
               )}
             </div>
           </div>
+
+          {mostrarBotoesCalendario && (
+            <div className="mt-3 d-flex flex-wrap gap-2">
+              <a
+                id={`botao-google-calendar-${consulta.id}`}
+                className="btn btn-outline-secondary btn-sm"
+                target="_blank"
+                rel="noopener noreferrer"
+                href={linkGoogleCalendar(
+                  eventoConsultaPaciente({
+                    id: consulta.id,
+                    inicio: new Date(consulta.inicio),
+                    modalidade: consulta.modalidade,
+                  })
+                )}
+              >
+                Adicionar ao Google Calendar
+              </a>
+              <Button id={`botao-baixar-ics-${consulta.id}`} variant="outline-secondary" size="sm" onClick={baixarIcs}>
+                Baixar .ics
+              </Button>
+            </div>
+          )}
 
           {permitirCancelamento && (
             <div className="mt-3">
