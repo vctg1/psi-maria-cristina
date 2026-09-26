@@ -59,7 +59,7 @@ export default function PrimeiroAcessoPage() {
       <Card className="pmc-auth-card pmc-acima">
         <Card.Body>
           <Image
-            src="/maria-cristina-logo.png?v=original-20260926"
+            src="/maria-cristina-logo-crp.png"
             alt="Psicóloga Maria Cristina"
             width={72}
             height={72}

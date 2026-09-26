@@ -72,7 +72,7 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
         <Container className="pmc-container">
           <Navbar.Brand as={Link} href="/area-restrita/agenda">
             <Image
-              src="/maria-cristina-logo.png?v=original-20260926"
+              src="/maria-cristina-logo-crp.png"
               alt="Psicóloga Maria Cristina"
               width={80}
               height={100}

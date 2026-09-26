@@ -187,14 +187,18 @@ export default function Home() {
               <p className="mb-0">Atendimento online • Crianças, Adolescentes e Adultos</p>
             </Col>
             <Col md={7}>
-              <div className="pmc-mapa ratio ratio-16x9">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m14!1m8!1m3!1d246113.82756486596!2d-47.603239!3d-15.455976!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x935a133ab4a4a4dd%3A0x5f4b18fb11591ca3!2sPlanaltina%2C%20Bras%C3%ADlia%20-%20DF!5e0!3m2!1spt-BR!2sbr!4v1789690332483!5m2!1spt-BR!2sbr"
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Localização do consultório em Planaltina-DF"
-                />
+              <div className="pmc-mapa d-flex flex-column align-items-center justify-content-center text-center p-4 h-100" style={{ background: 'var(--pmc-areia)', color: 'var(--pmc-texto)' }}>
+                <i className="bi bi-geo-alt-fill fs-1" aria-hidden="true" />
+                <h3 className="h4 mt-2">Consultório em Planaltina</h3>
+                <p>Setor Tradicional, Lote 11, Planaltina-DF, 73330-078</p>
+                <a
+                  href="https://maps.app.goo.gl/H6k7QzPuavFjRjZN7?g_st=aw"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                >
+                  Abrir no Google Maps
+                </a>
               </div>
             </Col>
           </Row>

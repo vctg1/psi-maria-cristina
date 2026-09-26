@@ -47,7 +47,7 @@ export default function LayoutPaciente({ children }: LayoutPacienteProps) {
         <Container className="pmc-container">
           <Navbar.Brand as={Link} href="/area-paciente">
             <Image
-              src="/maria-cristina-logo.png?v=original-20260926"
+              src="/maria-cristina-logo-crp.png"
               alt="Psicóloga Maria Cristina"
               width={80}
               height={100}
