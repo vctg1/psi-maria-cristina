@@ -438,7 +438,7 @@ export default function Home() {
             <Col md={7}>
               <div className="pmc-mapa ratio ratio-4x3">
                 <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3842.449675972523!2d-47.6590154!3d-15.621024900000002!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x935a13a8f1cb33b3%3A0x563cfb76e7e84007!2sPsic%C3%B3loga%20Maria%20Cristina!5e0!3m2!1spt-BR!2sbr!4v1790455178240!5m2!1spt-BR!2sbr"
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d108460.34160607192!2d-0.060930863200898945!3d0.008224977897044261!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x935a13a8f1cb33b3%3A0x563cfb76e7e84007!2sPsic%C3%B3loga%20Maria%20Cristina!5e0!3m2!1spt-BR!2sbr!4v1790456292832!5m2!1spt-BR!2sbr"
                   title="Localização do consultório da psicóloga Maria Cristina"
                   allowFullScreen
                   loading="lazy"
@@ -446,7 +446,7 @@ export default function Home() {
                 />
               </div>
               <a
-                href="https://maps.app.goo.gl/H6k7QzPuavFjRjZN7?g_st=aw"
+                href="https://maps.app.goo.gl/x8nixwRUcgsTbxgn9"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="d-inline-block mt-3"
