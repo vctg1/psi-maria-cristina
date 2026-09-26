@@ -51,3 +51,4 @@ src/generated/
 
 # documentos clínicos (dado de saúde) — pasta privada de desenvolvimento; NUNCA commitar
 /documentos-privados/
+/.deploy/

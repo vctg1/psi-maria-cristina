@@ -19,11 +19,12 @@ export default function SiteHeader() {
           <Image
             src="/maria-cristina-logo.png"
             alt="Psicóloga Maria Cristina"
-            width={84}
-            height={80}
+            width={80}
+            height={100}
             style={{ objectFit: 'contain' }}
             priority
           />
+          <span className="pmc-logo-crp">CRP 01/29977</span>
         </Navbar.Brand>
         <Navbar.Toggle aria-controls="navbar-principal" aria-label="Abrir menu" />
         <Navbar.Offcanvas

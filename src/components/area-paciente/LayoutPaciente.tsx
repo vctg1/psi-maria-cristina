@@ -49,10 +49,11 @@ export default function LayoutPaciente({ children }: LayoutPacienteProps) {
             <Image
               src="/maria-cristina-logo.png"
               alt="Psicóloga Maria Cristina"
-              width={120}
-              height={40}
+              width={80}
+              height={100}
               style={{ objectFit: 'contain' }}
             />
+            <span className="pmc-logo-crp">CRP 01/29977</span>
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="navbar-paciente" />
           <Navbar.Collapse id="navbar-paciente">

@@ -2,32 +2,36 @@
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
+PROJECT_DIR=/root/projetos/psi-maria-cristina
+DEPLOY_DIR="$PROJECT_DIR/.deploy"
+ENV_FILE="$PROJECT_DIR/.env"
 cd "$APP_DIR"
 export PATH="/root/.nvm/versions/node/v24.18.1/bin:$PATH"
 
 set -a
-source /opt/psi/.env
+source "$ENV_FILE"
 set +a
 export NODE_ENV=production
 export PSI_APP_DIR="$APP_DIR"
-: "${DATABASE_URL:?DATABASE_URL must be set in /opt/psi/.env}"
-: "${JWT_SECRET:?JWT_SECRET must be set in /opt/psi/.env}"
+: "${DATABASE_URL:?DATABASE_URL must be set in $ENV_FILE}"
+: "${JWT_SECRET:?JWT_SECRET must be set in $ENV_FILE}"
+: "${DOCUMENTOS_DIR:?DOCUMENTOS_DIR must be set in $ENV_FILE}"
+[[ "$DOCUMENTOS_DIR" = /* ]] || { echo 'DOCUMENTOS_DIR must be an absolute path' >&2; exit 1; }
+install -d -m 700 "$DOCUMENTOS_DIR"
+install -d -m 700 "$DEPLOY_DIR"
 
-ln -sfn /opt/psi/.env "$APP_DIR/.env"
+ln -sfn "$ENV_FILE" "$APP_DIR/.env"
 
 npm ci --include=dev
 npx prisma generate
 npm run build
 npx prisma migrate deploy
 
-PREVIOUS_DIR="$(readlink -f /opt/psi/current 2>/dev/null || true)"
-if [[ -z "$PREVIOUS_DIR" ]]; then
-  PREVIOUS_DIR=/opt/psi/app
-fi
+PREVIOUS_DIR="$(readlink -f "$DEPLOY_DIR/current" 2>/dev/null || true)"
 
 rollback() {
   pm2 delete psi-maria-cristina >/dev/null 2>&1 || true
-  if [[ -f "$PREVIOUS_DIR/deploy/ecosystem.config.cjs" ]]; then
+  if [[ -n "$PREVIOUS_DIR" && -f "$PREVIOUS_DIR/deploy/ecosystem.config.cjs" ]]; then
     PSI_APP_DIR="$PREVIOUS_DIR" pm2 start "$PREVIOUS_DIR/deploy/ecosystem.config.cjs" --only psi-maria-cristina
     pm2 save
   fi
@@ -48,6 +52,6 @@ if ! curl --fail --silent --show-error "http://127.0.0.1:3010/api/disponibilidad
   exit 1
 fi
 
-ln -sfn "$APP_DIR" /opt/psi/current.next
-mv -Tf /opt/psi/current.next /opt/psi/current
+ln -sfn "$APP_DIR" "$DEPLOY_DIR/current.next"
+mv -Tf "$DEPLOY_DIR/current.next" "$DEPLOY_DIR/current"
 pm2 save
