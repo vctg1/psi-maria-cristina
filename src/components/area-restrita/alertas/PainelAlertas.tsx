@@ -15,7 +15,7 @@ import { dataLocalISO, formatarData, formatarHora } from '@/components/area-rest
 
 type PainelAlertasProps = {
   modo: 'painel' | 'inline';
-  /** Fecha o Offcanvas que hospeda o painel (usado só em modo="painel"). */
+  /** Fecha o Modal que hospeda o painel (usado só em modo="painel"). */
   aoFechar?: () => void;
   /** Notifica o total (cancelamentos + lembretes) sempre que a lista muda. */
   aoTotalMudar?: (total: number) => void;
@@ -69,17 +69,17 @@ export default function PainelAlertas({ modo, aoFechar, aoTotalMudar }: PainelAl
 
   const removerDaLista = (alerta: Alerta) => {
     setAlertas((prev) => prev.filter((item) => !(item.tipo === alerta.tipo && item.id === alerta.id)));
-    setTotais((prev) => {
-      const chave =
-        alerta.tipo === 'lembrete'
-          ? 'lembretes'
-          : alerta.tipo === 'novo_agendamento'
-            ? 'novosAgendamentos'
-            : 'cancelamentos';
-      const novo = { ...prev, [chave]: Math.max(0, prev[chave] - 1) };
-      aoTotalMudar?.(novo.cancelamentos + novo.lembretes + novo.novosAgendamentos);
-      return novo;
-    });
+    const chave =
+      alerta.tipo === 'lembrete'
+        ? 'lembretes'
+        : alerta.tipo === 'novo_agendamento'
+          ? 'novosAgendamentos'
+          : 'cancelamentos';
+    const novo = { ...totais, [chave]: Math.max(0, totais[chave] - 1) };
+    setTotais(novo);
+    // Fora do updater de setTotais: avisar o pai (LayoutPsicologa) durante o render do updater
+    // dispara "Cannot update a component while rendering a different component".
+    aoTotalMudar?.(novo.cancelamentos + novo.lembretes + novo.novosAgendamentos);
   };
 
   const tratarAlerta = async (alerta: Alerta, mensagemJaTratado: string) => {

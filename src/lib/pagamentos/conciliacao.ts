@@ -61,13 +61,12 @@ export async function aplicarStatusExterno(
           return { duplicado: false, statusFinal: 'pago' };
         }
 
-        // Confere valor antes de marcar como pago: se o gateway reportou valor menor que o devido,
-        // não confirma — registra o evento e mantém pendente.
+        // Confere valor antes de marcar como pago: se o gateway reportou valor menor que o devido
+        // (ou não reportou valor), não confirma — registra o evento e mantém pendente.
         let statusNovo: PagamentoStatus = externo.status;
         if (
           statusNovo === 'pago' &&
-          typeof externo.valorPago === 'number' &&
-          externo.valorPago < Number(pagamento.valor)
+          (typeof externo.valorPago !== 'number' || externo.valorPago < Number(pagamento.valor))
         ) {
           console.error('Valor pago divergente do esperado (pagamentoId omitido do log)');
           statusNovo = 'pendente';
@@ -81,6 +80,7 @@ export async function aplicarStatusExterno(
             statusExternoDetalhe: externo.statusExternoDetalhe ?? null,
             pagamentoExternoId: externo.pagamentoExternoId ?? undefined,
             pagoEm: statusNovo === 'pago' ? (externo.pagoEm ?? new Date()) : undefined,
+            metodo: statusNovo === 'pago' && externo.metodo ? externo.metodo : undefined,
             ultimaReconciliacaoEm: new Date(),
           },
         });
@@ -148,6 +148,7 @@ export async function reconciliarSePreciso(
     const externo = await adapter.consultarStatus({
       referenciaExterna: pagamento.referenciaExterna,
       pagamentoExternoId: pagamento.pagamentoExternoId,
+      pagamentoId: pagamento.id,
     });
     const resultado = await aplicarStatusExterno(pagamento.id, externo, 'reconciliacao');
     return resultado.statusFinal;

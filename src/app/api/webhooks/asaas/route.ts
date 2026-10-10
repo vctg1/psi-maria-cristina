@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
     const externo = await adapter.consultarStatus({
       referenciaExterna: pagamento.referenciaExterna,
       pagamentoExternoId: pagamento.pagamentoExternoId,
+      pagamentoId: pagamento.id,
     });
 
     const resultado = await aplicarStatusExterno(pagamento.id, externo, 'webhook', {

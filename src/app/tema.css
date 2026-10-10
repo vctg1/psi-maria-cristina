@@ -312,6 +312,10 @@ a { text-underline-offset: 0.15em; }
 .navbar { --bs-navbar-color: var(--pmc-texto); --bs-navbar-hover-color: var(--pmc-terracota-escura); --bs-navbar-active-color: var(--pmc-terracota-escura); }
 .table { --bs-table-border-color: var(--pmc-bege); --bs-table-striped-bg: var(--pmc-areia); --bs-table-hover-bg: var(--pmc-areia); }
 .modal-content { border-radius: var(--pmc-raio-lg); border-color: var(--pmc-bege); box-shadow: var(--pmc-sombra-lg); }
+/* Modal aberto sobre outro (ex.: cobrança sobre o painel da consulta): cada portal vai para o fim do
+   <body>, então o fundo e o modal seguintes sobem de camada e escurecem o modal de baixo. */
+.modal ~ .modal-backdrop { z-index: 1060; }
+.modal ~ .modal-backdrop ~ .modal { z-index: 1065; }
 
 /* chip de especialidade / lista com marcador orgânico */
 .pmc-chip {

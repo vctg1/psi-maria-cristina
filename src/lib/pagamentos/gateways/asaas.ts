@@ -26,6 +26,7 @@ type AsaasPayment = {
   dueDate?: string;
   paymentDate?: string | null;
   clientPaymentDate?: string | null;
+  billingType?: string;
 };
 
 async function obterOuCriarCliente(nome: string, email: string): Promise<string> {
@@ -117,6 +118,15 @@ export const asaasAdapter: GatewayPagamentoAdapter = {
       pagamentoExternoId: pagamento.id,
       pagoEm: pagoEmStr ? new Date(`${pagoEmStr}T12:00:00-03:00`) : null,
       valorPago: typeof pagamento.value === 'number' ? pagamento.value : null,
+      // UNDEFINED enquanto a paciente não escolhe na página hospedada.
+      metodo:
+        pagamento.billingType === 'PIX'
+          ? 'pix'
+          : pagamento.billingType === 'CREDIT_CARD' || pagamento.billingType === 'DEBIT_CARD'
+            ? 'cartao'
+            : pagamento.billingType === 'BOLETO'
+              ? 'boleto'
+              : null,
     };
   },
 

@@ -11,7 +11,7 @@ import Badge from 'react-bootstrap/Badge';
 import Button from 'react-bootstrap/Button';
 import Container from 'react-bootstrap/Container';
 import Spinner from 'react-bootstrap/Spinner';
-import Offcanvas from 'react-bootstrap/Offcanvas';
+import Modal from 'react-bootstrap/Modal';
 import { useAuth } from '@/contexts/AuthContext';
 import PainelAlertas from '@/components/area-restrita/alertas/PainelAlertas';
 import type { AlertasResposta } from '@/types/alertas';
@@ -146,11 +146,11 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
         {children}
       </Container>
 
-      <Offcanvas show={painelAberto} onHide={() => setPainelAberto(false)} placement="end">
-        <Offcanvas.Header closeButton>
-          <Offcanvas.Title>Alertas</Offcanvas.Title>
-        </Offcanvas.Header>
-        <Offcanvas.Body>
+      <Modal show={painelAberto} onHide={() => setPainelAberto(false)} centered scrollable size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Alertas</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
           {painelAberto && (
             <PainelAlertas
               modo="painel"
@@ -158,8 +158,8 @@ export default function LayoutPsicologa({ children }: LayoutPsicologaProps) {
               aoTotalMudar={setTotalAlertas}
             />
           )}
-        </Offcanvas.Body>
-      </Offcanvas>
+        </Modal.Body>
+      </Modal>
     </>
   );
 }

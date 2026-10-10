@@ -182,8 +182,8 @@ export default function ModalCobrancaOnline({ consultas, show, onHide, onGerada 
           </>
         ) : (
           <>
-            <Form.Group className="mb-2" controlId="cobrancaOnlineLink">
-              <Form.Label>Link de checkout</Form.Label>
+            <Form.Group className="mb-2">
+              <Form.Label htmlFor="input-link-cobranca-online">Link de checkout</Form.Label>
               <Form.Control id="input-link-cobranca-online" readOnly value={cobrancaGerada.linkCheckout ?? ''} />
             </Form.Group>
             <div className="d-flex flex-wrap gap-2">

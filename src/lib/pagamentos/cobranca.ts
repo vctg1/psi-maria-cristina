@@ -60,6 +60,11 @@ function formatarDataLocal(d: Date): string {
   return `${ano}-${mes}-${dia}`;
 }
 
+/** Pagamento online: `pagoEm` é um instante; a UI espera só a data (YYYY-MM-DD) do dia em Brasília. */
+function dataBrasilia(d: Date): string {
+  return d.toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
 export function montarCobranca(c: ConsultaComCobranca, valorPadrao: number): CobrancaConsulta {
   const valorPersonalizado = c.valor !== null;
   const valorEfetivo = c.valor !== null ? Number(c.valor) : valorPadrao;
@@ -86,7 +91,7 @@ export function montarCobranca(c: ConsultaComCobranca, valorPadrao: number): Cob
   let recebidoEm: string | null = null;
   if (pagamentoPago) {
     if (c.pagamento!.recebidoEm) recebidoEm = formatarDataLocal(c.pagamento!.recebidoEm);
-    else if (c.pagamento!.pagoEm) recebidoEm = c.pagamento!.pagoEm.toISOString();
+    else if (c.pagamento!.pagoEm) recebidoEm = dataBrasilia(c.pagamento!.pagoEm);
   }
 
   return { situacao, valor, valorPersonalizado, pagamentoId, metodo, recebidoEm, linkCheckout };
@@ -99,6 +104,7 @@ export const SELECT_PAGAMENTO = {
   metodo: true,
   valor: true,
   recebidoEm: true,
+  pagoEm: true,
   estornadoEm: true,
   observacao: true,
   criadoEm: true,
@@ -121,7 +127,11 @@ export function paraPagamentoDto(p: PagamentoComConsultas): PagamentoDto {
     status: p.status,
     metodo: (p.metodo as MetodoManual | 'boleto' | 'cartao' | null) ?? null,
     valor: Number(p.valor),
-    recebidoEm: p.recebidoEm ? formatarDataLocal(p.recebidoEm) : null,
+    recebidoEm: p.recebidoEm
+      ? formatarDataLocal(p.recebidoEm)
+      : p.pagoEm
+        ? dataBrasilia(p.pagoEm)
+        : null,
     estornadoEm: p.estornadoEm ? p.estornadoEm.toISOString() : null,
     observacao: p.observacao,
     criadoEm: p.criadoEm.toISOString(),

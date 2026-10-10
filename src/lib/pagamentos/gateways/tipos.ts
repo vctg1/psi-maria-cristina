@@ -11,6 +11,8 @@ export type StatusExterno = {
   pagamentoExternoId?: string | null;
   pagoEm?: Date | null;
   valorPago?: number | null;
+  /** Meio usado na página hospedada, já normalizado (null = gateway não informou / outro). */
+  metodo?: 'pix' | 'cartao' | 'boleto' | null;
 };
 
 export type CobrancaCriada = {
@@ -41,7 +43,13 @@ export interface GatewayPagamentoAdapter {
     expiraEm?: Date;
   }): Promise<CobrancaCriada>;
 
-  consultarStatus(ref: { referenciaExterna: string; pagamentoExternoId?: string | null }): Promise<StatusExterno>;
+  /** `pagamentoId` é o id do NOSSO Pagamento (enviado como external_reference ao gateway); o MP
+   *  precisa dele para achar o pagamento enquanto ainda não há `pagamentoExternoId`. */
+  consultarStatus(ref: {
+    referenciaExterna: string;
+    pagamentoExternoId?: string | null;
+    pagamentoId?: string;
+  }): Promise<StatusExterno>;
 
   /** Retorna `null` quando a assinatura/token é inválido ou ausente — o chamador responde 401
    *  sem gravar nada. */

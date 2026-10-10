@@ -440,9 +440,9 @@ Complementa os itens acima; marcar cada linha no dia do deploy:
 - [ ] Nenhum CRÍTICO/ALTO ABERTO neste arquivo.
 - [ ] `NODE_ENV=production`; HTTPS com redirecionamento; HSTS (M8).
 - [ ] Envs de produção distintas das de dev (A2); `.env*` fora do repo; `PSICOLOGA_SENHA_HASH` gerado com senha forte.
-- [ ] Credenciais de **produção** dos dois gateways: `MP_ACCESS_TOKEN` (`APP_USR-…`) e `ASAAS_API_KEY` + `ASAAS_API_URL=https://api.asaas.com/v3`; credenciais de teste rotacionadas/revogadas (A3).
-- [ ] `MP_WEBHOOK_SECRET` (painel MP → Webhooks → chave secreta) e `ASAAS_WEBHOOK_TOKEN` configurados — sem eles o webhook responde 401 a **tudo** (fail-closed, R-A5).
-- [ ] URLs de webhook registradas nos dois painéis: `https://<domínio>/api/webhooks/mercadopago` e `https://<domínio>/api/webhooks/asaas` (só eventos de pagamento).
+- [ ] Credenciais de **produção** dos dois gateways: `MP_ACCESS_TOKEN` (`APP_USR-…`) e `ASAAS_API_KEY` + `ASAAS_API_URL=https://api.asaas.com/v3`; credenciais de teste rotacionadas/revogadas (A3). **`MP_SANDBOX` ausente** no `.env` de produção (o código já a ignora com `NODE_ENV=production`; manter fora por clareza).
+- [ ] `MP_WEBHOOK_SECRET` (painel MP → Webhooks → chave secreta) e `ASAAS_WEBHOOK_TOKEN` configurados — sem eles o webhook responde 401 a **tudo** (fail-closed, R-A5). `MP_WEBHOOK_SECRET` e `MP_ACCESS_TOKEN` têm de vir **da mesma aplicação** do MP: cada aplicação assina os avisos dos próprios pagamentos com a sua chave (com apps diferentes, a simulação do painel passa e os pagamentos reais dão 401).
+- [ ] URLs de webhook registradas nos dois painéis: `https://<domínio>/api/webhooks/mercadopago` e `https://<domínio>/api/webhooks/asaas` (só eventos de pagamento). **Obrigatório no MP:** a preference não envia `notification_url` (os avisos por ela não conferem com a chave do painel), então sem a URL no painel nenhum pagamento é notificado — só a reconciliação (página de retorno / "Atualizar status") confirma.
 - [ ] `NEXT_PUBLIC_URL` com o **https real** do domínio (sem barra final): em produção a geração de cobrança falha se faltar ou não for https (R-M12).
 - [ ] Teste ponta a ponta **com pagamento real de baixo valor em cada gateway**: cobrança gerada → paga no checkout hospedado → webhook aceito → `Pagamento.status = 'pago'` → consulta sai de "aguardando".
 - [ ] Reentrega manual do mesmo evento pelo painel do gateway não duplica confirmação nem evento.

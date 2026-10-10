@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Offcanvas from 'react-bootstrap/Offcanvas';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import Alert from 'react-bootstrap/Alert';
@@ -425,11 +424,11 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
 
   return (
     <>
-      <Offcanvas show={consulta !== null} onHide={onHide} placement="end">
-        <Offcanvas.Header closeButton>
-          <Offcanvas.Title>{atual.paciente.nome}</Offcanvas.Title>
-        </Offcanvas.Header>
-        <Offcanvas.Body>
+      <Modal show={consulta !== null} onHide={onHide} centered scrollable size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>{atual.paciente.nome}</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
           <p className="pmc-texto-2 mb-1">
             {formatarData(atual.inicio, { weekday: 'long', day: '2-digit', month: 'long' })} às{' '}
             {formatarHora(atual.inicio)}
@@ -739,8 +738,13 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
               <div className="pmc-texto-2 pmc-t-sm">
                 {gatewayCobrancaOnline && <div className="mb-2">Gateway: {GATEWAY_LABEL[gatewayCobrancaOnline]}</div>}
                 {atual.cobranca.linkCheckout && (
-                  <Form.Group className="mb-2" controlId="painelLinkCobrancaOnline">
-                    <Form.Control id="input-link-cobranca-painel" readOnly value={atual.cobranca.linkCheckout} />
+                  <Form.Group className="mb-2">
+                    <Form.Control
+                      id="input-link-cobranca-painel"
+                      aria-label="Link de checkout"
+                      readOnly
+                      value={atual.cobranca.linkCheckout}
+                    />
                   </Form.Group>
                 )}
                 <div className="d-flex flex-wrap gap-2">
@@ -876,8 +880,8 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
               </>
             )}
           </div>
-        </Offcanvas.Body>
-      </Offcanvas>
+        </Modal.Body>
+      </Modal>
 
       <Modal show={modalCancelar} onHide={() => setModalCancelar(false)} centered>
         <Modal.Header closeButton>
