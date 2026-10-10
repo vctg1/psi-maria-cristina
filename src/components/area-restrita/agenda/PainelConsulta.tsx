@@ -261,6 +261,7 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
         ...atual.cobranca,
         situacao: 'aguardando',
         pagamentoId: cobranca.pagamentoId,
+        origem: 'online',
         linkCheckout: cobranca.linkCheckout,
         metodo: null,
         recebidoEm: null,
@@ -291,6 +292,7 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
           ...atual.cobranca,
           situacao,
           pagamentoId: situacao === 'em_aberto' ? null : cobranca.pagamentoId,
+          origem: situacao === 'em_aberto' ? null : 'online',
           linkCheckout: situacao === 'aguardando' ? cobranca.linkCheckout : null,
           recebidoEm: cobranca.pagoEm,
         },
@@ -324,7 +326,7 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
       setGatewayCobrancaOnline(null);
       setAtual({
         ...atual,
-        cobranca: { ...atual.cobranca, situacao: 'em_aberto', pagamentoId: null, linkCheckout: null },
+        cobranca: { ...atual.cobranca, situacao: 'em_aberto', pagamentoId: null, origem: null, linkCheckout: null },
       });
       setModalCancelarCobranca(false);
       mostrarNotificacao({ tipo: 'sucesso', titulo: 'Cobrança cancelada', mensagem: 'O link antigo não aceita mais pagamento.' });
@@ -343,6 +345,7 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
         ...atual.cobranca,
         situacao: 'pago',
         pagamentoId: pagamento.id,
+        origem: 'manual',
         metodo: pagamento.metodo,
         recebidoEm: pagamento.recebidoEm,
       },
@@ -444,10 +447,14 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
       }
       setAtual({
         ...atual,
-        cobranca: { ...atual.cobranca, situacao: 'em_aberto', pagamentoId: null, metodo: null, recebidoEm: null },
+        cobranca: { ...atual.cobranca, situacao: 'em_aberto', pagamentoId: null, origem: null, metodo: null, recebidoEm: null },
       });
       setModalEstornar(false);
-      mostrarNotificacao({ tipo: 'sucesso', titulo: 'Pagamento desfeito' });
+      mostrarNotificacao({
+        tipo: 'sucesso',
+        titulo: atual.cobranca.origem === 'online' ? 'Pagamento estornado' : 'Pagamento desfeito',
+        mensagem: atual.cobranca.origem === 'online' ? 'O valor foi devolvido à paciente pelo gateway.' : undefined,
+      });
       onAtualizado();
     } catch {
       mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: 'Não foi possível estornar.' });
@@ -855,7 +862,7 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
                   className="mt-2"
                   onClick={() => setModalEstornar(true)}
                 >
-                  Desfazer pagamento
+                  {atual.cobranca.origem === 'online' ? 'Estornar pagamento' : 'Desfazer pagamento'}
                 </Button>
               </div>
             )}
@@ -1006,17 +1013,31 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
 
       <Modal show={modalEstornar} onHide={() => setModalEstornar(false)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Desfazer pagamento</Modal.Title>
+          <Modal.Title>{atual.cobranca.origem === 'online' ? 'Estornar pagamento' : 'Desfazer pagamento'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p className="mb-0">Tem certeza que deseja desfazer o pagamento desta consulta?</p>
+          {atual.cobranca.origem === 'online' ? (
+            <>
+              <p className="mb-2">
+                O valor total será <strong>devolvido à paciente</strong> pelo gateway de pagamento (cartão: estorno na
+                fatura; PIX: devolução na conta).
+              </p>
+              <p className="mb-0 pmc-texto-2 pmc-t-sm">A consulta volta a ficar em aberto. Esta ação não pode ser desfeita.</p>
+            </>
+          ) : (
+            <p className="mb-0">
+              Tem certeza que deseja desfazer o registro deste pagamento? A consulta volta a ficar em aberto.
+            </p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={() => setModalEstornar(false)}>
             Voltar
           </Button>
           <Button variant="outline-danger" disabled={estornando} onClick={desfazerPagamento}>
-            {estornando ? 'Desfazendo...' : 'Confirmar'}
+            {estornando
+              ? atual.cobranca.origem === 'online' ? 'Estornando...' : 'Desfazendo...'
+              : atual.cobranca.origem === 'online' ? 'Estornar e devolver' : 'Confirmar'}
           </Button>
         </Modal.Footer>
       </Modal>

@@ -5,7 +5,8 @@ import type { Gateway } from '@/types/pagamento';
 /** Status normalizado devolvido por `consultarStatus`. `statusExterno`/`statusExternoDetalhe`
  *  são o valor CRU do gateway (para depuração interna) — nunca vazam ao cliente como estão. */
 export type StatusExterno = {
-  status: 'pendente' | 'pago' | 'falhou' | 'expirado';
+  /** `estornado` = o gateway devolveu o dinheiro (pelo site ou pelo painel do gateway). */
+  status: 'pendente' | 'pago' | 'falhou' | 'expirado' | 'estornado';
   statusExterno: string;
   statusExternoDetalhe?: string | null;
   pagamentoExternoId?: string | null;
@@ -56,6 +57,11 @@ export interface GatewayPagamentoAdapter {
    *  falha — o chamador NÃO deve cancelar localmente nesse caso, senão algo continuaria pagável sem
    *  cobrança correspondente. `pagamentoId` = nosso id (external_reference). */
   cancelarCobranca(ref: { referenciaExterna: string; pagamentoId: string }): Promise<void>;
+
+  /** Devolve ao pagador o valor TOTAL de um pagamento aprovado. Lança em falha — o chamador não
+   *  deve marcar como estornado nesse caso. Idempotente do ponto de vista do chamador: se o gateway
+   *  já registra o estorno, não lança. */
+  estornarPagamento(ref: { pagamentoExternoId: string }): Promise<void>;
 
   /** Retorna `null` quando a assinatura/token é inválido ou ausente — o chamador responde 401
    *  sem gravar nada. */

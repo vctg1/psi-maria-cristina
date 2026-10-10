@@ -19,7 +19,8 @@ type EventoEntrada = {
 type ResultadoConciliacao = { duplicado: boolean; statusFinal: PagamentoStatus };
 
 /** Aplica um status externo (vindo de webhook ou reconciliação) a um Pagamento, de forma
- *  atômica e idempotente. `pago` é terminal: uma vez pago, nada mais altera o status. */
+ *  atômica e idempotente. `pago` só sai para `estornado` (estorno confirmado pelo gateway);
+ *  `estornado` é terminal. */
 export async function aplicarStatusExterno(
   pagamentoId: string,
   externo: StatusExterno,
@@ -42,26 +43,60 @@ export async function aplicarStatusExterno(
 
         const pagamento = await tx.pagamento.findUniqueOrThrow({
           where: { id: pagamentoId },
-          select: { id: true, status: true, valor: true },
+          select: { id: true, status: true, valor: true, pagamentoExternoId: true },
         });
 
-        // pago é terminal: só registra o evento (rastreabilidade), não altera nada.
-        if (pagamento.status === 'pago') {
-          if (evento) {
-            await tx.eventoPagamento.create({
-              data: {
-                pagamentoId,
-                origem,
-                gateway: evento.gateway,
-                notificacaoExternaId: evento.notificacaoExternaId,
-                pagamentoExternoId: externo.pagamentoExternoId ?? null,
-                statusAnterior: pagamento.status,
-                statusNovo: pagamento.status,
-                payload: evento.payloadSanitizado as Prisma.InputJsonValue,
-              },
-            });
+        const registrarEvento = async (statusNovoEvento: PagamentoStatus) => {
+          if (!evento) return;
+          await tx.eventoPagamento.create({
+            data: {
+              pagamentoId,
+              origem,
+              gateway: evento.gateway,
+              notificacaoExternaId: evento.notificacaoExternaId,
+              pagamentoExternoId: externo.pagamentoExternoId ?? null,
+              statusAnterior: pagamento.status,
+              statusNovo: statusNovoEvento,
+              payload: evento.payloadSanitizado as Prisma.InputJsonValue,
+            },
+          });
+        };
+
+        // Dinheiro devolvido pelo gateway (estorno pelo site ou direto no painel dele): a única
+        // saída de "pago" — e só se for o MESMO pagamento que confirmou (uma cobrança pode ter várias
+        // tentativas; o estorno de uma tentativa secundária não desfaz o pagamento que vale).
+        if (
+          externo.status === 'estornado' &&
+          pagamento.status === 'pago' &&
+          !!externo.pagamentoExternoId &&
+          externo.pagamentoExternoId === pagamento.pagamentoExternoId
+        ) {
+          const estornado = await tx.pagamento.updateMany({
+            where: { id: pagamentoId, status: 'pago' },
+            data: {
+              status: 'estornado',
+              estornadoEm: new Date(),
+              statusExterno: externo.statusExterno,
+              statusExternoDetalhe: externo.statusExternoDetalhe ?? null,
+              pagamentoExternoId: externo.pagamentoExternoId ?? undefined,
+              ultimaReconciliacaoEm: new Date(),
+            },
+          });
+          if (estornado.count > 0) {
+            await tx.consulta.updateMany({ where: { pagamentoId }, data: { pagamentoId: null } });
           }
-          return { duplicado: false, statusFinal: 'pago' };
+          const statusFinal = estornado.count > 0
+            ? 'estornado'
+            : (await tx.pagamento.findUniqueOrThrow({ where: { id: pagamentoId }, select: { status: true } })).status;
+          await registrarEvento(statusFinal);
+          return { duplicado: false, statusFinal };
+        }
+
+        // pago e estornado são terminais para qualquer outro status; e um "estornado" do gateway
+        // que não se refere ao pagamento confirmado (tentativa antiga) não altera nada.
+        if (pagamento.status === 'pago' || pagamento.status === 'estornado' || externo.status === 'estornado') {
+          await registrarEvento(pagamento.status);
+          return { duplicado: false, statusFinal: pagamento.status };
         }
 
         // Confere valor antes de marcar como pago: se o gateway reportou valor menor que o devido
@@ -90,7 +125,7 @@ export async function aplicarStatusExterno(
         }
 
         const atualizado = await tx.pagamento.updateMany({
-          where: { id: pagamentoId, status: { not: 'pago' } },
+          where: { id: pagamentoId, status: { notIn: ['pago', 'estornado'] } },
           data: {
             status: statusNovo,
             statusExterno: externo.statusExterno,
@@ -105,20 +140,7 @@ export async function aplicarStatusExterno(
         // count === 0: outra requisição já mudou o status concorrentemente (idempotente, não é erro).
         const statusFinal = atualizado.count > 0 ? statusNovo : (await tx.pagamento.findUniqueOrThrow({ where: { id: pagamentoId }, select: { status: true } })).status;
 
-        if (evento) {
-          await tx.eventoPagamento.create({
-            data: {
-              pagamentoId,
-              origem,
-              gateway: evento.gateway,
-              notificacaoExternaId: evento.notificacaoExternaId,
-              pagamentoExternoId: externo.pagamentoExternoId ?? null,
-              statusAnterior: pagamento.status,
-              statusNovo: statusFinal,
-              payload: evento.payloadSanitizado as Prisma.InputJsonValue,
-            },
-          });
-        }
+        await registrarEvento(statusFinal);
 
         return { duplicado: false, statusFinal };
       },

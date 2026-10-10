@@ -1,7 +1,7 @@
 import 'server-only';
 import crypto from 'crypto';
 import type { NextRequest } from 'next/server';
-import { MercadoPagoConfig, Payment, Preference } from 'mercadopago';
+import { MercadoPagoConfig, Payment, PaymentRefund, Preference } from 'mercadopago';
 import { envObrigatoria, baseUrlPublica } from './config';
 import type { CobrancaCriada, EventoWebhook, GatewayPagamentoAdapter, StatusExterno } from './tipos';
 
@@ -16,6 +16,9 @@ function mapStatus(status: string | undefined): StatusExterno['status'] {
     case 'rejected':
     case 'cancelled':
       return 'falhou';
+    case 'refunded':
+    case 'charged_back':
+      return 'estornado';
     case 'expired':
       return 'expirado';
     case 'pending':
@@ -165,6 +168,17 @@ export const mercadoPagoAdapter: GatewayPagamentoAdapter = {
         await payment.cancel({ id: p.id });
       }
     }
+  },
+
+  async estornarPagamento({ pagamentoExternoId }) {
+    const p = await new Payment(client()).get({ id: pagamentoExternoId });
+    // Já devolvido (pelo painel do MP) ou contestado pela paciente no cartão: nada a estornar aqui.
+    if (p.status === 'refunded' || p.status === 'charged_back') return;
+    // Chave de idempotência fixa por pagamento: duplo clique / duas abas não geram dois pedidos.
+    await new PaymentRefund(client()).total({
+      payment_id: pagamentoExternoId,
+      requestOptions: { idempotencyKey: `estorno-total-${pagamentoExternoId}` },
+    });
   },
 
   async validarWebhook(request: NextRequest): Promise<EventoWebhook | null> {

@@ -59,6 +59,7 @@ function mapStatus(status: string): StatusExterno['status'] {
     case 'OVERDUE':
       return 'expirado';
     case 'REFUNDED':
+      return 'estornado';
     case 'PAYMENT_DELETED':
     case 'CHARGEBACK_REQUESTED':
     case 'CHARGEBACK_DISPUTE':
@@ -137,6 +138,24 @@ export const asaasAdapter: GatewayPagamentoAdapter = {
     });
     // 404: já removida no Asaas — o objetivo (link não pagável) está cumprido.
     if (!resposta.ok && resposta.status !== 404) throw new Error('Falha ao cancelar cobrança no Asaas');
+  },
+
+  async estornarPagamento({ pagamentoExternoId }) {
+    const consulta = await fetch(apiUrl(`/payments/${encodeURIComponent(pagamentoExternoId)}`), {
+      method: 'GET',
+      headers: headers(),
+      cache: 'no-store',
+    });
+    if (!consulta.ok) throw new Error('Falha ao consultar pagamento no Asaas');
+    const atual = (await consulta.json()) as AsaasPayment;
+    if (atual.status === 'REFUNDED' || atual.status === 'REFUND_REQUESTED') return; // já estornado
+
+    const resposta = await fetch(apiUrl(`/payments/${encodeURIComponent(pagamentoExternoId)}/refund`), {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({}),
+    });
+    if (!resposta.ok) throw new Error('Falha ao estornar pagamento no Asaas');
   },
 
   async validarWebhook(request: NextRequest, corpoCru: string): Promise<EventoWebhook | null> {

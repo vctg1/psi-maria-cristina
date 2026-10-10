@@ -174,6 +174,8 @@ export default function FinanceiroPage() {
     }
   };
 
+  const estornoOnline = pagamentos.find((p) => p.id === modalConfirmarEstorno)?.origem === 'online';
+
   const confirmarEstorno = async (pagamentoId: string) => {
     setEstornandoId(pagamentoId);
     try {
@@ -187,7 +189,11 @@ export default function FinanceiroPage() {
         mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: dados?.error ?? 'Não foi possível estornar.' });
         return;
       }
-      mostrarNotificacao({ tipo: 'sucesso', titulo: 'Pagamento desfeito' });
+      mostrarNotificacao({
+        tipo: 'sucesso',
+        titulo: estornoOnline ? 'Pagamento estornado' : 'Pagamento desfeito',
+        mensagem: estornoOnline ? 'O valor foi devolvido à paciente pelo gateway.' : undefined,
+      });
       setModalConfirmarEstorno(null);
       carregarEmAberto();
       carregarHistorico();
@@ -383,7 +389,7 @@ export default function FinanceiroPage() {
                         )}
                       </td>
                       <td>
-                        {p.status === 'pago' && p.origem === 'manual' && (
+                        {p.status === 'pago' && (
                           <Button
                             id={`botao-desfazer-${p.id}`}
                             variant="outline-danger"
@@ -391,7 +397,7 @@ export default function FinanceiroPage() {
                             disabled={estornandoId === p.id}
                             onClick={() => setModalConfirmarEstorno(p.id)}
                           >
-                            Desfazer
+                            {p.origem === 'online' ? 'Estornar' : 'Desfazer'}
                           </Button>
                         )}
                         {p.origem === 'online' && p.status === 'pendente' && (
@@ -441,10 +447,20 @@ export default function FinanceiroPage() {
 
       <Modal show={modalConfirmarEstorno !== null} onHide={() => setModalConfirmarEstorno(null)} centered>
         <Modal.Header closeButton>
-          <Modal.Title>Desfazer pagamento</Modal.Title>
+          <Modal.Title>{estornoOnline ? 'Estornar pagamento' : 'Desfazer pagamento'}</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p className="mb-0">Tem certeza que deseja desfazer este pagamento?</p>
+          {estornoOnline ? (
+            <>
+              <p className="mb-2">
+                O valor total será <strong>devolvido à paciente</strong> pelo gateway de pagamento (cartão: estorno na
+                fatura; PIX: devolução na conta).
+              </p>
+              <p className="mb-0 pmc-texto-2 pmc-t-sm">As consultas voltam a ficar em aberto. Esta ação não pode ser desfeita.</p>
+            </>
+          ) : (
+            <p className="mb-0">Tem certeza que deseja desfazer o registro deste pagamento? As consultas voltam a ficar em aberto.</p>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="outline-secondary" onClick={() => setModalConfirmarEstorno(null)}>
@@ -455,7 +471,9 @@ export default function FinanceiroPage() {
             disabled={estornandoId !== null}
             onClick={() => modalConfirmarEstorno && confirmarEstorno(modalConfirmarEstorno)}
           >
-            {estornandoId ? 'Desfazendo...' : 'Confirmar'}
+            {estornandoId
+              ? estornoOnline ? 'Estornando...' : 'Desfazendo...'
+              : estornoOnline ? 'Estornar e devolver' : 'Confirmar'}
           </Button>
         </Modal.Footer>
       </Modal>

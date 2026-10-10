@@ -41,6 +41,9 @@ export type CobrancaConsulta = {
   /** true quando a psicóloga definiu um valor específico para esta consulta. */
   valorPersonalizado: boolean;
   pagamentoId: string | null;
+  /** Origem do pagamento/cobrança vinculado (null quando não há). No estorno, `online` devolve o
+   *  dinheiro pelo gateway; `manual` só desfaz o registro. */
+  origem: OrigemPagamento | null;
   metodo: MetodoManual | 'boleto' | 'cartao' | null;
   /** YYYY-MM-DD (manual) ou ISO (online). */
   recebidoEm: string | null;
@@ -115,6 +118,13 @@ export type CobrancaOnlineEntrada = {
   consultaIds: string[];
   /** Gateway a usar; omitido = `Configuracao.gatewayPadrao`. */
   gateway?: Gateway;
+};
+
+/** Resposta PÚBLICA de GET /api/pagamentos/[id]/retorno (quem volta do checkout sem login):
+ *  só o status e o link para tentar de novo — sem valor, paciente ou consulta. */
+export type CobrancaRetornoDto = {
+  status: PagamentoStatus;
+  linkCheckout: string | null;
 };
 
 /** Resposta da geração e da consulta de status. Só o que a tela precisa — nunca o objeto bruto

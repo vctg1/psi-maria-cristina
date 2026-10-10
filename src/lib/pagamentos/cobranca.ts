@@ -95,7 +95,9 @@ export function montarCobranca(c: ConsultaComCobranca, valorPadrao: number): Cob
     else if (c.pagamento!.pagoEm) recebidoEm = dataBrasilia(c.pagamento!.pagoEm);
   }
 
-  return { situacao, valor, valorPersonalizado, pagamentoId, metodo, recebidoEm, linkCheckout };
+  const origem = pagamentoId ? (c.pagamento!.origem as CobrancaConsulta['origem']) : null;
+
+  return { situacao, valor, valorPersonalizado, pagamentoId, origem, metodo, recebidoEm, linkCheckout };
 }
 
 export const SELECT_PAGAMENTO = {
