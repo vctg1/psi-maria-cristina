@@ -64,6 +64,8 @@ export const mercadoPagoAdapter: GatewayPagamentoAdapter = {
         ],
         payer: pagador.email ? { name: pagador.nome, email: pagador.email } : { name: pagador.nome },
         external_reference: pagamentoId,
+        // Nome na fatura do cartão (máx. 22 caracteres): a paciente reconhece a cobrança e não contesta.
+        statement_descriptor: 'PSI MARIA CRISTINA',
         // Sem notification_url de propósito: quando presente, ele substitui o webhook do painel e os
         // avisos chegam com x-signature que NÃO confere com a chave secreta do painel (comprovado:
         // simulação do painel → assinatura ok; pagamento via notification_url → 401). O MP então usa

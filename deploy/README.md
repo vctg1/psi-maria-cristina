@@ -30,6 +30,18 @@ pm2 restart psi-maria-cristina
 curl -I http://127.0.0.1:3010/
 ```
 
+### Alterar o `.env` de produção
+
+O app relê `/root/projetos/psi-maria-cristina/.env` a cada start/restart (`deploy/carregar-env.cjs`,
+pré-carregado pelo PM2). Para **alterar ou adicionar** uma variável, basta editar o arquivo e rodar
+`pm2 restart psi-maria-cristina`. Se o `.env` não puder ser lido ou faltar `DATABASE_URL`/`JWT_SECRET`,
+o app não sobe (veja `pm2 logs psi-maria-cristina`).
+
+Exceções, que exigem rodar de novo o script de release
+(`bash /root/projetos/psi-maria-cristina/.deploy/current/deploy/release-pm2.sh`):
+- **Remover** uma variável do `.env` (o PM2 ainda guarda o valor antigo do último deploy).
+- Mudar uma `NEXT_PUBLIC_*` (é embutida no build do navegador).
+
 O script carrega as variáveis privadas do `.env` na raiz do projeto, instala as
 dependências, compila, aplica migrations e reinicia apenas o processo PM2
 deste projeto. O build acontece na nova release antes da troca, preservando os

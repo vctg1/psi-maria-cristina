@@ -17,6 +17,28 @@ function headers(): HeadersInit {
 
 type AsaasCustomer = { id: string; email?: string };
 type AsaasCustomerList = { data: AsaasCustomer[] };
+type AsaasNotificacao = {
+  id: string;
+  enabled?: boolean;
+  emailEnabledForProvider?: boolean;
+  smsEnabledForProvider?: boolean;
+  emailEnabledForCustomer?: boolean;
+  smsEnabledForCustomer?: boolean;
+  phoneCallEnabledForCustomer?: boolean;
+  whatsappEnabledForCustomer?: boolean;
+};
+
+// Estado-alvo de cada notificação: só o e-mail para a CONTA (psicóloga), que não é tarifado.
+// Tudo que vai para a paciente (e-mail, SMS, WhatsApp, voz) e o SMS para a conta ficam desligados.
+const NOTIFICACAO_ALVO = {
+  enabled: true,
+  emailEnabledForProvider: true,
+  smsEnabledForProvider: false,
+  emailEnabledForCustomer: false,
+  smsEnabledForCustomer: false,
+  phoneCallEnabledForCustomer: false,
+  whatsappEnabledForCustomer: false,
+} as const;
 type AsaasPayment = {
   id: string;
   status: string;
@@ -40,14 +62,53 @@ async function obterOuCriarCliente(nome: string, email: string): Promise<string>
   const existente = encontrados.data?.[0];
   if (existente) return existente.id;
 
+  // notificationDisabled na criação é a forma documentada de nascer sem notificações; mesmo
+  // assim desligarNotificacoes() confere e desliga canal a canal antes de cada cobrança.
   const criacao = await fetch(apiUrl('/customers'), {
     method: 'POST',
     headers: headers(),
-    body: JSON.stringify({ name: nome, email }),
+    body: JSON.stringify({ name: nome, email, notificationDisabled: true }),
   });
   if (!criacao.ok) throw new Error('Falha ao criar cliente no Asaas');
   const criado = (await criacao.json()) as AsaasCustomer;
   return criado.id;
+}
+
+/** Desliga as notificações de cobrança do Asaas para a paciente (e-mail, SMS, WhatsApp, voz) e o
+ *  SMS para a conta — algumas são tarifadas por envio e o link já vai pelo próprio site. Mantém
+ *  só o e-mail para a conta da psicóloga (gratuito). O `notificationDisabled` do cliente não é garantia para clientes já existentes,
+ *  então o controle é feito em cada notificação: GET /customers/{id}/notifications e
+ *  PUT /notifications/batch. Falha aqui interrompe a cobrança (melhor tentar de novo do que
+ *  disparar envios cobrados). */
+async function desligarNotificacoes(customerId: string): Promise<void> {
+  const lista = await fetch(apiUrl(`/customers/${encodeURIComponent(customerId)}/notifications?limit=100`), {
+    method: 'GET',
+    headers: headers(),
+    cache: 'no-store',
+  });
+  if (!lista.ok) throw new Error('Falha ao listar notificações do cliente no Asaas');
+  const { data, hasMore } = (await lista.json()) as { data?: AsaasNotificacao[]; hasMore?: boolean };
+  // Resposta inesperada ou paginada: não dá para garantir que tudo foi desligado — falha fechado.
+  if (!Array.isArray(data) || hasMore === true) {
+    throw new Error('Resposta inesperada ao listar notificações do cliente no Asaas');
+  }
+
+  const ligadas = data.filter((n) =>
+    (Object.keys(NOTIFICACAO_ALVO) as (keyof typeof NOTIFICACAO_ALVO)[]).some(
+      (campo) => n[campo] !== NOTIFICACAO_ALVO[campo]
+    )
+  );
+  if (ligadas.length === 0) return;
+
+  const atualizacao = await fetch(apiUrl('/notifications/batch'), {
+    method: 'PUT',
+    headers: headers(),
+    body: JSON.stringify({
+      customer: customerId,
+      notifications: ligadas.map((n) => ({ id: n.id, ...NOTIFICACAO_ALVO })),
+    }),
+  });
+  if (!atualizacao.ok) throw new Error('Falha ao desativar notificações do cliente no Asaas');
 }
 
 function mapStatus(status: string): StatusExterno['status'] {
@@ -79,6 +140,7 @@ export const asaasAdapter: GatewayPagamentoAdapter = {
     if (!pagador.email) throw new Error('Pagador sem e-mail: obrigatório para cobrança Asaas');
     const base = baseUrlPublica();
     const customerId = await obterOuCriarCliente(pagador.nome, pagador.email);
+    await desligarNotificacoes(customerId);
 
     const dueDate = (expiraEm ?? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)).toISOString().slice(0, 10);
 
