@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import type { Prisma, PrismaClient } from '@/generated/prisma/client';
 import type { CobrancaConsulta, MetodoManual, PagamentoDto } from '@/types/pagamento';
 import type { ConsultaStatus } from '@/types';
+import { PAGO_APOS_CANCELAMENTO } from './conciliacao';
 
 /** Consultas cobráveis: agendada/confirmada (a ocorrer ou aguardando confirmação) e realizada. */
 export const CONSULTA_STATUS_COBRAVEL: readonly ConsultaStatus[] = ['agendada', 'confirmada', 'realizada'];
@@ -105,6 +106,7 @@ export const SELECT_PAGAMENTO = {
   valor: true,
   recebidoEm: true,
   pagoEm: true,
+  statusExternoDetalhe: true,
   estornadoEm: true,
   observacao: true,
   criadoEm: true,
@@ -135,6 +137,7 @@ export function paraPagamentoDto(p: PagamentoComConsultas): PagamentoDto {
     estornadoEm: p.estornadoEm ? p.estornadoEm.toISOString() : null,
     observacao: p.observacao,
     criadoEm: p.criadoEm.toISOString(),
+    pagoAposCancelamento: p.status === 'pago' && p.statusExternoDetalhe === PAGO_APOS_CANCELAMENTO,
     consultas: p.consultas.map((c) => ({
       id: c.id,
       inicio: c.inicio.toISOString(),

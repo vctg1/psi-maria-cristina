@@ -15,7 +15,7 @@ import LayoutPsicologa from '@/components/area-restrita/LayoutPsicologa';
 import ModalRegistrarPagamento from '@/components/area-restrita/financeiro/ModalRegistrarPagamento';
 import ModalCobrancaOnline from '@/components/area-restrita/financeiro/ModalCobrancaOnline';
 import type { CobrancaOnlineDto, ConsultaCobrancaDto, PagamentoDto } from '@/types/pagamento';
-import { METODO_LABEL } from '@/types/pagamento';
+import { METODO_LABEL, PAGAMENTO_STATUS_LABEL } from '@/types/pagamento';
 import { formatarData, formatarHora } from '@/components/area-restrita/agenda/formatos';
 import { formatarMoeda } from '@/components/area-restrita/financeiro/formatos';
 import { useNotificacao } from '@/components/NotificacaoProvider';
@@ -365,9 +365,21 @@ export default function FinanceiroPage() {
                       </td>
                       <td>
                         {p.status === 'pago' && <span className="pmc-badge-ok">Pago</span>}
+                        {p.pagoAposCancelamento && (
+                          <OverlayTrigger
+                            overlay={
+                              <Tooltip id={`tooltip-pago-cancelado-${p.id}`}>
+                                Esta cobrança foi cancelada, mas o pagamento entrou mesmo assim. A consulta não está
+                                vinculada: devolva o valor no gateway ou registre-o na consulta.
+                              </Tooltip>
+                            }
+                          >
+                            <span className="pmc-badge-aviso ms-1">Pago após cancelar — conferir</span>
+                          </OverlayTrigger>
+                        )}
                         {p.status === 'estornado' && <span className="pmc-badge-neutro">Estornado</span>}
                         {p.status !== 'pago' && p.status !== 'estornado' && (
-                          <span className="pmc-badge-neutro">{p.status}</span>
+                          <span className="pmc-badge-neutro">{PAGAMENTO_STATUS_LABEL[p.status]}</span>
                         )}
                       </td>
                       <td>

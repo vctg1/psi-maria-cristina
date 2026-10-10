@@ -109,6 +109,7 @@ enum PagamentoStatus {
   falhou     // online: payment rejected
   expirado   // online: preference/payment cancelled por expiração
   estornado  // Fase 5a: pagamento manual desfeito pela psicóloga (consultas voltam a "em aberto")
+  cancelado  // online: cobrança cancelada pela psicóloga (link invalidado no gateway; consultas voltam a "em aberto")
 
   @@map("pagamento_status")
 }

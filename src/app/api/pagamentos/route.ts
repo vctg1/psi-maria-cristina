@@ -6,7 +6,7 @@ import { SELECT_PAGAMENTO, paraPagamentoDto } from '@/lib/pagamentos/cobranca';
 import type { PagamentoStatus } from '@/types/pagamento';
 
 const LIMITE = 200;
-const STATUS_VALIDOS: PagamentoStatus[] = ['pendente', 'pago', 'falhou', 'expirado', 'estornado'];
+const STATUS_VALIDOS: PagamentoStatus[] = ['pendente', 'pago', 'falhou', 'expirado', 'estornado', 'cancelado'];
 
 // GET /api/pagamentos?status=&de=&ate=&pacienteId= — psicóloga. Histórico de pagamentos.
 export async function GET(request: NextRequest) {

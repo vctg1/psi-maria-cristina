@@ -23,6 +23,7 @@ const CONTEUDO_POR_STATUS: Record<
   falhou: { titulo: 'Não foi possível concluir', icone: 'bi-x-circle', classe: 'text-danger' },
   expirado: { titulo: 'Não foi possível concluir', icone: 'bi-x-circle', classe: 'text-danger' },
   estornado: { titulo: 'Não foi possível concluir', icone: 'bi-x-circle', classe: 'text-danger' },
+  cancelado: { titulo: 'Esta cobrança foi cancelada', icone: 'bi-x-circle', classe: 'text-danger' },
 };
 
 export default function PagamentoPendentePage() {

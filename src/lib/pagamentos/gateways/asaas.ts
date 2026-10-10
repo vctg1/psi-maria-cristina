@@ -130,6 +130,15 @@ export const asaasAdapter: GatewayPagamentoAdapter = {
     };
   },
 
+  async cancelarCobranca({ referenciaExterna }) {
+    const resposta = await fetch(apiUrl(`/payments/${encodeURIComponent(referenciaExterna)}`), {
+      method: 'DELETE',
+      headers: headers(),
+    });
+    // 404: já removida no Asaas — o objetivo (link não pagável) está cumprido.
+    if (!resposta.ok && resposta.status !== 404) throw new Error('Falha ao cancelar cobrança no Asaas');
+  },
+
   async validarWebhook(request: NextRequest, corpoCru: string): Promise<EventoWebhook | null> {
     const tokenEsperado = process.env.ASAAS_WEBHOOK_TOKEN;
     if (!tokenEsperado) {

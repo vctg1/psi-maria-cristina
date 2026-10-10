@@ -18,7 +18,16 @@ export const METODO_LABEL: Record<MetodoManual | 'boleto' | 'cartao', string> = 
   outro: 'Outro',
 };
 
-export type PagamentoStatus = 'pendente' | 'pago' | 'falhou' | 'expirado' | 'estornado';
+export type PagamentoStatus = 'pendente' | 'pago' | 'falhou' | 'expirado' | 'estornado' | 'cancelado';
+
+export const PAGAMENTO_STATUS_LABEL: Record<PagamentoStatus, string> = {
+  pendente: 'Pendente',
+  pago: 'Pago',
+  falhou: 'Falhou',
+  expirado: 'Expirado',
+  estornado: 'Estornado',
+  cancelado: 'Cancelado',
+};
 export type OrigemPagamento = 'manual' | 'online';
 
 /** Resumo de cobrança embutido em cada consulta (psicóloga e paciente veem a mesma forma). */
@@ -60,6 +69,9 @@ export type PagamentoDto = {
   estornadoEm: string | null; // ISO
   observacao: string | null;
   criadoEm: string; // ISO
+  /** Dinheiro recebido numa cobrança online que já tinha sido cancelada: exige conferência manual
+   *  (as consultas foram desvinculadas — devolver ou vincular de novo). */
+  pagoAposCancelamento: boolean;
   consultas: { id: string; inicio: string; status: ConsultaStatus; paciente: { id: string; nome: string } }[];
 };
 

@@ -61,6 +61,8 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
   const [modalCobrancaOnlineAberto, setModalCobrancaOnlineAberto] = useState(false);
   const [atualizandoStatusOnline, setAtualizandoStatusOnline] = useState(false);
   const [erroStatusOnline, setErroStatusOnline] = useState<string | null>(null);
+  const [modalCancelarCobranca, setModalCancelarCobranca] = useState(false);
+  const [cancelandoCobranca, setCancelandoCobranca] = useState(false);
   const [gatewayCobrancaOnline, setGatewayCobrancaOnline] = useState<CobrancaOnlineDto['gateway'] | null>(null);
   const [gerandoLinkConfirmacao, setGerandoLinkConfirmacao] = useState(false);
   const [linkConfirmacao, setLinkConfirmacao] = useState<LinkConfirmacaoResposta | null>(null);
@@ -299,6 +301,38 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
       setErroStatusOnline('Não foi possível atualizar o status.');
     } finally {
       setAtualizandoStatusOnline(false);
+    }
+  };
+
+  const cancelarCobrancaOnline = async () => {
+    if (!atual.cobranca.pagamentoId) return;
+    setCancelandoCobranca(true);
+    try {
+      const response = await fetch(`/api/pagamentos/${atual.cobranca.pagamentoId}/cancelar`, { method: 'POST' });
+      if (!response.ok) {
+        const dados = await response.json().catch(() => null);
+        setModalCancelarCobranca(false);
+        mostrarNotificacao({
+          tipo: 'erro',
+          titulo: 'Cobrança não cancelada',
+          mensagem: dados?.error ?? 'Não foi possível cancelar a cobrança.',
+        });
+        // Já paga no gateway: a rota a marcou como paga — recarrega para mostrar.
+        if (dados?.pago) await atualizarStatusOnline();
+        return;
+      }
+      setGatewayCobrancaOnline(null);
+      setAtual({
+        ...atual,
+        cobranca: { ...atual.cobranca, situacao: 'em_aberto', pagamentoId: null, linkCheckout: null },
+      });
+      setModalCancelarCobranca(false);
+      mostrarNotificacao({ tipo: 'sucesso', titulo: 'Cobrança cancelada', mensagem: 'O link antigo não aceita mais pagamento.' });
+      onAtualizado();
+    } catch {
+      mostrarNotificacao({ tipo: 'erro', titulo: 'Erro', mensagem: 'Não foi possível cancelar a cobrança.' });
+    } finally {
+      setCancelandoCobranca(false);
     }
   };
 
@@ -790,6 +824,15 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
                   >
                     {atualizandoStatusOnline ? 'Atualizando...' : 'Atualizar status'}
                   </Button>
+                  <Button
+                    id="botao-cancelar-cobranca-online"
+                    variant="outline-danger"
+                    size="sm"
+                    disabled={cancelandoCobranca}
+                    onClick={() => setModalCancelarCobranca(true)}
+                  >
+                    Cancelar cobrança
+                  </Button>
                 </div>
               </div>
             )}
@@ -937,6 +980,29 @@ export default function PainelConsulta({ consulta, onHide, onAtualizado }: Paine
         onHide={() => setModalCobrancaOnlineAberto(false)}
         onGerada={aoGerarCobrancaOnline}
       />
+
+      <Modal show={modalCancelarCobranca} onHide={() => setModalCancelarCobranca(false)} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Cancelar cobrança</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <p className="mb-2">O link de pagamento enviado deixa de funcionar e a consulta volta a ficar em aberto.</p>
+          <p className="mb-0 pmc-texto-2 pmc-t-sm">Depois você pode gerar uma nova cobrança, com o valor corrigido.</p>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="outline-secondary" onClick={() => setModalCancelarCobranca(false)}>
+            Voltar
+          </Button>
+          <Button
+            id="botao-confirmar-cancelar-cobranca"
+            variant="outline-danger"
+            disabled={cancelandoCobranca}
+            onClick={cancelarCobrancaOnline}
+          >
+            {cancelandoCobranca ? 'Cancelando...' : 'Cancelar cobrança'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
       <Modal show={modalEstornar} onHide={() => setModalEstornar(false)} centered>
         <Modal.Header closeButton>

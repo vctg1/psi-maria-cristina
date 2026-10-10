@@ -51,6 +51,12 @@ export interface GatewayPagamentoAdapter {
     pagamentoId?: string;
   }): Promise<StatusExterno>;
 
+  /** Invalida o link hospedado para que não aceite mais pagamento (MP: expira a preference e
+   *  cancela pagamentos ainda pendentes, ex.: QR PIX já gerado · Asaas: remove a cobrança). Lança em
+   *  falha — o chamador NÃO deve cancelar localmente nesse caso, senão algo continuaria pagável sem
+   *  cobrança correspondente. `pagamentoId` = nosso id (external_reference). */
+  cancelarCobranca(ref: { referenciaExterna: string; pagamentoId: string }): Promise<void>;
+
   /** Retorna `null` quando a assinatura/token é inválido ou ausente — o chamador responde 401
    *  sem gravar nada. */
   validarWebhook(request: NextRequest, corpoCru: string): Promise<EventoWebhook | null>;

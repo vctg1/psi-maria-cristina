@@ -140,6 +140,33 @@ export const mercadoPagoAdapter: GatewayPagamentoAdapter = {
     };
   },
 
+  async cancelarCobranca({ referenciaExterna, pagamentoId }) {
+    // Preference não tem "cancelar": marcá-la como expirada no passado faz o checkout recusar o link.
+    // O SDK exige `items` no update: reenvia os da própria preference, sem alterar nada além da validade.
+    const preference = new Preference(client());
+    const atual = await preference.get({ preferenceId: referenciaExterna });
+    const agora = Date.now();
+    await preference.update({
+      id: referenciaExterna,
+      updatePreferenceRequest: {
+        items: atual.items ?? [],
+        expires: true,
+        expiration_date_from: new Date(agora - 2 * 60 * 1000).toISOString(),
+        expiration_date_to: new Date(agora - 60 * 1000).toISOString(),
+      },
+    });
+
+    // Expirar a preference não cancela pagamentos já iniciados (ex.: QR PIX gerado e não pago):
+    // esses seguiriam pagáveis. Cancela cada um que ainda esteja pendente.
+    const payment = new Payment(client());
+    const busca = await payment.search({ options: { external_reference: pagamentoId } });
+    for (const p of busca.results ?? []) {
+      if (p.id && (p.status === 'pending' || p.status === 'in_process' || p.status === 'authorized')) {
+        await payment.cancel({ id: p.id });
+      }
+    }
+  },
+
   async validarWebhook(request: NextRequest): Promise<EventoWebhook | null> {
     const secret = process.env.MP_WEBHOOK_SECRET;
     if (!secret) {

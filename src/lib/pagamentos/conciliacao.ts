@@ -7,6 +7,9 @@ import type { StatusExterno } from './gateways/tipos';
 
 type OrigemEvento = 'webhook' | 'reconciliacao' | 'manual';
 
+/** Marcador em `statusExternoDetalhe`: dinheiro recebido numa cobrança que a psicóloga cancelou. */
+export const PAGO_APOS_CANCELAMENTO = 'pago_apos_cancelamento';
+
 type EventoEntrada = {
   notificacaoExternaId: string;
   gateway: Gateway;
@@ -72,12 +75,26 @@ export async function aplicarStatusExterno(
           statusNovo = 'pendente';
         }
 
+        // Cancelada pela psicóloga: avisos atrasados (pendente/falhou/expirado) não a reabrem. Só
+        // dinheiro efetivamente recebido muda o registro — e isso precisa de atenção manual, pois
+        // as consultas já foram desvinculadas: fica marcado em statusExternoDetalhe e o Financeiro
+        // destaca a linha.
+        let detalhe = externo.statusExternoDetalhe ?? null;
+        if (pagamento.status === 'cancelado') {
+          if (statusNovo === 'pago') {
+            console.error('Pagamento recebido em cobrança cancelada (pagamentoId omitido do log)');
+            detalhe = PAGO_APOS_CANCELAMENTO;
+          } else {
+            statusNovo = 'cancelado';
+          }
+        }
+
         const atualizado = await tx.pagamento.updateMany({
           where: { id: pagamentoId, status: { not: 'pago' } },
           data: {
             status: statusNovo,
             statusExterno: externo.statusExterno,
-            statusExternoDetalhe: externo.statusExternoDetalhe ?? null,
+            statusExternoDetalhe: detalhe,
             pagamentoExternoId: externo.pagamentoExternoId ?? undefined,
             pagoEm: statusNovo === 'pago' ? (externo.pagoEm ?? new Date()) : undefined,
             metodo: statusNovo === 'pago' && externo.metodo ? externo.metodo : undefined,
